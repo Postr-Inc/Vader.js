@@ -1,6 +1,6 @@
 # VaderJS: A Reactive Framework for Single-Page Applications (SPA)
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Postr-Inc/Vader.js/blob/main/LICENSE)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Postr-Inc/Vader.js/blob/main/LICENSE) [![npm version](https://img.shields.io/npm/v/vaderjs.svg?style=flat)](https://www.npmjs.com/package/vaderjs) 
 
 VaderJS is a powerful and innovative reactive framework designed to simplify the development of Single-Page Applications (SPAs). Built with inspiration from React.js, VaderJS empowers developers to create dynamic and interactive web applications by leveraging a collection of functions and utilities tailored to the SPA paradigm. This overview provides insights into the core features and functionalities of VaderJS based on the discussions and code snippets shared in this conversation.
 
