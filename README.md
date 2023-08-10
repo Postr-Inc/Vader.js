@@ -20,7 +20,15 @@ router.start();
 ### State Management
 
 ```javascript
-const [state, setState] = useState("myState", initialState);
+const [state, setState] = useState("count", initialState);
+function increment(){
+   setState(state + 1)
+}
+registerFunction('increment', increment)
+useEffect((state)=>{
+  console.log('New State for count' + state)
+}[state])
+<button onclick="increment()">Increment</button>
 ```
 
 ### Function Binding
