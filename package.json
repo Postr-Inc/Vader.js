@@ -1,0 +1,26 @@
+{
+  "name": "vaderjs",
+  "version": "1.0.1",
+  "description": "A Reactive Framework for Single-Page Applications (SPA)",
+  "main": "vader.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Postr-Inc/Vader.js.git"
+  },
+  "keywords": [
+    "Reactjs",
+    "Vuejs",
+    "Reduxjs.",
+    "Nextjs",
+    "Vaderjs"
+  ],
+  "author": "Malikwhitten67",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Postr-Inc/Vader.js/issues"
+  },
+  "homepage": "https://github.com/Postr-Inc/Vader.js#readme"
+}

@@ -330,13 +330,11 @@ export {
   createComponent,
   useExternalStore,
   useState,
-  useRef,
   useEffect,
   useReduce,
   useSyncStore,
   require,
   $s,
-  dox,
   registerFunction,
 };
 
@@ -383,11 +381,7 @@ const registerFunction = (name, fn) => {
     throw new Error("The fn parameter must be a function.");
   }
 
-  if (window[name]) {
-    throw new Error(
-      `A function with the name '${name}' already exists in the global scope.`
-    );
-  }
+   
 
   /**
    * @global
