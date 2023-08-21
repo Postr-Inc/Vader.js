@@ -113,74 +113,153 @@ export function vhtml(strings, ...args) {
      * @returns {Object} {canAccess, grantAccess, revokeAccess}
      * @description Allows you to manage access to resources through rulesets
      */
-    function useAuth(rulesets = [], user) {
-        const rules = {};
-      
-        // Initialize the rules based on the provided rulesets
-        for (const ruleset of rulesets) {
-          if (ruleset.roles.includes(user.role)) {
-            for (const resource of ruleset.resources) {
-              if (!rules[resource]) {
-                rules[resource] = {};
-              }
-              for (const action of ruleset.actions) {
-                if (!rules[resource][action]) {
-                  rules[resource][action] = [];
-                }
-                rules[resource][action].push(ruleset.condition);
-              }
-            }
-          }
-        }
-      
-        const canAccess = (resource, action) => {
-          if (!rules[resource] || !rules[resource][action]) {
-            return false;
-          }
-      
-          for (const condition of rules[resource][action]) {
-            if (!condition(user)) {
-              return false;
-            }
-          }
-      
-          return true;
-        };
-      
-        const can = (action) => {
-          return {
-            on: (resource) => {
-              return canAccess(resource, action);
-            },
-          };
-        };
-      
-        const grantAccess = (resource, action, condition) => {
-          if (!rules[resource]) {
-            rules[resource] = {};
-          }
-          if (!rules[resource][action]) {
-            rules[resource][action] = [];
-          }
-          rules[resource][action].push(condition);
-        };
-      
-        const revokeAccess = (resource, action, condition) => {
-          if (rules[resource] && rules[resource][action]) {
-            const index = rules[resource][action].indexOf(condition);
-            if (index !== -1) {
-              rules[resource][action].splice(index, 1);
-            }
-          }
-        };
-      
-        return {
-          canAccess,
-          can,
-          grantAccess,
-          revokeAccess,
-        };
+    const useSyncStore = (storeName, initialState) => {
+      const storedState = JSON.parse(localStorage.getItem("store")) || initialState;
+      const store = createStore(storedState);
+    
+      /**
+       * Get the value of a specific field from the store's state.
+       *
+       * @param {string} fieldName - The name of the field.
+       * @returns {*} The value of the specified field.
+       */
+      const getField = (fieldName) => {
+        return store.state[fieldName];
+      };
+    
+      /**
+       * Set the value of a specific field in the store's state.
+       *
+       * @param {string} fieldName - The name of the field.
+       * @param {*} value - The new value to set for the field.
+       */
+      const setField = (fieldName, value) => {
+        const newState = { ...store.state, [fieldName]: value };
+        store.setState(newState);
+      };
+    
+      /**
+       * Subscribe a function to be notified of state changes.
+       *
+       * @param {Function} subscriber - The function to call when the state changes.
+       * @returns {Function} A function to unsubscribe the subscriber.
+       */
+      const subscribe = (subscriber) => {
+        return store.subscribe(subscriber);
+      };
+    
+      /**
+       * Clear the stored state from local storage.
+       */
+      const clear = () => {
+        localStorage.setItem("store", "");
+      };
+    
+      return {
+        getField,
+        setField,
+        subscribe,
+        clear,
+      };
+    };
+
+    function useAuth(options) {
+      if (!options.rulesets) {
+        throw new Error("No rulesets provided");
       }
+    
+      let rules = options.rulesets;
+      let user = options.user;
+    
+      const auth = {
+        /**
+         * Check if the user can perform a specific action.
+         *
+         * @param {string} action - The action to check.
+         * @returns {boolean} True if the user can perform the action, false otherwise.
+         */
+        can: (action) => {
+          let can = false;
+          rules.forEach((rule) => {
+            if (rule.action === action) {
+              if (rule.condition(user)) {
+                can = true;
+              }
+            }
+          });
+          return can;
+        },
+        /**
+         * Check if the user has a specific role.
+         *
+         * @param {string} role - The role to check.
+         * @returns {boolean} True if the user has the role, false otherwise.
+         */
+        hasRole: (role) => {
+          return user.role && user.role.includes(role);
+        },
+        /**
+         * Check if the user can perform a specific action with a specific role.
+         *
+         * @param {string} action - The action to check.
+         * @param {string} role - The role to check.
+         * @returns {boolean} True if the user can perform the action with the role, false otherwise.
+         */
+        canWithRole: (action, role) => {
+          return auth.can(action) && auth.hasRole(role);
+        },
+        /**
+         * Assign a new rule to the rulesets.
+         *
+         * @param {Object} rule - The rule to assign.
+         */
+        assignRule: (rule) => {
+          if (!rules.some((existingRule) => existingRule.action === rule.action)) {
+            rules.push(rule);
+          }
+        },
+        /**
+         * Revoke a rule from the rulesets.
+         *
+         * @param {string} action - The action of the rule to revoke.
+         */
+        revokeRule: (action) => {
+          rules = rules.filter((rule) => rule.action !== action);
+        },
+        /**
+         * Check if the user can perform any of the specified actions.
+         *
+         * @param {Array} actions - An array of actions to check.
+         * @returns {boolean} True if the user can perform any of the actions, false otherwise.
+         */
+        canAnyOf: (actions) => {
+          return actions.some((action) => auth.can(action));
+        },
+        /**
+         * Check if the user can perform all of the specified actions.
+         *
+         * @param {Array} actions - An array of actions to check.
+         * @returns {boolean} True if the user can perform all of the actions, false otherwise.
+         */
+        canAllOf: (actions) => {
+          return actions.every((action) => auth.can(action));
+        },
+        /**
+         * Check if the user can perform a group of actions based on a logical operator.
+         *
+         * @param {Array} actions - An array of actions to check.
+         * @param {string} logicalOperator - The logical operator to use ('any' or 'all').
+         * @returns {boolean} True if the user can perform the actions based on the logical operator, false otherwise.
+         */
+        canGroup: (actions, logicalOperator = "any") => {
+          return logicalOperator === "any"
+            ? auth.canAnyOf(actions)
+            : auth.canAllOf(actions);
+        },
+      };
+    
+      return auth;
+    }
       
     /**
      * @function runEffects
@@ -198,7 +277,7 @@ export function vhtml(strings, ...args) {
       const componentContainer = document.querySelector(`[data-component="${name}"]`);
       if (componentContainer) {
         runEffects();
-        componentContainer.innerHTML = options.render(states, setState, useState, useEffect, useAuth,  storedProps);
+        componentContainer.innerHTML = options.render(states, setState, useState, useEffect, useAuth, useSyncStore,  storedProps);
       }
     };
   
@@ -207,11 +286,11 @@ export function vhtml(strings, ...args) {
       const componentContainer = document.querySelector(`[data-component="${name}"]`);
       if (componentContainer) {
         runEffects();
-        componentContainer.innerHTML = options.render(states, setState, useState, useEffect, useAuth, props);
+        componentContainer.innerHTML = options.render(states, setState, useState, useEffect, useAuth, useSyncStore,  props);
       } else {
         return vhtml`
           <div data-component="${name}">
-            ${options.render(states, setState, useState, useEffect, useAuth, props)}
+            ${options.render(states, setState, useState, useEffect, useAuth, useSyncStore,  props)}
           </div>
         `;
       }
