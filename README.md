@@ -24,7 +24,7 @@ const [state, setState] = useState("count", initialState);
 function increment(){
    setState(state + 1)
 }
-registerFunction('increment', increment)
+rf('increment', increment)
 useEffect((state)=>{
   console.log('New State for count' + state)
 }[state])
