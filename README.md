@@ -34,7 +34,7 @@ useEffect((state)=>{
 ### Function Binding
 
 ```javascript
-registerFunction('login', login);
+rf('login', login);
 return html`<button onclick="login()">Login</button>`;
 ```
 
