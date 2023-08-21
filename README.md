@@ -60,23 +60,18 @@ const { state, setState, subscribe } = store;
 ### Simplified Component Creation
 
 ```javascript
-async function myComponent(props){
+// id is a unique component key in which allows vader to update the component state!
+const myComponent = (id) => component(id, {
+ render: (states, setState, useState, useEffect, useAuth, props) => {
    return vhtml`
     <div>${props.message}</div>
    `
 }
+})
 
-async function app(props){
-   let html  = await createComponent(myComponent, {
-      message: 'Hello Vader'
-   })
-   return vhtml `
-   <div>
-   ${html}
-   </div>
-   `
-}
- 
+ // then call
+
+myComponent(key).render({props})
 ```
 
 ## Get Started
