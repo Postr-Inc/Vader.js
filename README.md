@@ -61,7 +61,7 @@ const { state, setState, subscribe } = store;
 
 ```javascript
 // id is a unique component key in which allows vader to update the component state!
-const myComponent = (id) => component(id, {
+const myComponent = (id) = component(id, {
  render: (states, setState, useState, useEffect, useAuth, props) => {
    return vhtml`
     <div>${props.message}</div>
