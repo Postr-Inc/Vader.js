@@ -72,7 +72,7 @@ class VaderRouter {
           : window.location.hash.substring(1);
         // remove '' from array
         hash = hash.filter((item) => item !== "");
-        const basePath = "/" + hash[0];
+        const basePath =  hash[0] ? '/' + hash[0] :  '#/';
   
         if (!this.routes[basePath] && !this.customerror) {
           window.location.hash = this.starturl;
