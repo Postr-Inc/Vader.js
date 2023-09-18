@@ -309,6 +309,9 @@ export function vhtml(strings, ...args) {
    * @description Allows you to register function in global scope 
    */
   export const rf = (name, fn) => {
+    if(window[name]){
+        throw new Error(`Cannot register function as it conflicts with another function`)
+    }
     window[name] = fn;
   };
   /**
