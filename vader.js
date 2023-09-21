@@ -42,7 +42,7 @@ export function vhtml(strings, ...args) {
  * @example 
  *   
  *  const app = component('app', {
-  render: (states, setState, useState, useEffect, useAuth) => {
+  render: (states, props) => {
   
  
     let [count, setCount] = useState('count', 0);
