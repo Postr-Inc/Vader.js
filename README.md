@@ -62,7 +62,7 @@ const { state, setState, subscribe } = store;
 ```javascript
 // id is a unique component key in which allows vader to update the component state!
 const myComponent = (id) = component(id, {
- render: (states, setState, useState, useEffect, useAuth, useSyncStore,  props) => {
+ render: (states, props) => {
    return vhtml`
     <div>${props.message}</div>
    `
@@ -72,6 +72,41 @@ const myComponent = (id) = component(id, {
  // then call
 
 myComponent(key).render({props})
+
+//example
+
+import VaderRouter from "./router.js";
+import { vhtml, component, rf } from './script.js'
+
+const app = component('app', {
+  render: (states) => {
+    let [count, setCount] = useState('count', 0);
+    useEffect(() => {
+      console.log(states)
+      console.log('App component mounted');
+    }, [count]);
+
+    function incrementHandler() {
+      setCount(count + 1);
+    }
+    rf('incrementHandler', incrementHandler);
+
+
+    return vhtml`
+     
+      <div>
+        <button className="btn" onclick="incrementHandler()"
+        
+        >Count: ${count}</button>
+        ${
+          count > 10 ? '<h1 style="color:lightBlue">Greater Than 10</h1>' : 'Less than 10'
+        }
+      </div>
+    `;
+  },
+})
+
+document.body.innerHTML = app.render()
 ```
 
 ## Get Started
