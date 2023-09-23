@@ -72,7 +72,7 @@ class VaderRouter {
           : window.location.hash.substring(1);
         // remove '' from array
         hash = hash.filter((item) => item !== "");
-        const basePath =  hash[0] ? '/' + hash[0] :  '#/';
+        const basePath = "/" + hash[0];
   
         if (!this.routes[basePath] && !this.customerror) {
           window.location.hash = this.starturl;
@@ -81,7 +81,15 @@ class VaderRouter {
             status: 404,
             message: "Page not found",
           };
-          this.handleError("404", errBody);
+          const res = {
+            return: function (data) {
+              this.hooked = false;
+            },
+            render: function (selector, data) {
+              document.querySelector(selector).innerHTML = data;
+            }
+          }
+          this.handleError("404", errBody, res);
         }
       });
     }
@@ -111,9 +119,9 @@ class VaderRouter {
      * @description used by start() to handle errors.
      */
   
-    handleError(type, data) {
+    handleError(type, data, res) {
       if (this.errorHandlers[type]) {
-        this.errorHandlers[type](data);
+        this.errorHandlers[type](data, res);
       } else {
         console.error(`No error handler found for type: ${type}`);
       }
