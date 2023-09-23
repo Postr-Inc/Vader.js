@@ -73,10 +73,12 @@ export function vhtml(strings, ...args) {
  ***/
 
 export function component(name, options) {
-  const states = {};
+    let states = {}
   const effects = {};
   const executedEffects = {};
   let storedProps = {};
+  let componentMounted = false;
+  let hasMounted = false;
   /**
    * @function setState
    * @param {*} key
@@ -86,6 +88,7 @@ export function component(name, options) {
    */
   const setState = (key, value) => {
     states[key] = value;
+    window.props[key] = value;
     updateComponent();
   };
 
@@ -96,18 +99,23 @@ export function component(name, options) {
    * @returns  {Array} [state, setState]
    * @description Allows you to bind state to component
    */
-  const useState = ( initialValue) => {
-    let state = states[name];
-    if (!state) {
-      state = initialValue;
-      states[name] = state;
-    }
-    const setState = (value) => {
-      states[name] = value;
-      updateComponent();
-    }
-    return [state, setState];
-  };
+  
+ 
+
+ 
+    const useState = (key, initialValue) => {
+        if (!states[key]) {
+            states[key] = initialValue;
+        }
+        return [
+            states[key],
+            (value) => {
+            states[key] = value;
+            window.props[key] = value;
+            updateComponent();
+            },
+        ];
+    };
   /**
    * @function useEffect
    * @param {*} effectFn
@@ -119,13 +127,41 @@ export function component(name, options) {
     if (!effects[name]) {
       effects[name] = [];
     }
-    if (dependencies.length > 1) {
-      runEffects();
-    }
     effects[name].push(effectFn);
-    runEffects();
+  
+    if (dependencies.length > 0) {
+        const oldState = states[name];
+        const newState = dependencies.map((dependency) => {
+            return states[dependency];
+        });
+        if (oldState) {
+            const hasChanged = newState.some((state) => {
+            return state !== oldState;
+            });
+            if (hasChanged) {
+            effectFn();
+            }
+        }
+    }else if (!hasMounted) {
+        effectFn();
+        hasMounted = true;
+    }
+
+    return () => {
+        effects[name] = effects[name].filter((fn) => fn !== effectFn);
+    };
   };
 
+  const useReducer = (key, reducer, initialState) => {
+    const [state, setState] = useState(key, initialState);
+
+    const dispatch = (action) => {
+        const newState = reducer(state, action);
+        setState(newState);
+    }
+
+    return [state, dispatch];
+  };
   /**
    * @function useSyncStore
    * @param {*} storeName 
@@ -134,8 +170,10 @@ export function component(name, options) {
    * @description Allows you to manage state in local storage
    */
   const useSyncStore = (storeName, initialState) => {
-    const storedState =
-      JSON.parse(localStorage.getItem(storeName)) || initialState;
+    // Load state from local storage or use initial state
+    const storedState = JSON.parse(localStorage.getItem(storeName)) || initialState;
+
+    // Create a store object
     const store = createStore(storedState);
 
     /**
@@ -145,7 +183,7 @@ export function component(name, options) {
      * @returns {*} The value of the specified field.
      */
     const getField = (fieldName) => {
-      return store.state[fieldName];
+        return store.state[fieldName];
     };
 
     /**
@@ -155,8 +193,11 @@ export function component(name, options) {
      * @param {*} value - The new value to set for the field.
      */
     const setField = (fieldName, value) => {
-      const newState = { ...store.state, [fieldName]: value };
-      store.setState(newState);
+        // Create a new state object with the updated field
+        const newState = { ...store.state, [fieldName]: value };
+        // Update the store's state and save it to local storage
+        store.setState(newState);
+        saveStateToLocalStorage(storeName, newState);
     };
 
     /**
@@ -166,23 +207,39 @@ export function component(name, options) {
      * @returns {Function} A function to unsubscribe the subscriber.
      */
     const subscribe = (subscriber) => {
-      return store.subscribe(subscriber);
+        return store.subscribe(subscriber);
     };
 
     /**
      * Clear the stored state from local storage.
      */
     const clear = () => {
-      localStorage.setItem(storeName, "");
+        localStorage.removeItem(storeName);
+    };
+
+    /**
+     * Save the state to local storage.
+     *
+     * @param {string} key - The key under which to store the state.
+     * @param {*} state - The state to be stored.
+     */
+    const saveStateToLocalStorage = (key, state) => {
+        try {
+            localStorage.setItem(key, JSON.stringify(state));
+        } catch (error) {
+            // Handle errors when saving to local storage
+            console.error('Error saving state to local storage:', error);
+        }
     };
 
     return {
-      getField,
-      setField,
-      subscribe,
-      clear,
+        getField,
+        setField,
+        subscribe,
+        clear,
     };
-  };
+};
+
   /**
    * @function useAuth
    * @param {*} rulesets
@@ -308,20 +365,39 @@ export function component(name, options) {
   window.useEffect = useEffect;
   window.useAuth = useAuth;
   window.useSyncStore = useSyncStore;
+  window.useReducer = useReducer;
  
   const updateComponent = async () => {
+    
+ 
     const componentContainer = document.querySelector(
       `[data-component="${name}"]`
-    );
-    if (componentContainer) {
-      runEffects;
+    ); 
+    const newHtml = await options.render(states, storedProps);
+    if (componentContainer && newHtml !== componentContainer.innerHTML) {
+      
+       // only update the chunk of DOM that has changed
+       let newDom = new DOMParser().parseFromString(newHtml, 'text/html')
+       let oldDom = new DOMParser().parseFromString(componentContainer.innerHTML, 'text/html')
+       let html = newDom.body.firstChild
+       let oldHtml = oldDom.body.firstChild
+       if(!html.isEqualNode(oldHtml)){
+         // only update the chunk of DOM that has changed
+         componentContainer.innerHTML = newHtml
+        
+       }
+      if (!componentMounted) {
+        componentMounted = true;
+        
 
-      componentContainer.innerHTML = await options.render(
-        states,
-        (storedProps = null)
-      );
+        // Execute the "component did mount" code here
+        if (options.componentDidMount && typeof options.componentDidMount === 'function') {
+            options.componentUpdate ? options.componentDidMount() : null
+        }
+      }
     }
-  };
+};
+
   /**
    * @function render
    * @param {*} states
@@ -332,16 +408,9 @@ export function component(name, options) {
    */
 
   const render = async (props) => {
-    storedProps = props;
-    const componentContainer = document.querySelector(
-      `[data-component="${name}"]`
-    );
- 
-    if (componentContainer) {
-      runEffects();
-
-      componentContainer.innerHTML =  await options.render( states, props);
-    } else {
+    
+   
+      options.componentDidMount ?  options.componentDidMount() : null
       return vhtml`
           <div data-component="${name}">
             ${await options.render(
@@ -351,7 +420,6 @@ export function component(name, options) {
           </div>
         `;
     }
-  };
 
   return {
     render,
