@@ -96,19 +96,17 @@ export function component(name, options) {
    * @returns  {Array} [state, setState]
    * @description Allows you to bind state to component
    */
-  const useState = (key, initialValue) => {
-    if (!(key in states)) {
-      states[key] = initialValue;
-      window.props[key] = initialValue;
+  const useState = ( initialValue) => {
+    let state = states[name];
+    if (!state) {
+      state = initialValue;
+      states[name] = state;
     }
-
-    /**
-     * @Array state
-     * @param {*} states
-     * @description Allows you to get state of component
-     */
-
-    return [states[key], (newValue) => setState(key, newValue)];
+    const setState = (value) => {
+      states[name] = value;
+      updateComponent();
+    }
+    return [state, setState];
   };
   /**
    * @function useEffect
@@ -311,14 +309,14 @@ export function component(name, options) {
   window.useAuth = useAuth;
   window.useSyncStore = useSyncStore;
  
-  const updateComponent = () => {
+  const updateComponent = async () => {
     const componentContainer = document.querySelector(
       `[data-component="${name}"]`
     );
     if (componentContainer) {
       runEffects;
 
-      componentContainer.innerHTML = options.render(
+      componentContainer.innerHTML = await options.render(
         states,
         (storedProps = null)
       );
@@ -338,13 +336,11 @@ export function component(name, options) {
     const componentContainer = document.querySelector(
       `[data-component="${name}"]`
     );
+ 
     if (componentContainer) {
       runEffects();
 
-      componentContainer.innerHTML = await options.render(
-        states,
-        (storedProps = null)
-      );
+      componentContainer.innerHTML =  await options.render( states, props);
     } else {
       return vhtml`
           <div data-component="${name}">
