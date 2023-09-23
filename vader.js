@@ -1,11 +1,16 @@
 /**
+ * @Object window
+ * @property {Object} props
+ * @description Allows you to store props for component
+ */
+window.props = {}
+/**
  * @function vhtml
- * @param {*} strings
+ * @param {String} strings
  * @param  {...any} args
  * @returns  modified string
  *
  */
-window.props = {}
 export function vhtml(strings, ...args) {
   let result = "";
   
@@ -97,6 +102,12 @@ export function component(name, options) {
       window.props[key] = initialValue;
     }
 
+    /**
+     * @Array state
+     * @param {*} states
+     * @description Allows you to get state of component
+     */
+
     return [states[key], (newValue) => setState(key, newValue)];
   };
   /**
@@ -118,11 +129,11 @@ export function component(name, options) {
   };
 
   /**
-   * @function useAuth
-   * @param {*} rulesets
-   * @param {*} user
-   * @returns {Object} {canAccess, grantAccess, revokeAccess}
-   * @description Allows you to manage access to resources through rulesets
+   * @function useSyncStore
+   * @param {*} storeName 
+   * @param {*} initialState 
+   * @returns {Object} {getField, setField, subscribe, clear}
+   * @description Allows you to manage state in local storage
    */
   const useSyncStore = (storeName, initialState) => {
     const storedState =
@@ -174,6 +185,14 @@ export function component(name, options) {
       clear,
     };
   };
+  /**
+   * @function useAuth
+   * @param {*} rulesets
+   * @param {*} options 
+   * @returns {Object} {canAccess, grantAccess, revokeAccess}
+   * @description Allows you to manage access to resources through rulesets
+   * @returns 
+   */
 
   function useAuth(options) {
     if (!options.rulesets) {
@@ -291,6 +310,7 @@ export function component(name, options) {
   window.useEffect = useEffect;
   window.useAuth = useAuth;
   window.useSyncStore = useSyncStore;
+ 
   const updateComponent = () => {
     const componentContainer = document.querySelector(
       `[data-component="${name}"]`
@@ -304,8 +324,16 @@ export function component(name, options) {
       );
     }
   };
+  /**
+   * @function render
+   * @param {*} states
+   * @param {*} props 
+   * @description Allows you to render component to DOM
+   * @returns {HTMLcContent}
+   * @returns 
+   */
 
-  const render = (props) => {
+  const render = async (props) => {
     storedProps = props;
     const componentContainer = document.querySelector(
       `[data-component="${name}"]`
@@ -313,14 +341,14 @@ export function component(name, options) {
     if (componentContainer) {
       runEffects();
 
-      componentContainer.innerHTML = options.render(
+      componentContainer.innerHTML = await options.render(
         states,
         (storedProps = null)
       );
     } else {
       return vhtml`
           <div data-component="${name}">
-            ${options.render(
+            ${await options.render(
               states,
               props
             )}
@@ -343,4 +371,23 @@ export function component(name, options) {
  */
 export const rf = (name, fn) => {
   window[name] = fn;
+};
+/**
+ * @function include
+ * @description Allows you to include html file
+ * @returns   - modified string with html content
+ * @param {string}  path 
+ */
+
+export const include = (path) => {
+  return fetch(`./${path}`)
+  .then((res) => {
+    if(res.status === 404){
+      throw new Error(`No file found at ${path}`)
+    }
+    return res.text()
+  })
+  .then((data) => {
+    return new Function(`return \`${data}\`;`)()
+  })
 };
