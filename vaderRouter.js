@@ -63,6 +63,7 @@ class VaderRouter {
      * Starts the router.
      */
     start() {
+      
       if (!this.routes[window.location.hash.substring(1)]) {
         window.location.hash = this.starturl;
       }
@@ -72,7 +73,12 @@ class VaderRouter {
           : window.location.hash.substring(1);
         // remove '' from array
         hash = hash.filter((item) => item !== "");
-        const basePath = "/" + hash[0];
+        let basePath = "";
+        if (hash.length > 1) {
+            basePath = hash[0] + "/" + hash[1];
+        } else {
+            basePath = hash[0];
+        }
   
         if (!this.routes[basePath] && !this.customerror) {
           window.location.hash = this.starturl;
@@ -313,14 +319,17 @@ class VaderRouter {
           .join("/");
         const regex = new RegExp("^" + parsedPath + "(\\?(.*))?$");
   
-        this.currentUrl = path;
-        // replace params if preset
-        let route = "";
-        if (path.includes(":")) {
-          route = path.split(":")[0].replace(/\/$/, "");
+        let hash = window.location.hash.split("#")[1]
+            ? window.location.hash.split("#")[1]
+            : window.location.hash;
+      
+        let basePath = "";
+        if (hash.length > 1) {
+            basePath =  hash.split("/")[0] + "/" + hash.split("/")[1];
         } else {
-          route = path.replace(/\/$/, "");
+            basePath = hash[0];
         }
+        const route = basePath;
   
         window.$CURRENT_URL = route;
         window.$URL_PARAMS = {};
