@@ -3,7 +3,8 @@
  * @property {Object} props
  * @description Allows you to store props for component
  */
-window.props = {}
+window.props = {};
+let events = {};
 /**
  * @function vhtml
  * @param {String} strings
@@ -13,7 +14,7 @@ window.props = {}
  */
 export function vhtml(strings, ...args) {
   let result = "";
-  
+
   for (let i = 0; i < strings.length; i++) {
     result += strings[i];
     if (i < args.length) {
@@ -21,16 +22,18 @@ export function vhtml(strings, ...args) {
     }
   }
 
-  let dom = new DOMParser().parseFromString(result, 'text/html')
-  if(dom.body.firstChild.nodeName.toLowerCase() !== 'div'){
-    throw new Error(`Ensure that you have a parent div for all component elements`)
+  let dom = new DOMParser().parseFromString(result, "text/html");
+  if (dom.body.firstChild.nodeName.toLowerCase() !== "div") {
+    throw new Error(
+      `Ensure that you have a parent div for all component elements`
+    );
   }
 
-  dom.body.querySelectorAll('[className]').forEach((el)=>{
-    el.setAttribute('class', el.getAttribute('classname'))
-    el.removeAttribute('classname')
-  }) 
-  return dom.body.innerHTML
+  dom.body.querySelectorAll("[className]").forEach((el) => {
+    el.setAttribute("class", el.getAttribute("classname"));
+    el.removeAttribute("classname");
+  });
+  return dom.body.innerHTML;
 }
 /**
  * @function component
@@ -73,7 +76,7 @@ export function vhtml(strings, ...args) {
  ***/
 
 export function component(name, options) {
-    let states = {}
+  let states = {};
   const effects = {};
   const executedEffects = {};
   let storedProps = {};
@@ -92,6 +95,12 @@ export function component(name, options) {
     updateComponent();
   };
 
+  const signal = (key, value) => {
+    states[key] = value;
+    window.props[key] = value;
+    updateComponent();
+  };
+
   /**
    * @function useState
    * @param {*} key
@@ -99,23 +108,20 @@ export function component(name, options) {
    * @returns  {Array} [state, setState]
    * @description Allows you to bind state to component
    */
-  
- 
 
- 
-    const useState = (key, initialValue) => {
-        if (!states[key]) {
-            states[key] = initialValue;
-        }
-        return [
-            states[key],
-            (value) => {
-            states[key] = value;
-            window.props[key] = value;
-            updateComponent();
-            },
-        ];
-    };
+  const useState = (key, initialValue) => {
+    if (!states[key]) {
+      states[key] = initialValue;
+    }
+    return [
+      states[key],
+      (value) => {
+        states[key] = value;
+        window.props[key] = value;
+        updateComponent();
+      },
+    ];
+  };
   /**
    * @function useEffect
    * @param {*} effectFn
@@ -128,50 +134,60 @@ export function component(name, options) {
       effects[name] = [];
     }
     effects[name].push(effectFn);
-  
+
     if (dependencies.length > 0) {
-        const oldState = states[name];
-        const newState = dependencies.map((dependency) => {
-            return states[dependency];
+      const oldState = states[name];
+      const newState = dependencies.map((dependency) => {
+        return states[dependency];
+      });
+      if (oldState) {
+        const hasChanged = newState.some((state) => {
+          return state !== oldState;
         });
-        if (oldState) {
-            const hasChanged = newState.some((state) => {
-            return state !== oldState;
-            });
-            if (hasChanged) {
-            effectFn();
-            }
+        if (hasChanged) {
+          effectFn();
         }
-    }else if (!hasMounted) {
-        effectFn();
-        hasMounted = true;
+      }
+    } else if (!hasMounted) {
+      effectFn();
+      hasMounted = true;
     }
 
     return () => {
-        effects[name] = effects[name].filter((fn) => fn !== effectFn);
+      effects[name] = effects[name].filter((fn) => fn !== effectFn);
     };
   };
+
+  /**
+   *
+   * @param {String} key
+   * @param {Function} reducer
+   * @param {Object} initialState
+   * @returns  {Array} [state, dispatch]
+   * @description Allows you to bind state to component
+   */
 
   const useReducer = (key, reducer, initialState) => {
     const [state, setState] = useState(key, initialState);
 
     const dispatch = (action) => {
-        const newState = reducer(state, action);
-        setState(newState);
-    }
+      const newState = reducer(state, action);
+      setState(newState);
+    };
 
     return [state, dispatch];
   };
   /**
    * @function useSyncStore
-   * @param {*} storeName 
-   * @param {*} initialState 
+   * @param {*} storeName
+   * @param {*} initialState
    * @returns {Object} {getField, setField, subscribe, clear}
    * @description Allows you to manage state in local storage
    */
   const useSyncStore = (storeName, initialState) => {
     // Load state from local storage or use initial state
-    const storedState = JSON.parse(localStorage.getItem(storeName)) || initialState;
+    const storedState =
+      JSON.parse(localStorage.getItem(storeName)) || initialState;
 
     // Create a store object
     const store = createStore(storedState);
@@ -183,7 +199,7 @@ export function component(name, options) {
      * @returns {*} The value of the specified field.
      */
     const getField = (fieldName) => {
-        return store.state[fieldName];
+      return store.state[fieldName];
     };
 
     /**
@@ -193,11 +209,11 @@ export function component(name, options) {
      * @param {*} value - The new value to set for the field.
      */
     const setField = (fieldName, value) => {
-        // Create a new state object with the updated field
-        const newState = { ...store.state, [fieldName]: value };
-        // Update the store's state and save it to local storage
-        store.setState(newState);
-        saveStateToLocalStorage(storeName, newState);
+      // Create a new state object with the updated field
+      const newState = { ...store.state, [fieldName]: value };
+      // Update the store's state and save it to local storage
+      store.setState(newState);
+      saveStateToLocalStorage(storeName, newState);
     };
 
     /**
@@ -207,14 +223,14 @@ export function component(name, options) {
      * @returns {Function} A function to unsubscribe the subscriber.
      */
     const subscribe = (subscriber) => {
-        return store.subscribe(subscriber);
+      return store.subscribe(subscriber);
     };
 
     /**
      * Clear the stored state from local storage.
      */
     const clear = () => {
-        localStorage.removeItem(storeName);
+      localStorage.removeItem(storeName);
     };
 
     /**
@@ -224,29 +240,29 @@ export function component(name, options) {
      * @param {*} state - The state to be stored.
      */
     const saveStateToLocalStorage = (key, state) => {
-        try {
-            localStorage.setItem(key, JSON.stringify(state));
-        } catch (error) {
-            // Handle errors when saving to local storage
-            console.error('Error saving state to local storage:', error);
-        }
+      try {
+        localStorage.setItem(key, JSON.stringify(state));
+      } catch (error) {
+        // Handle errors when saving to local storage
+        console.error("Error saving state to local storage:", error);
+      }
     };
 
     return {
-        getField,
-        setField,
-        subscribe,
-        clear,
+      getField,
+      setField,
+      subscribe,
+      clear,
     };
-};
+  };
 
   /**
    * @function useAuth
    * @param {*} rulesets
-   * @param {*} options 
+   * @param {*} options
    * @returns {Object} {canAccess, grantAccess, revokeAccess}
    * @description Allows you to manage access to resources through rulesets
-   * @returns 
+   * @returns
    */
 
   function useAuth(options) {
@@ -366,63 +382,66 @@ export function component(name, options) {
   window.useAuth = useAuth;
   window.useSyncStore = useSyncStore;
   window.useReducer = useReducer;
- 
+
   const updateComponent = async () => {
-    
- 
     const componentContainer = document.querySelector(
       `[data-component="${name}"]`
-    ); 
+    );
     const newHtml = await options.render(states, storedProps);
     if (componentContainer && newHtml !== componentContainer.innerHTML) {
-      
-       // only update the chunk of DOM that has changed
-       let newDom = new DOMParser().parseFromString(newHtml, 'text/html')
-       let oldDom = new DOMParser().parseFromString(componentContainer.innerHTML, 'text/html')
-       let html = newDom.body.firstChild
-       let oldHtml = oldDom.body.firstChild
-       if(!html.isEqualNode(oldHtml)){
-         // only update the chunk of DOM that has changed
-         componentContainer.innerHTML = newHtml
-        
-       }
+      // only update the chunk of DOM that has changed
+      let newDom = new DOMParser().parseFromString(newHtml, "text/html");
+      let oldDom = new DOMParser().parseFromString(
+        componentContainer.innerHTML,
+        "text/html"
+      );
+      let html = newDom.body.firstChild;
+      let oldHtml = oldDom.body.firstChild;
+      if (!html.isEqualNode(oldHtml)) {
+        // only update the chunk of DOM that has changed
+        componentContainer.innerHTML = newHtml;
+      }
       if (!componentMounted) {
         componentMounted = true;
-        
 
         // Execute the "component did mount" code here
-        if (options.componentDidMount && typeof options.componentDidMount === 'function') {
-            options.componentUpdate ? options.componentDidMount() : null
+        if (
+          options.componentDidMount &&
+          typeof options.componentDidMount === "function"
+        ) {
+          options.componentUpdate ? options.componentDidMount() : null;
         }
       }
     }
-};
+  };
 
   /**
    * @function render
    * @param {*} states
-   * @param {*} props 
+   * @param {*} props
    * @description Allows you to render component to DOM
    * @returns {HTMLcContent}
-   * @returns 
+   * @returns
    */
 
   const render = async (props) => {
-    
-   
-      options.componentDidMount ?  options.componentDidMount() : null
-      return vhtml`
+    options.componentDidMount ? options.componentDidMount() : null;
+    return vhtml`
           <div data-component="${name}">
-            ${await options.render(
-              states,
-              props
-            )}
+            ${await options.render(states, props)}
           </div>
         `;
-    }
+  };
 
   return {
     render,
+    setState,
+    useState,
+    useEffect,
+    useAuth,
+    useSyncStore,
+    useReducer,
+    runEffects,
   };
 }
 
@@ -440,23 +459,24 @@ export const rf = (name, fn) => {
  * @function include
  * @description Allows you to include html file
  * @returns   - modified string with html content
- * @param {string}  path 
+ * @param {string}  path
  */
 
-let cache = {}
-export const include = (path) => {
-  if(cache[path]){
-    return  new Function(`return \`${cache[path]}\`;`)()
+let cache = {};
+export const include = (path, options) => {
+  if (cache[path]) {
+    return new Function(`return \`${cache[path]}\`;`)();
   }
+
   return fetch(`./${path}`)
-  .then((res) => {
-    if(res.status === 404){
-      throw new Error(`No file found at ${path}`)
-    }
-    return res.text()
-  })
-  .then((data) => {
-    cache[path] = data
-    return new Function(`return \`${data}\`;`)()
-  })
+    .then((res) => {
+      if (res.status === 404) {
+        throw new Error(`No file found at ${path}`);
+      }
+      return res.text();
+    })
+    .then((data) => {
+      cache[path] = data;
+      return new Function(`return \`${data}\`;`)();
+    });
 };
