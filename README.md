@@ -106,7 +106,9 @@ const app = component('app', {
   },
 })
 
-document.body.innerHTML = app.render()
+(async ()=>{
+   document.body.innerHTML = await app.render()
+})
 ```
 
 ## Get Started
