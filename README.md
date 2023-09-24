@@ -111,7 +111,7 @@ const app = component('app', {
 })
 ```
 
-## Include views
+## External views
 
 As of v1.1.0 - Vader allows you to include html files as templates 
 
