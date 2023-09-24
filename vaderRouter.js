@@ -118,8 +118,15 @@ class VaderRouter {
       } else {
         if (this.customerror) {
           this.handleError("404", route);
+          console.error("404: Route not found");
         } else {
           console.error("404: Route not found");
+        }
+
+        // if route has no content to send return 500
+        if (this.routes[route] === undefined || this.hooked === false) {
+          this.handleError("500", route);
+          console.error("500: Route has no content");
         }
       }
     }
@@ -134,9 +141,9 @@ class VaderRouter {
   
     handleError(type, data, res) {
       if (this.errorHandlers[type]) {
-        this.errorHandlers[type](data, res);
-      } else {
-        console.error(`No error handler found for type: ${type}`);
+        this.errorHandlers[type](data);
+      }else{
+        console.error("Error: No error handler found for " + type);
       }
     }
     /**
@@ -382,6 +389,9 @@ class VaderRouter {
           const res = {
             return: function (data) {
               this.hooked = false;
+            },
+            send: function (selector, data) {
+              document.querySelector(selector).innerHTML = data;
             },
             render: function (selector, data) {
               document.querySelector(selector).innerHTML = data;
