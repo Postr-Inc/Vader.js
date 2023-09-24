@@ -64,39 +64,11 @@ class VaderRouter {
      */
     start() {
       
-      if (!this.routes[window.location.hash.substring(1)]) {
+      if (window.location.hash === "") {
         window.location.hash = this.starturl;
       }
       window.addEventListener("hashchange", () => {
-        let hash = window.location.hash.substring(1).split("/")
-          ? window.location.hash.substring(1).split("/")
-          : window.location.hash.substring(1);
-        // remove '' from array
-        hash = hash.filter((item) => item !== "");
-        let basePath = "";
-        if (hash.length > 1) {
-            basePath = hash[0] + "/" + hash[1];
-        } else {
-            basePath = hash[0];
-        }
-  
-        if (!this.routes[basePath] && !this.customerror) {
-          window.location.hash = this.starturl;
-        } else if (!this.routes[basePath] && this.customerror) {
-          const errBody = {
-            status: 404,
-            message: "Page not found",
-          };
-          const res = {
-            return: function (data) {
-              this.hooked = false;
-            },
-            render: function (selector, data) {
-              document.querySelector(selector).innerHTML = data;
-            }
-          }
-          this.handleError("404", errBody, res);
-        }
+        this.handleRoute();
       });
     }
   
@@ -115,6 +87,41 @@ class VaderRouter {
     handleErrors(type, callback) {
       this.errorHandlers[type] = callback;
       this.customerror = true;
+    }
+    handleRoute() {
+      if (this.hooked) {
+        return;
+      }
+      this.hooked = true;
+      const route = window.location.hash.substring(1);
+      this.currentUrl = route;
+      window.$CURRENT_URL = route;
+      window.$URL_PARAMS = {};
+      window.$URL_QUERY = {};
+      if (this.routes[route]) {
+        this.storedroutes.push(route);
+        const req = {
+          params: {},
+          query: {},
+          url: route,
+          method: "GET",
+        };
+        const res = {
+          return: function (data) {
+            this.hooked = false;
+          },
+          render: function (selector, data) {
+            document.querySelector(selector).innerHTML = data;
+          },
+        };
+        this.routes[route] === Function ? this.routes[route](req, res) : null;
+      } else {
+        if (this.customerror) {
+          this.handleError("404", route);
+        } else {
+          console.error("404: Route not found");
+        }
+      }
     }
     /**
      *
@@ -215,6 +222,7 @@ class VaderRouter {
   
         window.$URL_PARAMS = params;
         window.$URL_QUERY = query;
+        window.$CURRENT_URL = window.location.hash.substring(1);
   
         const res = {
           return: function (data) {
@@ -334,7 +342,7 @@ class VaderRouter {
         window.$CURRENT_URL = route;
         window.$URL_PARAMS = {};
         if (
-          window.location.hash.substring(1).match(regex) &&
+            window.location.hash.substring(1).match(regex) &&
           this.routes[$CURRENT_URL]
         ) {
           this.storedroutes.push(window.location.hash.substring(1));
