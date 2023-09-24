@@ -443,7 +443,11 @@ export const rf = (name, fn) => {
  * @param {string}  path 
  */
 
+let cache = {}
 export const include = (path) => {
+  if(cache[path]){
+    return  new Function(`return \`${cache[path]}\`;`)()
+  }
   return fetch(`./${path}`)
   .then((res) => {
     if(res.status === 404){
@@ -452,6 +456,7 @@ export const include = (path) => {
     return res.text()
   })
   .then((data) => {
+    cache[path] = data
     return new Function(`return \`${data}\`;`)()
   })
 };
