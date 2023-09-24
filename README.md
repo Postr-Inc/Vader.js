@@ -111,6 +111,34 @@ const app = component('app', {
 })
 ```
 
+## Include views
+
+As of v1.1.0 - Vader allows you to include html files as templates 
+
+```html
+// views/app.html
+
+<div>
+${
+ window.location.hash === "#/home" ? "Home page" : "Not on the Home Page"
+}
+</div>
+```
+
+```js
+// home.js
+import { vhtml, component, rf, include } from 'vader.js'
+const Home = component('Home', {
+ render: async () =>{
+  let html = await include('views/app.html')
+  return vhtml(html) || vhtml`${html}` // if using more than one view component
+  },
+ componentDidMount: () =>{
+  console.log('home mounted')
+ }
+})
+```
+
 ## Get Started
 
 1. Install VaderJS:
