@@ -65,11 +65,7 @@ export function vhtml(strings, options, ...args) {
   }
 
   let dom = new DOMParser().parseFromString(result, "text/html");
-  dom.body.querySelectorAll('a').forEach((e)=>{
-     if(e.getAttribute('href') && !e.getAttribute('href').startsWith('#')){
-      e.setAttribute('href', '#' + e.getAttribute('href'))
-     }
-  })
+
   dom.body.querySelectorAll("[className]").forEach((el) => {
     el.setAttribute("class", el.getAttribute("classname"));
     el.removeAttribute("classname");
@@ -193,7 +189,6 @@ export function component(name, options) {
           },
         });
         dispatchEvent(signalEvent);
-        console.log(state)
       }
     });
     /**
@@ -259,7 +254,6 @@ export function component(name, options) {
      * @returns {void}
      */
     function set(detail) {
-      
       setState(detail);
     }
     return {
@@ -600,18 +594,12 @@ export function component(name, options) {
    * @returns {HTMLcContent}
    * @returns
    */
-   let stateManager  = {
-    useAuth,
-    useEffect,
-    signal,
-    useState,
-    useSyncStore,
-    useReducer
-   }
+
   const render = async (props) => {
     let data = await vhtml(
       `<div data-component="${name}"
-      >${await options.render(states, props, stateManager)}</div>`
+      style="display: contents; width: 100%; height: 100%;"
+      >${await options.render(states, props)}</div>`
     );
 
     storedProps = props;
