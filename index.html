@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vader.js</title>
+    <meta name="description" content="A reactive framework for single application web apps similar to react.js">
+    <link rel="stylesheet" href="./dist/styles/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="importmap">
+        {
+            "imports":{
+                "vader":"./dist/vader/vader.js",
+                "vader-router":"./dist/vader/vaderRouter.js"
+            }
+        }
+    </script>
+    <script src="dist/init.js" type="module"></script>
+
+</body>
+
+</html>
