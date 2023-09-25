@@ -1,19 +1,3 @@
-/**
- * @Object window
- * @property {Object} props
- * @description Allows you to store props for component
- */
-window.props = {};
-
-let events = {};
-/**
- * @function vhtml
- * @param {String} strings
- * @param  {...any} args
- * @returns  modified string
- *
- */
-
 window.dom = {};
 /**
  * @function useRef
@@ -53,131 +37,108 @@ export const useRef = (ref) => {
     update,
   };
 };
-
-export function vhtml(strings, options, ...args) {
-  let result = "";
-
-  for (let i = 0; i < strings.length; i++) {
-    result += strings[i];
-    if (i < args.length) {
-      result += args[i];
-    }
+let components = [];
+/**
+ * @class Component
+ * @description Allows you to create a component
+ * @returns {null}
+ * @example
+ * import { Vader } from "../../dist/vader/index.js";
+ * export class Home extends Vader.Component {
+ *  constructor() {
+ *   super();
+ * }
+ *  async render() {
+ *  return this.html(`
+ *     <div className="hero p-5">
+ *        <h1>Home</h1>
+ *     </div>
+ *   `);
+ *  }
+ * }
+ */
+export class Component {
+  constructor() {
+    this.states = {};
+    // get extended class name
+    this.name = this.constructor.name;
+    console.log(this.name);
+    this.executedEffects = {};
+    this.storedProps = {};
+    this.componentMounted = false;
+    this.hasMounted = false;
+    this.$_signal_subscribers = [];
+    this.$_signal_subscribers_ran = [];
+    this.effects = {};
+    this.$_useStore_subscribers = [];
+    this.init();
+    this.Componentcontent = null;
   }
 
-  let dom = new DOMParser().parseFromString(result, "text/html");
+  init() {
+    this.registerComponent();
+    window.states = this.states;
+    window.useState = this.useState;
+    window.setState = this.setState;
+    window.useEffect = this.useEffect;
+    window.useAuth = this.useAuth;
+    window.useSyncStore = this.useSyncStore;
+    window.useReducer = this.useReducer;
+    window.runEffects = this.runEffects;
+    window.rf = this.rf;
+    window.signal = this.signal;
+  }
 
-  dom.body.querySelectorAll("[className]").forEach((el) => {
-    el.setAttribute("class", el.getAttribute("classname"));
-    el.removeAttribute("classname");
-  });
+  registerComponent() {
+    components.push({ name: this.name, options: this.options });
+  }
 
-  return new Function(`return \`${dom.body.innerHTML}\`;`)();
-}
+  setState(key, value) {
+    this.states[key] = value;
+    this.updateComponent();
+  }
 
-/**
- * @function component
- * @param {*} name 
- * @param {*} options 
- * @returns 
- *  @param {*} states
- * @param {*} setState
- * @param {*} useState
- * @param {*} useEffect
- * @param {*} useAuth
- * @param {*} render
- * 
- * @example 
- *   
- *  const app = component('app', {
-  render: (states, props) => {
-  
- 
-    let [count, setCount] = useState('count', 0);
- 
-    useEffect(() => {
-      console.log('App component mounted');
-    });
- 
-    function incrementHandler() {
-      setCount(count + 1);
-    }
-    rf('incrementHandler', incrementHandler);
-    
- 
-    return vhtml`
-      <div>
-        <button onclick="incrementHandler()" >Click me</button>
-        <p>You clicked ${count} times</p>
-      </div>
-    `;
-  },
-});
- ***/
-
-export function component(name, options) {
-  let states = {};
-  const effects = {};
-  const executedEffects = {};
-  let storedProps = {};
-  let componentMounted = false;
-  let hasMounted = false;
+  componentUpdate() {}
   /**
-   * @function setState
-   * @param {*} key
-   * @param {*} value
-   * @returns {null}
-   * @description Allows you to change state of component and re-render it
+   * @method componentDidMount
+   * @description Allows you to run code after component has mounted
    */
-  const setState = (key, value) => {
-    states[key] = value;
-    updateComponaent();
-  };
-
+  componentDidMount() {}
   /**
-   * @function signal
-   * @description Manage state much efficiently - alternative to vaders useEffect method
+   * @method signal
+   * @description Allows you to create a signal
    * @param {String} key
-   * @param {Object | String | Number | Boolean} initialState
-   * @returns  {Object} {subscribe, cleanup, dispatch, getDetail, call, setDetail}
+   * @param {any} initialState
+   * @returns  {Object} {subscribe, cleanup, dispatch, call, set, get}
    * @example
-   * let count = signal('count', 0);
-   *
-   * let counter = count.subscribe((state) => {
-   *  console.log(state)
-   * });
-   *
-   * count.cleanup(counter ) // always clear your counters - no duplicates
-   *
-   * count.call();
-   * count.set(1);
-   * count.call();
-   * count.get();
-   *
-   * // signals also emit events
-   *
-   * window.addEventListener('signalDispatch', ()=>{
-   * /// do something
-   * })
-   *
+   * let signal = this.signal('count', 0);
+   * signal.subscribe((value) => {
+   * console.log(value)
+   * }, false) // false means it will run every time
+   * signal.subscribe((value) => {
+   * console.log(value)
+   * }, true) // true means it will run once
+   * signal.call() // this will call all subscribers
+   * signal.set(1) // this will set the value of the signal
+   * signal.get() // this will get the value of the signal
+   * signal.cleanup() // this will remove all subscribers
    */
-  let $_signal_subscribers = [];
-  let $_signalsubscribersran = [];
-  const signal = (key, initialState) => {
+  signal = (key, initialState) => {
     let hasCaller = false;
-
-    let [state, setState] = useState(key, initialState, () => {
-      if ($_signal_subscribers.length > 0) {
-        for (var i = 0; i < $_signal_subscribers.length; i++) {
+    let [state, setState] = this.useState(key, initialState, () => {
+      if (this.$_signal_subscribers.length > 0) {
+        for (var i = 0; i < this.$_signal_subscribers.length; i++) {
           if (!hasCaller) {
             if (
-              $_signal_subscribers[i].runonce &&
-              $_signalsubscribersran.includes($_signal_subscribers[i])
+              this.$_signal_subscribers[i].runonce &&
+              this.$_signal_subscribers_ran.includes(
+                this.$_signal_subscribers[i]
+              )
             ) {
               break;
             } else {
-              $_signal_subscribers[i].function(state);
-              $_signalsubscribersran.push($_signal_subscribers[i]);
-              return;
+              this.$_signal_subscribers[i].function(state);
+              this.$_signal_subscribers_ran.push(this.$_signal_subscribers[i]);
             }
           }
         }
@@ -192,263 +153,98 @@ export function component(name, options) {
       }
     });
     /**
-     * @function subscribe
-     * @param {Function} fn
-     * @param {Boolean} runonce - infer that the function should only be ran once or not.
-     * @description - Subcribe to state changes
+     * @function  $_signal_subscribe
+     * @description Allows you to subscribe to a signal
+     * @param {*} fn
+     * @param {*} runonce
+     * @returns {null}
+     *
      */
-    function subscribe(fn, runonce) {
-      $_signal_subscribers.push({
+    this.$_signal_subscribe = (fn, runonce) => {
+      this.$_signal_subscribers.push({
         function: fn,
         runonce: runonce,
       });
-    }
-    /**
-     * @function cleanup
-     * @param {Function} fn
-     * @description - Ensures that the last subscriber gets cleared after updated state
-     */
-    function cleanup(fn) {
-      $_signal_subscribers = $_signal_subscribers.filter(
+    };
+    this.$_signal_cleanup = (fn) => {
+      this.$_signal_subscribers = this.$_signal_subscribers.filter(
         (subscriber) => subscriber.function !== fn
       );
-    }
-    /**
-     * @function dispatch
-     * @returns {void}
-     * @description - handles signal functions to ensure they are either ran once or infinitely ran
-     */
-    function dispatch() {
-      for (var i = 0; i < $_signal_subscribers.length; i++) {
+    };
+    this.$_signal_dispatch = () => {
+      for (var i = 0; i < this.$_signal_subscribers.length; i++) {
         if (
-          $_signal_subscribers[i].runonce &&
-          $_signalsubscribersran.includes($_signal_subscribers[i])
+          this.$_signal_subscribers[i].runonce &&
+          this.$_signal_subscribers_ran.includes(this.$_signal_subscribers[i])
         ) {
           break;
         } else {
-          $_signal_subscribers[i].function(state);
-          $_signalsubscribersran.push($_signal_subscribers[i]);
-          return;
+          this.$_signal_subscribers[i].function(state);
+          this.$_signal_subscribers_ran.push(this.$_signal_subscribers[i]);
         }
       }
-    }
-    /**
-     * @function get
-     * @returns {String | Number | Boolean | Object} - the current state
-     */
-    function get() {
+    };
+    this.$_signal_get = () => {
       return state;
-    }
-    /**
-     * @function call
-     * @returns {void}
-     * @description Call each subscriber
-     */
-    function call() {
+    };
+    this.$_signal_call = () => {
       hasCaller = true;
       dispatch();
-    }
-    /**
-     * @function set
-     * @param detail - change the current state
-     * @returns {void}
-     */
-    function set(detail) {
+    };
+    this.$_signal_set = (detail) => {
       setState(detail);
-    }
-    return {
-      subscribe,
-      cleanup,
-      dispatch,
-
-      call,
-      set,
-      get,
-    };
-  };
-  window.states = states;
-  /**
-   * @function useState
-   * @param {*} key
-   * @param {*} initialValue
-   * @param {Function} callback - allows you to call a function when state changes
-   * @returns  {Array} [state, setState]
-   * @description Allows you to bind state to component
-   */
-
-  const useState = (key, initialValue, callback) => {
-    if (!states[key]) {
-      states[key] = initialValue;
-    }
-    return [
-      states[key],
-      (value) => {
-        states[key] = value;
-        window.props[key] = value;
-        updateComponent();
-        typeof callback === "function" ? callback() : null;
-      },
-    ];
-  };
-  /**
-   * @function useEffect
-   * @param {*} effectFn
-   * @returns {null}
-   * @description Allows you to run side effects
-   * @deprecated - this is no longer suggested please use vader signals instead
-   * @example
-   * let [count, setCount] = useState('count', 0);
-   * useEffect(() => {
-   * console.log('count', count)
-   * }, [count])
-   */
-
-  const useEffect = (effectFn, dependencies) => {
-    if (!effects[name]) {
-      effects[name] = [];
-    }
-    effects[name].push(effectFn);
-
-    if (dependencies.length > 0) {
-      dependencies.forEach((d) => {
-        if (d.set) {
-          throw new Error(
-            "signal found, do not use effect and signals at the same time - signals are more efficient"
-          );
-        }
-      });
-    } else if (!hasMounted) {
-      effectFn();
-      hasMounted = true;
-    }
-
-    return () => {
-      effects[name] = effects[name].filter((fn) => fn !== effectFn);
-    };
-  };
-
-  /**
-   *
-   * @param {String} key
-   * @param {Function} reducer
-   * @param {Object} initialState
-   * @returns  {Array} [state, dispatch]
-   * @description Allows you to bind state to component
-   */
-
-  const useReducer = (key, reducer, initialState) => {
-    const [state, setState] = useState(key, initialState);
-
-    const dispatch = (action) => {
-      const newState = reducer(state, action);
-      setState(newState);
-    };
-
-    return [state, dispatch];
-  };
-  /**
-   * @function useSyncStore
-   * @param {*} storeName
-   * @param {*} initialState
-   * @returns {Object} {getField, setField, subscribe, clear}
-   * @description Allows you to manage state in local storage
-   */
-  const useSyncStore = (storeName, initialState) => {
-    // Load state from local storage or use initial state
-    const storedState =
-      JSON.parse(localStorage.getItem(storeName)) || initialState;
-
-    // Create a store object
-    const store = createStore(storedState);
-
-    /**
-     * Get the value of a specific field from the store's state.
-     *
-     * @param {string} fieldName - The name of the field.
-     * @returns {*} The value of the specified field.
-     */
-    const getField = (fieldName) => {
-      return store.state[fieldName];
-    };
-
-    /**
-     * Set the value of a specific field in the store's state.
-     *
-     * @param {string} fieldName - The name of the field.
-     * @param {*} value - The new value to set for the field.
-     */
-    const setField = (fieldName, value) => {
-      // Create a new state object with the updated field
-      const newState = { ...store.state, [fieldName]: value };
-      // Update the store's state and save it to local storage
-      store.setState(newState);
-      saveStateToLocalStorage(storeName, newState);
-    };
-
-    /**
-     * Subscribe a function to be notified of state changes.
-     *
-     * @param {Function} subscriber - The function to call when the state changes.
-     * @returns {Function} A function to unsubscribe the subscriber.
-     */
-    const subscribe = (subscriber) => {
-      return store.subscribe(subscriber);
-    };
-
-    /**
-     * Clear the stored state from local storage.
-     */
-    const clear = () => {
-      localStorage.removeItem(storeName);
-    };
-
-    /**
-     * Save the state to local storage.
-     *
-     * @param {string} key - The key under which to store the state.
-     * @param {*} state - The state to be stored.
-     */
-    const saveStateToLocalStorage = (key, state) => {
-      try {
-        localStorage.setItem(key, JSON.stringify(state));
-      } catch (error) {
-        // Handle errors when saving to local storage
-        console.error("Error saving state to local storage:", error);
-      }
     };
 
     return {
-      getField,
-      setField,
-      subscribe,
-      clear,
+      /**
+       * @function subscribe
+       * @description Allows you to subscribe to a signal
+       * @param {*} fn
+       * @param {*} runonce
+       */
+      subscribe: this.$_signal_subscribe,
+      /**
+       * @function cleanup
+       * @description Allows you to cleanup a signal
+       * @param {*} fn
+       * @returns {null}
+       */
+      cleanup: this.$_signal_cleanup,
+      /**
+       * @function dispatch
+       * @description Allows you to dispatch a signal
+       * @returns {null}
+       */
+      dispatch: this.$_signal_dispatch,
+      /**
+       * @function call
+       * @description Allows you to call a signal
+       * @returns {null}
+       */
+      call: this.$_signal_call,
+      /**
+       * @function set
+       * @description Allows you to set the value of a signal
+       * @param {*} detail
+       * @returns {null}
+       */
+      set: this.$_signal_set,
+      /**
+       * @function get
+       * @readonly
+       * @description Allows you to get the value of a signal
+       * @returns {any}
+       */
+      get: this.$_signal_get,
     };
   };
-
-  /**
-   * @function useAuth
-   * @param {*} rulesets
-   * @param {*} options
-   * @returns {Object} {canAccess, grantAccess, revokeAccess}
-   * @description Allows you to manage access to resources through rulesets
-   * @returns
-   */
-
-  function useAuth(options) {
-    if (!options.rulesets) {
+  useAuth(options) {
+    let rules = options.rulesets;
+    if (!rules) {
       throw new Error("No rulesets provided");
     }
-
-    let rules = options.rulesets;
     let user = options.user;
-
-    const auth = {
-      /**
-       * Check if the user can perform a specific action.
-       *
-       * @param {string} action - The action to check.
-       * @returns {boolean} True if the user can perform the action, false otherwise.
-       */
+    let auth = {
       can: (action) => {
         let can = false;
         rules.forEach((rule) => {
@@ -460,30 +256,12 @@ export function component(name, options) {
         });
         return can;
       },
-      /**
-       * Check if the user has a specific role.
-       *
-       * @param {string} role - The role to check.
-       * @returns {boolean} True if the user has the role, false otherwise.
-       */
       hasRole: (role) => {
         return user.role && user.role.includes(role);
       },
-      /**
-       * Check if the user can perform a specific action with a specific role.
-       *
-       * @param {string} action - The action to check.
-       * @param {string} role - The role to check.
-       * @returns {boolean} True if the user can perform the action with the role, false otherwise.
-       */
       canWithRole: (action, role) => {
         return auth.can(action) && auth.hasRole(role);
       },
-      /**
-       * Assign a new rule to the rulesets.
-       *
-       * @param {Object} rule - The rule to assign.
-       */
       assignRule: (rule) => {
         if (
           !rules.some((existingRule) => existingRule.action === rule.action)
@@ -491,190 +269,254 @@ export function component(name, options) {
           rules.push(rule);
         }
       },
-      /**
-       * Revoke a rule from the rulesets.
-       *
-       * @param {string} action - The action of the rule to revoke.
-       */
       revokeRule: (action) => {
         rules = rules.filter((rule) => rule.action !== action);
       },
-      /**
-       * Check if the user can perform any of the specified actions.
-       *
-       * @param {Array} actions - An array of actions to check.
-       * @returns {boolean} True if the user can perform any of the actions, false otherwise.
-       */
       canAnyOf: (actions) => {
         return actions.some((action) => auth.can(action));
       },
-      /**
-       * Check if the user can perform all of the specified actions.
-       *
-       * @param {Array} actions - An array of actions to check.
-       * @returns {boolean} True if the user can perform all of the actions, false otherwise.
-       */
       canAllOf: (actions) => {
         return actions.every((action) => auth.can(action));
       },
-      /**
-       * Check if the user can perform a group of actions based on a logical operator.
-       *
-       * @param {Array} actions - An array of actions to check.
-       * @param {string} logicalOperator - The logical operator to use ('any' or 'all').
-       * @returns {boolean} True if the user can perform the actions based on the logical operator, false otherwise.
-       */
       canGroup: (actions, logicalOperator = "any") => {
         return logicalOperator === "any"
           ? auth.canAnyOf(actions)
           : auth.canAllOf(actions);
       },
     };
-
     return auth;
+  }
+  useReducer(key, reducer, initialState) {
+    const [state, setState] = this.useState(key, initialState);
+    const dispatch = (action) => {
+      const newState = reducer(state, action);
+      setState(newState);
+    };
+    return [state, dispatch];
+  }
+  runEffects() {
+    Object.keys(this.effects).forEach((component) => {
+      this.effects[component].forEach((effect) => {
+        if (!this.executedEffects[effect]) {
+          effect();
+          this.executedEffects[effect] = true;
+        }
+      });
+    });
+  }
+
+  useSyncStore(storeName, initialState) {
+    let [storedState, setStoredState] = this.useState(
+      storeName,
+      initialState ||
+        localStorage.getItem(`$_vader_${storeName}`, (s) => {
+          localStorage.setItem(`$_vader_${storeName}`, JSON.stringify(s));
+          this.$_useStore_subscribers.forEach((subscriber) => {
+            subscriber(s);
+          });
+        }) ||
+        {}
+    );
+
+    const getField = (fieldName) => {
+      return storedState[fieldName];
+    };
+    const setField = (fieldName, value) => {
+      const newState = { ...storedState, [fieldName]: value };
+      setStoredState(newState);
+    };
+    const subscribe = (subscriber) => {
+      return this.$_useStore_subscribers.push(subscriber);
+    };
+
+    const clear = (fieldName) => {
+      let newState = storedState;
+      delete newState[fieldName];
+      setStoredState(newState);
+    };
+    return {
+      getField,
+      setField,
+      subscribe,
+      clear,
+    };
+  }
+  useState(key, initialValue, callback) {
+    if (!this.states[key]) {
+      this.states[key] = initialValue;
+    }
+    return [
+      this.states[key],
+      (value) => {
+        this.states[key] = value;
+        this.updateComponent();
+        typeof callback === "function" ? callback() : null;
+      },
+    ];
   }
 
   /**
-   * @function runEffects
-   * @returns {null}
+   * @function useEffect
+   * @param {*} effectFn
+   * @param {*} dependencies
+   * @returns  {null}
    * @description Allows you to run side effects
-   */
-  const runEffects = () => {
-    if (!executedEffects[name] && effects[name]) {
-      effects[name].forEach((effectFn) => effectFn());
-      executedEffects[name] = true;
-    }
-  };
-  window.useState = useState;
-  window.setState = setState;
-  window.useEffect = useEffect;
-  window.useAuth = useAuth;
-  window.useSyncStore = useSyncStore;
-  window.useReducer = useReducer;
-  window.runEffects = runEffects;
-  window.signal = signal;
-
-  const updateComponent = async () => {
-    const componentContainer = document.querySelector(
-      `[data-component="${name}"]`
-    );
-
-    const newHtml = await options.render(states, storedProps);
-    if (componentContainer && newHtml !== componentContainer.innerHTML) {
-      // only update the chunk of DOM that has changed
-      let newDom = new DOMParser().parseFromString(newHtml, "text/html");
-      let oldDom = new DOMParser().parseFromString(
-        componentContainer.innerHTML,
-        "text/html"
-      );
-      let newBody = newDom.body;
-      let oldBody = oldDom.body;
-      if (newBody.isEqualNode(oldBody)) return;
-      componentContainer.innerHTML = newHtml;
-      runEffects();
-      if (!componentMounted) {
-        componentMounted = true;
-
-        // Execute the "component did mount" code here
-        if (
-          options.componentDidMount &&
-          typeof options.componentDidMount === "function"
-        ) {
-          options.componentUpdate ? options.componentDidMount() : null;
-        }
-      }
-    }
-  };
-
-  /**
-   * @function render
-   * @param {*} states
-   * @param {*} props
-   * @description Allows you to render component to DOM
-   * @returns {HTMLcContent}
+   * @deprecated - this is no longer suggested please use vader signals instead
    * @returns
    */
+  useEffect(effectFn, dependencies) {
+    if (!this.effects[this.name]) {
+      this.effects[this.name] = [];
+    }
+    this.effects[this.name].push(effectFn);
 
-  const render = async (props) => {
-    let data = await vhtml(
-      `<div data-component="${name}"
-      style="display: contents; width: 100%; height: 100%;"
-      >${await options.render(states, props)}</div>`
-    );
+    if (dependencies.length > 0) {
+      dependencies.forEach((d) => {
+        if (d.set) {
+          throw new Error(
+            "signal found, do not use effect and signals at the same time - signals are more efficient"
+          );
+        }
+      });
+    } else if (!this.hasMounted) {
+      effectFn();
+      this.hasMounted = true;
+    }
 
-    storedProps = props;
-    runEffects();
-    setTimeout(() => {
-      options.componentDidMount ? options.componentDidMount() : null;
-    }, 0);
+    return () => {
+      this.effects[this.name] = this.effects[this.name].filter(
+        (fn) => fn !== effectFn
+      );
+    };
+  }
+  /**
+   * @method $Function
+   * @description Allows you to create a function in global scope
+   * @returns {Function}
+   * @example
+   * let func = this.$Function(function add(e, a){
+   *  return e +  a
+   * })
+   * @param {*} fn
+   * @returns
+   */
+  $Function(fn) {
+    if (!typeof fn === "function") {
+      throw new Error("fn must be a function");
+    }
+    let name = fn.name;
+    if (!name) {
+      name = "anonymous";
+    }
+    window[name] = fn;
 
-    return data;
-  };
+    return `window.${name}()`;
+  }
 
-  return {
-    render,
-    setState,
-    useState,
-    useEffect,
-    useAuth,
-    useSyncStore,
-    useReducer,
-    runEffects,
-    signal,
-  };
+  // Add other methods like render, useEffect, useReducer, useAuth, etc.
+
+  updateComponent() {
+    Object.keys(components).forEach(async (component) => {
+      const { name } = components[component];
+      const componentContainer = document.querySelector(
+        `[data-component="${name}"]`
+      );
+
+      if (!componentContainer) return;
+      const newHtml = await new Function(
+        "useState",
+        "useEffect",
+        "useAuth",
+        "useReducer",
+        "useSyncStore",
+        "signal",
+        "rf",
+        "props",
+        "render",
+        "return `" + (await this.render()) + "`;"
+      )(
+        this.useState,
+        this.useEffect,
+        this.useAuth,
+        this.useReducer,
+        this.useSyncStore,
+        this.signal,
+        this.rf,
+        window.props,
+        this.render
+      );
+      this.componentDidMount();
+
+      if (newHtml && newHtml !== componentContainer.innerHTML) {
+        componentContainer.outerHTML = newHtml;
+      }
+    });
+  }
+  html(strings, ...args) {
+    let result = "";
+    for (let i = 0; i < strings.length; i++) {
+      result += strings[i];
+      if (i < args.length) {
+        result += args[i];
+      }
+    }
+    // add ref to all elements
+    let dom = new DOMParser().parseFromString(result, "text/html");
+    let elements = dom.body.querySelectorAll("*");
+    elements.forEach((element) => {
+      if (element.hasAttribute("ref")) {
+        window.dom[element.getAttribute("ref")] = element;
+      }
+    });
+    this.Componentcontent = result;
+    if (!result.includes("<div data-component")) {
+      result = `<div data-component="${this.name}">${result}</div>`;
+    }
+
+    return result;
+  }
+  async render() {
+    this.componentMounted = true;
+    this.componentDidMount();
+    return await new Function(`return \`${this.Componentcontent}\`;`)();
+  }
 }
+
+/**
+ * @object Vader
+ * @property {class} Component
+ * @property {function} useRef
+ * @description Allows you to create a component
+ * @example
+ * import { Vader } from "../../dist/vader/vader.js";
+ * export class Home extends Vader.Component {
+ * constructor() {
+ * super('Home');
+ * }
+ * async render() {
+ * return this.html(`
+ * <div className="hero p-5">
+ * <h1>Home</h1>
+ * </div>
+ * `);
+ * }
+ */
+export const Vader = {
+  Component: Component,
+  useRef: useRef,
+};
+export const component = (name) => {
+  return new Component(name);
+};
 
 /**
  * @function rf
  * @param {*} name
  * @param {*} fn
  * @returns {null}
+ * @deprecated - rf has been replaced with Vader.Component.$Function
  * @description Allows you to register function in global scope
  */
 export const rf = (name, fn) => {
   window[name] = fn;
-};
-/**
- * @function include
- * @description Allows you to include html file
- * @returns   - modified string with html content
- * @param {string}  path
- */
-
-let cache = {};
-export const include = (path, options) => {
-  if (cache[path]) {
-    return new Function(`return \`${cache[path]}\`;`)();
-  }
-
-  return fetch(`./${path}`)
-    .then((res) => {
-      if (res.status === 404) {
-        throw new Error(`No file found at ${path}`);
-      }
-      return res.text();
-    })
-    .then((data) => {
-      // Handle includes
-      let includes = data.match(/<include src="(.*)"\/>/gs);
-      if (includes) {
-        // Use Promise.all to fetch all includes concurrently
-        const includePromises = includes.map((e) => {
-          let includePath = e.match(/<include src="(.*)"\/>/)[1];
-          return include(includePath).then((includeData) => {
-            // Replace the include tag with the fetched data
-            data = data.replace(e, includeData);
-          });
-        });
-
-        // Wait for all includes to be fetched and replaced
-        return Promise.all(includePromises).then(() => {
-          cache[path] = data;
-          return new Function(`return \`${data}\`;`)();
-        });
-      } else {
-        cache[path] = data;
-        return new Function(`return \`${data}\`;`)();
-      }
-    });
 };
