@@ -10,9 +10,7 @@ app.on('/', async (req, res) => {
     console.log(req)
     res.render('#root', await Home.render());
 });
-app.use('/about', async (q,r)=>{
-    r.render('#root', await About.render())
-})
+
 
  
 app.start ();
