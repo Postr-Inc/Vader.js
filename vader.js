@@ -20,6 +20,8 @@ export const useRef = (ref /** @type {string} */) => {
   const update = (data) => {
     // Parse the new HTML data
     const newDom = new DOMParser().parseFromString(data, "text/html");
+     
+     
     const newHtml = newDom.body.firstChild;
 
     if (el) {

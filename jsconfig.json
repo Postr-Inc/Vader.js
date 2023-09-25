@@ -1,13 +1,17 @@
 {
     "compilerOptions": {
-      "target": "ES6", // Adjust your target version if needed
-      "checkJs": true, // Enable type checking for JavaScript files
-      "allowJs": true, // Allow JavaScript files to be included in the project
-      "esModuleInterop": true, // Enable ES module interop
-      "strict": true, // Enable strict mode
-      "forceConsistentCasingInFileNames": true // Enforce consistent casing of file names
+      "allowJs": true,
+      "checkJs": true,
+      "target": "es6",
+      "module": "commonjs",
+      "alwaysStrict": true
+ 
     },
-    "include": ["src/**/*.js"], // Specify the path to your JavaScript source files
-    "exclude": ["node_modules", "dist", "build"] // Exclude directories as needed
-  }
-  
+    "exclude": [
+      "node_modules",
+      "dist"
+    ],
+    "include": [
+      "**/*.js"
+    ]
+}

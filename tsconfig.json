@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "ES2016",
+        "module": "commonjs",
+        "allowJs": true,
+        "checkJs": true 
+  
+    },
+    "include": [
+        "**/*.js"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "website"
+    ],
+    "compileOnSave": true,
+}

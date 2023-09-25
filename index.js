@@ -6,6 +6,7 @@
  * 
  */
 import { Vader } from "./vader.js";
+// @ts-ignore
 import { VaderRouter } from "./vader-router.js";
 
 export { Vader, VaderRouter };

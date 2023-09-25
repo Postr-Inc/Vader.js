@@ -195,6 +195,11 @@ class VaderRouter {
       ) {
         return false;
       }
+      /**
+       * @alias query
+       * @type {Object}
+       * @property {Object} params - The params object.
+       */
       const query = {};
 
       const queryString = window.location.hash.substring(1).split("?")[1];
@@ -233,9 +238,7 @@ class VaderRouter {
        * @description  Allows you to perform actions when the currentRoute changes.
        */
       const res = {
-        return: function (data) {
-          this.hooked = false;
-        },
+         
         render: function (selector, data) {
           document.querySelector(selector).innerHTML = data;
         },
@@ -249,7 +252,12 @@ class VaderRouter {
     this.hooked = false;
     return false;
   }
-
+ 
+  /**
+   * @alias kill
+   * @description  Allows you to kill a route.
+   * @param {string} path 
+   */
   kill(path) {
     if (this.routes[path]) {
       delete this.routes[path];
@@ -310,6 +318,10 @@ class VaderRouter {
     }
   }
 
+  /**
+   * @alias onload
+   * @param {Function} callback 
+   */
   onload(callback) {
     // await dom to be done make sure no new elements are added
     if (
@@ -333,8 +345,16 @@ class VaderRouter {
    */
   on(path, callback) {
     window.addEventListener("hashchange", () => {
-      const paramNames = [];
-      const queryNames = [];
+      /**
+       * @alias paramNames
+       * @typedef {Array}
+       */
+      const paramNames =  new Array();
+      /**
+       * @alias queryNames
+       * @typedef {Array}
+       */
+      const queryNames = new Array();
       const parsedPath = path
         .split("/")
         .map((part) => {
@@ -381,6 +401,7 @@ class VaderRouter {
         const params = {};
 
         for (let i = 0; i < paramNames.length; i++) {
+          // @ts-ignore
           params[paramNames[i]] = matches[i + 1];
         }
         if (
@@ -401,6 +422,7 @@ class VaderRouter {
           const queryParts = queryString.split("&");
           for (let i = 0; i < queryParts.length; i++) {
             const queryParam = queryParts[i].split("=");
+            // @ts-ignore
             query[queryParam[0]] = queryParam[1];
           }
         }
@@ -411,9 +433,7 @@ class VaderRouter {
           method: "POST",
         };
         const res = {
-          return: function (data) {
-            this.hooked = false;
-          },
+         
           /**
            * @alias send
            * @param {String} selector
@@ -425,6 +445,7 @@ class VaderRouter {
            * res.send('#root', '<h1>Hello World</h1>');
            * */
           send: function (selector, data) {
+            // @ts-ignore
             document.querySelector(selector).innerHTML = data;
           },
           /**
@@ -436,6 +457,7 @@ class VaderRouter {
            * @description  Allows you to perform actions when the currentRoute changes.
            */
           render: function (selector, data) {
+            // @ts-ignore
             document.querySelector(selector).innerHTML = data;
           },
         };

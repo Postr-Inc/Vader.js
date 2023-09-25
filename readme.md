@@ -139,7 +139,15 @@ count.cleanup()  // cleans up the signal
 count.get() // returns the signal detail
  
 
+
 ```
+- Signals also allow you to share state between scopes
+
+```javascript
+window.addEventListener('signalDispatch', (e)=>{
+  console.log(e.detail)
+})
+````
 
 ### Function Binding
 
