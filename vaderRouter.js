@@ -3,7 +3,7 @@ window.$URL_QUERY = {};
 
 /**
  * @file VaderRouter.js
- * @version 1.0.0
+ * @version 1.1.3
  * @license MIT
  * @description A simple router for single page applications.
  */
