@@ -45,7 +45,6 @@ export const useRef = (ref) => {
       // If the element doesn't exist, create it
       el = newHtml.cloneNode(true);
       window.dom[ref] = el;
-    
     }
   };
 
@@ -56,7 +55,6 @@ export const useRef = (ref) => {
 };
 
 export function vhtml(strings, options, ...args) {
-  
   let result = "";
 
   for (let i = 0; i < strings.length; i++) {
@@ -131,9 +129,7 @@ export function component(name, options) {
    * @description Allows you to change state of component and re-render it
    */
   const setState = (key, value) => {
-    
     states[key] = value;
-    window.props[key] = value;
     updateComponaent();
   };
 
@@ -146,37 +142,117 @@ export function component(name, options) {
    * @example
    * let count = signal('count', 0);
    *
-   * count.subscribe((state) => {
+   * let counter = count.subscribe((state) => {
    *  console.log(state)
    * });
+   *
+   * count.cleanup(counter ) // always clear your counters - no duplicates
    *
    * count.call();
    * count.set(1);
    * count.call();
    * count.get();
    *
+   * // signals also emit events
+   *
+   * window.addEventListener('signalDispatch', ()=>{
+   * /// do something
+   * })
+   *
    */
-
+  let $_signal_subscribers = [];
+  let $_signalsubscribersran = [];
   const signal = (key, initialState) => {
-    let [state, setState] = useState(key, initialState);
-    let subscribers = [];
+    let hasCaller = false;
 
-    function subscribe(fn) {
-      subscribers.push(fn);
+    let [state, setState] = useState(key, initialState, () => {
+      if ($_signal_subscribers.length > 0) {
+        for (var i = 0; i < $_signal_subscribers.length; i++) {
+          if (!hasCaller) {
+            if (
+              $_signal_subscribers[i].runonce &&
+              $_signalsubscribersran.includes($_signal_subscribers[i])
+            ) {
+              break;
+            } else {
+              $_signal_subscribers[i].function(state);
+              $_signalsubscribersran.push($_signal_subscribers[i]);
+              return;
+            }
+          }
+        }
+      } else {
+        let signalEvent = new CustomEvent("signalDispatch", {
+          detail: {
+            hasUpdated: true,
+            state: state,
+          },
+        });
+        dispatchEvent(signalEvent);
+      }
+    });
+    /**
+     * @function subscribe
+     * @param {Function} fn
+     * @param {Boolean} runonce - infer that the function should only be ran once or not.
+     * @description - Subcribe to state changes
+     */
+    function subscribe(fn, runonce) {
+      $_signal_subscribers.push({
+        function: fn,
+        runonce: runonce,
+      });
     }
-    function cleanup() {
-      subscribers = subscribers.filter((subscriber) => subscriber !== fn);
-      setState(null);
+    /**
+     * @function cleanup
+     * @param {Function} fn
+     * @description - Ensures that the last subscriber gets cleared after updated state
+     */
+    function cleanup(fn) {
+      $_signal_subscribers = $_signal_subscribers.filter(
+        (subscriber) => subscriber.function !== fn
+      );
     }
+    /**
+     * @function dispatch
+     * @returns {void}
+     * @description - handles signal functions to ensure they are either ran once or infinitely ran
+     */
     function dispatch() {
-      subscribers.forEach((subscriber) => subscriber(state));
+      for (var i = 0; i < $_signal_subscribers.length; i++) {
+        if (
+          $_signal_subscribers[i].runonce &&
+          $_signalsubscribersran.includes($_signal_subscribers[i])
+        ) {
+          break;
+        } else {
+          $_signal_subscribers[i].function(state);
+          $_signalsubscribersran.push($_signal_subscribers[i]);
+          return;
+        }
+      }
     }
+    /**
+     * @function get
+     * @returns {String | Number | Boolean | Object} - the current state
+     */
     function get() {
       return state;
     }
+    /**
+     * @function call
+     * @returns {void}
+     * @description Call each subscriber
+     */
     function call() {
+      hasCaller = true;
       dispatch();
     }
+    /**
+     * @function set
+     * @param detail - change the current state
+     * @returns {void}
+     */
     function set(detail) {
       setState(detail);
     }
@@ -190,19 +266,19 @@ export function component(name, options) {
       get,
     };
   };
-
+  window.states = states;
   /**
    * @function useState
    * @param {*} key
    * @param {*} initialValue
+   * @param {Function} callback - allows you to call a function when state changes
    * @returns  {Array} [state, setState]
    * @description Allows you to bind state to component
    */
 
-  window.states = states;
-  const useState = (key, initialValue) => {
+  const useState = (key, initialValue, callback) => {
     if (!states[key]) {
-        states[key] = initialValue;
+      states[key] = initialValue;
     }
     return [
       states[key],
@@ -210,7 +286,7 @@ export function component(name, options) {
         states[key] = value;
         window.props[key] = value;
         updateComponent();
-         
+        typeof callback === "function" ? callback() : null;
       },
     ];
   };
@@ -219,36 +295,36 @@ export function component(name, options) {
    * @param {*} effectFn
    * @returns {null}
    * @description Allows you to run side effects
-   * 
+   * @deprecated - this is no longer suggested please use vader signals instead
    * @example
    * let [count, setCount] = useState('count', 0);
    * useEffect(() => {
    * console.log('count', count)
-   * }, ['count'])
+   * }, [count])
    */
 
   const useEffect = (effectFn, dependencies) => {
     if (!effects[name]) {
       effects[name] = [];
     }
-    if (dependencies) {
-      let shouldRunEffect = false;
-      dependencies.forEach((dependency) => {
-        if (states[dependency]) {
-          shouldRunEffect = true;
+    effects[name].push(effectFn);
+
+    if (dependencies.length > 0) {
+      dependencies.forEach((d) => {
+        if (d.set) {
+          throw new Error(
+            "signal found, do not use effect and signals at the same time - signals are more efficient"
+          );
         }
       });
-      if (shouldRunEffect) {
-        effects[name].push(effectFn);
-      }
-    } else {
-      effects[name].push(effectFn);
+    } else if (!hasMounted) {
+      effectFn();
+      hasMounted = true;
     }
 
     return () => {
       effects[name] = effects[name].filter((fn) => fn !== effectFn);
-    }
-    
+    };
   };
 
   /**
@@ -479,11 +555,10 @@ export function component(name, options) {
   window.signal = signal;
 
   const updateComponent = async () => {
-    
     const componentContainer = document.querySelector(
       `[data-component="${name}"]`
     );
-    
+
     const newHtml = await options.render(states, storedProps);
     if (componentContainer && newHtml !== componentContainer.innerHTML) {
       // only update the chunk of DOM that has changed
@@ -492,10 +567,11 @@ export function component(name, options) {
         componentContainer.innerHTML,
         "text/html"
       );
-      let newBody = newDom.body 
-      let oldBody = oldDom.body 
-      if(newBody.isEqualNode(oldBody)) return;
+      let newBody = newDom.body;
+      let oldBody = oldDom.body;
+      if (newBody.isEqualNode(oldBody)) return;
       componentContainer.innerHTML = newHtml;
+      runEffects();
       if (!componentMounted) {
         componentMounted = true;
 
@@ -523,12 +599,9 @@ export function component(name, options) {
     let data = await vhtml(
       `<div data-component="${name}"
       style="display: contents; width: 100%; height: 100%;"
-      >${await options.render(
-        states,
-        props
-      )}</div>`
+      >${await options.render(states, props)}</div>`
     );
- 
+
     storedProps = props;
     runEffects();
     setTimeout(() => {
@@ -570,39 +643,38 @@ export const rf = (name, fn) => {
 
 let cache = {};
 export const include = (path, options) => {
-    if (cache[path]) {
-      return new Function(`return \`${cache[path]}\`;`)();
-    }
-  
-    return fetch(`./${path}`)
-      .then((res) => {
-        if (res.status === 404) {
-          throw new Error(`No file found at ${path}`);
-        }
-        return res.text();
-      })
-      .then((data) => {
-        // Handle includes
-        let includes = data.match(/<include src="(.*)"\/>/gs);
-        if (includes) {
-          // Use Promise.all to fetch all includes concurrently
-          const includePromises = includes.map((e) => {
-            let includePath = e.match(/<include src="(.*)"\/>/)[1];
-            return include(includePath).then((includeData) => {
-              // Replace the include tag with the fetched data
-              data = data.replace(e, includeData);
-            });
+  if (cache[path]) {
+    return new Function(`return \`${cache[path]}\`;`)();
+  }
+
+  return fetch(`./${path}`)
+    .then((res) => {
+      if (res.status === 404) {
+        throw new Error(`No file found at ${path}`);
+      }
+      return res.text();
+    })
+    .then((data) => {
+      // Handle includes
+      let includes = data.match(/<include src="(.*)"\/>/gs);
+      if (includes) {
+        // Use Promise.all to fetch all includes concurrently
+        const includePromises = includes.map((e) => {
+          let includePath = e.match(/<include src="(.*)"\/>/)[1];
+          return include(includePath).then((includeData) => {
+            // Replace the include tag with the fetched data
+            data = data.replace(e, includeData);
           });
-  
-          // Wait for all includes to be fetched and replaced
-          return Promise.all(includePromises).then(() => {
-            cache[path] = data;
-            return new Function(`return \`${data}\`;`)();
-          });
-        } else {
+        });
+
+        // Wait for all includes to be fetched and replaced
+        return Promise.all(includePromises).then(() => {
           cache[path] = data;
-            return new Function(`return \`${data}\`;`)();
-        }
-      });
-  };
-  
+          return new Function(`return \`${data}\`;`)();
+        });
+      } else {
+        cache[path] = data;
+        return new Function(`return \`${data}\`;`)();
+      }
+    });
+};
