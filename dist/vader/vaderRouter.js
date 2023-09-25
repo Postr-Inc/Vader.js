@@ -93,10 +93,7 @@ class VaderRouter {
     this.customerror = true;
   }
   handleRoute(method) {
-    if (this.hooked) {
-      return;
-    }
-    this.hooked = true;
+   
     let route = window.location.hash.substring(1);
 
     window.$CURRENT_URL = route;
@@ -123,6 +120,7 @@ class VaderRouter {
         },
       };
       if (typeof this.routes[route] === "function") {
+        console.log('route change')
         this.routes[route](req, res);
       } else {
         console.error("Error: Route is not a function");
