@@ -54,6 +54,12 @@ or
 
 4. Create dynamic SPAs with enhanced user experiences.
 
+5. Type checking / testing
+   - Vader has jsdoc annotations built in but also allows ts using the tsconfig
+     
+  ```bash
+   npm run test // validate your code
+  ```
 ## Key Features
 
 ### Declarative Routing
