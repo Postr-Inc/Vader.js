@@ -18,17 +18,37 @@ router.start();
 ```
 
 ### State Management
-
+> as of 9/25/23 useEffect in vader is deprecated
 ```javascript
 const [state, setState] = useState("count", initialState);
 function increment(){
    setState(state + 1)
 }
 rf('increment', increment)
+
 useEffect((state)=>{
   console.log('New State for count' + state)
 }[state])
 <button onclick="increment()">Increment</button>
+```
+### Signals
+
+> This is a new way of using state in vader aswell as a alternative to using useEffect
+
+```js
+let count = signal("count", 0);
+
+let counter = count.subscribe((s) => {
+ console.log("count state updated", s);
+
+}, true); // this is ran once
+
+count.call() // call the callback when you want, you do not have to invoke .call the signal also handles callbacks at state change
+count.cleanup(counter) // clean the last signal after state change
+
+window.addEventListener('signalDispatch', (e)=>{
+// allows you to get the changed state globally
+})
 ```
 
 ### Function Binding
