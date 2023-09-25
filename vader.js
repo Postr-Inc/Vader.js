@@ -1,16 +1,22 @@
-window.dom = {};
+
+let dom = /**@type {Obect}  **/ {};
 /**
  * @function useRef
  * @description Allows you to get reference to DOM element
  * @param {String} ref
  * @returns {Object} {current}
- * @returns
  */
-export const useRef = (ref) => {
+export const useRef = (ref /** @type {string} */) => {
   // Try to get the existing DOM element from window.dom
-  let el = window.dom[ref] || document.querySelector(`[ref="${ref}"]`);
+   /**@type {object }*/
+  let el =   dom[ref] || document.querySelector(`[ref="${ref}"]`);
 
   // Function to update the DOM element with new HTML content
+  /**
+   * @function update
+   * @description Allows you to update the DOM element with new HTML content
+   * @param {String} data 
+   */
   const update = (data) => {
     // Parse the new HTML data
     const newDom = new DOMParser().parseFromString(data, "text/html");
@@ -23,12 +29,12 @@ export const useRef = (ref) => {
         const newElement = newHtml.cloneNode(true);
         // Replace the old element with the new one
         el.parentNode.replaceChild(newElement, el);
-        window.dom[ref] = newElement;
+        dom[ref] = newElement;
       }
     } else {
       // If the element doesn't exist, create it
       el = newHtml.cloneNode(true);
-      window.dom[ref] = el;
+      dom[ref] = el;
     }
   };
 
@@ -60,7 +66,7 @@ let components = [];
 export class Component {
   constructor() {
     this.states = {};
-    // get extended class name
+    //@ts-ignore
     this.name = this.constructor.name;
     console.log(this.name);
     this.executedEffects = {};
@@ -68,31 +74,62 @@ export class Component {
     this.componentMounted = false;
     this.hasMounted = false;
     this.$_signal_subscribers = [];
-    this.$_signal_subscribers_ran = [];
+    /**
+     * @property {Array} $_signal_subscribers_ran
+     * @description Allows you to keep track of signal subscribers
+     * @private
+    */
+    this.$_signal_subscribers_ran =   [];
     this.effects = {};
     this.$_useStore_subscribers = [];
     this.init();
     this.Componentcontent = null;
+    this.$_signal_dispatch_event = new CustomEvent("signalDispatch", {
+      detail: {
+        hasUpdated: false,
+        state: null,
+      },
+    });
   }
 
   init() {
+    //@ts-ignore
     this.registerComponent();
+      //@ts-ignore
     window.states = this.states;
+      //@ts-ignore
     window.useState = this.useState;
+      //@ts-ignore
     window.setState = this.setState;
+      //@ts-ignore
     window.useEffect = this.useEffect;
+      //@ts-ignore
     window.useAuth = this.useAuth;
+      //@ts-ignore
     window.useSyncStore = this.useSyncStore;
+      //@ts-ignore
     window.useReducer = this.useReducer;
+      //@ts-ignore
     window.runEffects = this.runEffects;
+      //@ts-ignore
     window.rf = this.rf;
+      //@ts-ignore
     window.signal = this.signal;
   }
 
   registerComponent() {
-    components.push({ name: this.name, options: this.options });
+    components.push(this);
   }
-
+ 
+  /**
+   * @method setState
+   * @description Allows you to set state
+   * @param {String} key
+   * @param {*} value 
+   * @returns {void}
+   * @example
+   * this.setState('count', 1)
+   * */
   setState(key, value) {
     this.states[key] = value;
     this.updateComponent();
@@ -131,6 +168,7 @@ export class Component {
           if (!hasCaller) {
             if (
               this.$_signal_subscribers[i].runonce &&
+              // @ts-ignore
               this.$_signal_subscribers_ran.includes(
                 this.$_signal_subscribers[i]
               )
@@ -139,17 +177,14 @@ export class Component {
             } else {
               this.$_signal_subscribers[i].function(state);
               this.$_signal_subscribers_ran.push(this.$_signal_subscribers[i]);
+              return;
             }
           }
         }
       } else {
-        let signalEvent = new CustomEvent("signalDispatch", {
-          detail: {
-            hasUpdated: true,
-            state: state,
-          },
-        });
-        dispatchEvent(signalEvent);
+        this.$_signal_dispatch_event.detail.hasUpdated = true;
+        this.$_signal_dispatch_event.detail.state = state;
+        window.dispatchEvent(this.$_signal_dispatch_event);
       }
     });
     /**
@@ -157,7 +192,7 @@ export class Component {
      * @description Allows you to subscribe to a signal
      * @param {*} fn
      * @param {*} runonce
-     * @returns {null}
+     * @returns {void}
      *
      */
     this.$_signal_subscribe = (fn, runonce) => {
@@ -175,6 +210,7 @@ export class Component {
       for (var i = 0; i < this.$_signal_subscribers.length; i++) {
         if (
           this.$_signal_subscribers[i].runonce &&
+          // @ts-ignore
           this.$_signal_subscribers_ran.includes(this.$_signal_subscribers[i])
         ) {
           break;
@@ -189,8 +225,13 @@ export class Component {
     };
     this.$_signal_call = () => {
       hasCaller = true;
-      dispatch();
+      this.$_signal_dispatch();
     };
+    /**
+     * @function  $_signal_set
+     * @description Allows you to set the value of a signal
+     * @param {*} detail
+     */
     this.$_signal_set = (detail) => {
       setState(detail);
     };
@@ -238,11 +279,36 @@ export class Component {
       get: this.$_signal_get,
     };
   };
+  /**
+   * @method useAuth
+   * @description Allows you to create an auth object
+   * @param {Object} options
+   * @param {Array} options.rulesets
+   * @param {Object} options.user
+   * @returns {Object} {can, hasRole, canWithRole, assignRule, revokeRule, canAnyOf, canAllOf, canGroup}
+   * @example
+   * let auth = this.useAuth({
+   * rulesets: [
+   * {
+   * action: 'create',
+   * condition: (user) => {
+   * return user.role === 'admin'
+   *  }
+   *  }
+   * ],
+   *  user: {
+   * role: 'admin'
+   * }
+   * })
+   * auth.can('create') // true
+   */
   useAuth(options) {
-    let rules = options.rulesets;
+    /**@type {Array}**/ 
+    let rules =  options.rulesets;
     if (!rules) {
       throw new Error("No rulesets provided");
     }
+    /**@type {Object}**/
     let user = options.user;
     let auth = {
       can: (action) => {
@@ -256,9 +322,21 @@ export class Component {
         });
         return can;
       },
+      /**
+       * @function hasRole
+       * @description Allows you to check if user has a role
+       * @param {String} role
+       * @returns {Boolean}
+       */
       hasRole: (role) => {
         return user.role && user.role.includes(role);
       },
+      /**
+       * @function canWithRole
+       * @param {String} action
+       * @param {String} role 
+       * @returns 
+       */
       canWithRole: (action, role) => {
         return auth.can(action) && auth.hasRole(role);
       },
@@ -286,6 +364,27 @@ export class Component {
     };
     return auth;
   }
+  /**
+   * @method useReducer
+   * @description Allows you to create a reducer
+   * @param {*} key
+   * @param {*} reducer
+   * @param {*} initialState
+   * @url - useReducer works similarly to - https://react.dev/reference/react/useReducer
+   * @returns  {Array} [state, dispatch]
+   * @example
+   *  let [count, setCount] = this.useReducer('count', (state, action) => {
+   *   switch (action.type) {
+   *   case 'increment':
+   *     return state + 1
+   *   case 'decrement':
+   *     return state - 1
+   *   default:
+   *    throw new Error()
+   *    }
+   *  }, 0)
+   *  setCount({type: 'increment'})
+   */
   useReducer(key, reducer, initialState) {
     const [state, setState] = this.useState(key, initialState);
     const dispatch = (action) => {
@@ -304,12 +403,25 @@ export class Component {
       });
     });
   }
-
+  /**
+   * @method useSyncStore
+   * @description Allows you to create a store
+   * @param {*} storeName 
+   * @param {*} initialState 
+   * @returns  {Object} {getField, setField, subscribe, clear}
+   * @example
+   *  let store = this.useSyncStore('store', {count: 0})
+   *  store.setField('count', 1)
+   *  store.getField('count') // 1
+   * 
+   */
   useSyncStore(storeName, initialState) {
     let [storedState, setStoredState] = this.useState(
       storeName,
       initialState ||
+       // @ts-ignore
         localStorage.getItem(`$_vader_${storeName}`, (s) => {
+          
           localStorage.setItem(`$_vader_${storeName}`, JSON.stringify(s));
           this.$_useStore_subscribers.forEach((subscriber) => {
             subscriber(s);
@@ -341,6 +453,21 @@ export class Component {
       clear,
     };
   }
+  /**
+   * @method useState
+   * @description Allows you to create a state
+   * @param {String} key
+   * @param {*} initialValue
+   * @param {*} callback
+   * @url - useState works similarly to - https://react.dev/reference/react/useState
+   * @returns  {Array} [state, setState]
+   * @example
+   *  let [count, setCount] = this.useState('count', 0, () => {
+   *    console.log('count has been updated')
+   *   })
+   *
+   *   setCount(count + 1)
+   */
   useState(key, initialValue, callback) {
     if (!this.states[key]) {
       this.states[key] = initialValue;
@@ -359,10 +486,9 @@ export class Component {
    * @function useEffect
    * @param {*} effectFn
    * @param {*} dependencies
-   * @returns  {null}
    * @description Allows you to run side effects
    * @deprecated - this is no longer suggested please use vader signals instead
-   * @returns
+   * @returns {Object} {cleanup}
    */
   useEffect(effectFn, dependencies) {
     if (!this.effects[this.name]) {
@@ -383,11 +509,13 @@ export class Component {
       this.hasMounted = true;
     }
 
-    return () => {
-      this.effects[this.name] = this.effects[this.name].filter(
-        (fn) => fn !== effectFn
-      );
-    };
+    return{
+      cleanup: () => {
+        this.effects[this.name] = this.effects[this.name].filter(
+          (effect) => effect !== effectFn
+        );
+      },
+    }
   }
   /**
    * @method $Function
@@ -398,9 +526,9 @@ export class Component {
    *  return e +  a
    * })
    * @param {*} fn
-   * @returns
    */
   $Function(fn) {
+    // @ts-ignore
     if (!typeof fn === "function") {
       throw new Error("fn must be a function");
     }
@@ -409,7 +537,7 @@ export class Component {
       name = "anonymous";
     }
     window[name] = fn;
-
+    // @ts-ignore
     return `window.${name}()`;
   }
 
@@ -441,8 +569,6 @@ export class Component {
         this.useReducer,
         this.useSyncStore,
         this.signal,
-        this.rf,
-        window.props,
         this.render
       );
       this.componentDidMount();
@@ -465,7 +591,7 @@ export class Component {
     let elements = dom.body.querySelectorAll("*");
     elements.forEach((element) => {
       if (element.hasAttribute("ref")) {
-        window.dom[element.getAttribute("ref")] = element;
+        dom[element.getAttribute("ref")] = element;
       }
     });
     this.Componentcontent = result;
@@ -506,17 +632,62 @@ export const Vader = {
   useRef: useRef,
 };
 export const component = (name) => {
-  return new Component(name);
+  return new Component()
 };
 
 /**
  * @function rf
  * @param {*} name
  * @param {*} fn
- * @returns {null}
+ * @returns {void}
  * @deprecated - rf has been replaced with Vader.Component.$Function
  * @description Allows you to register function in global scope
  */
 export const rf = (name, fn) => {
   window[name] = fn;
+};
+let cache = {};
+/**
+ * @function include
+ * @description Allows you to include html file
+ * @returns   - modified string with html content
+ * @param {string}  path
+ * @param {Object} options
+ */
+
+export const include = (path, options) => {
+  if (cache[path]) {
+    return new Function(`return \`${cache[path]}\`;`)();
+  }
+
+  return fetch(`./${path}`)
+    .then((res) => {
+      if (res.status === 404) {
+        throw new Error(`No file found at ${path}`);
+      }
+      return res.text();
+    })
+    .then((data) => {
+      // Handle includes
+      let includes = data.match(/<include src="(.*)"\/>/gs);
+      if (includes) {
+        // Use Promise.all to fetch all includes concurrently
+        const includePromises = includes.map((e) => {
+          let includePath = e.match(/<include src="(.*)"\/>/)[1];
+          return include(includePath).then((includeData) => {
+            // Replace the include tag with the fetched data
+            data = data.replace(e, includeData);
+          });
+        });
+
+        // Wait for all includes to be fetched and replaced
+        return Promise.all(includePromises).then(() => {
+          cache[path] = data;
+          return new Function(`return \`${data}\`;`)();
+        });
+      } else {
+        cache[path] = data;
+        return new Function(`return \`${data}\`;`)();
+      }
+    });
 };
