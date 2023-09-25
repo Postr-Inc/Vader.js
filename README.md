@@ -1,67 +1,160 @@
+<p align="center">
+  <a href="https://vader-js.pages.dev">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="/icon.jpeg">
+      <img src="logo.png" height="128">
+    </picture>
+    <h1 align="center">Vader.js</h1>
+  </a>
+</p>
+
 # VaderJS: A Reactive Framework for SPAs
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Postr-Inc/Vader.js/blob/main/LICENSE) [![npm version](https://img.shields.io/npm/v/vaderjs.svg?style=flat)](https://www.npmjs.com/package/vaderjs) 
 
-VaderJS is a powerful reactive framework for building Single-Page Applications (SPAs), inspired by React.js.
+VaderJS is powerful component based reactive library for spa inspired by react.js
+
+
+## Get Started
+
+1. Install VaderJS:
+
+```sh
+  npm install vaderjs
+ ```
+
+or
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/vaderjs@latest/index.js" ></script>
+<script type="module" src="https://unpkg.com/vaderjs@latest/index.js">
+ ```
+
+2. Import components and utilities into your project.
+
+ - Heres an example import map
+
+ ```html
+   <script type="importmap">
+        {
+            "imports":{
+                "vaderjs":"./dist/vader/index.js",
+            }
+        }
+    </script>
+ ```
+
+ - Then you can import like this
+
+ ```js
+  import { Vader, VaderRouter } from 'vaderjs'
+  ```
+
+3. Use VaderJS features for routing, state management, auth, and more.
+
+4. Create dynamic SPAs with enhanced user experiences.
 
 ## Key Features
 
 ### Declarative Routing
 
 ```javascript
-const router = new vaderRouter('/');
-router.use('/');
-router.on('/test/:hello', (req) => {
-    console.log(req.params);
-});
-router.start();
+import { VaderRouter } from "vader-router";
+import { MyComponent } from './components/my-component.js'
+const app = new VaderRouter('/') // intial route
+
+app.use('/') // use the route
+
+app.get('/', async (req, res) => {
+    res.render('#app', await MyComponent.render())
+})
+
+app.on('/', async (req, res) => {
+    res.render('#app', await MyComponent.render())
+})
+app.get('/:hello', (req, res) => {
+    res.render('#app', `<h1>Hello ${req.params.hello}</h1>`)
+})
+
+app.start()
 ```
+ 
 
 ### State Management
-> as of 9/25/23 useEffect in vader is deprecated
-```javascript
-const [state, setState] = useState("count", initialState);
-function increment(){
-   setState(state + 1)
-}
-rf('increment', increment)
 
-useEffect((state)=>{
-  console.log('New State for count' + state)
-}[state])
-<button onclick="increment()">Increment</button>
+```javascript
+import { Vader } from "vaderjs"
+
+class MyApp extends Vader.Component{
+  contructor(){
+   super()
+   
+  }
+  
+  render(){
+    const [state, setState] = this.useState('state', 0, ()=>{
+     // this is a  callback that is ran on state change!
+    })
+    
+    let myfunc = this.$Function(function fn(){
+      setState(state + 1)
+    })
+
+    this.useEffect(()=>{
+      // this is a callback that is ran on component mount
+    }, [])
+    
+    return this.html(`
+     <p>count ${state} </p>
+     <button onclick="${myfunc}">Change State by 1</button>
+    `)
+    
+  }
+}
 ```
+
 ### Signals
 
-> This is a new way of using state in vader aswell as a alternative to using useEffect
+Signals are a way to communicate between components. Signals are similar to events in React.js. Signals are useful for global state management and component communication.
 
-```js
-let count = signal("count", 0);
+- This is new as of v1.1.2
 
-let counter = count.subscribe((s) => {
- console.log("count state updated", s);
+```javascript
 
-}, true); // this is ran once
+let count = this.signal('count', 0)
 
-count.call() // call the callback when you want, you do not have to invoke .call the signal also handles callbacks at state change
-count.cleanup(counter) // clean the last signal after state change
-
-window.addEventListener('signalDispatch', (e)=>{
-// allows you to get the changed state globally
+let increment = this.$Function(function increment(){
+  count.set(count.get() + 1)
 })
+
+count.subscribe( (detail)=>{
+   console.log(detail)
+}, true) // true means it will run on once
+
+// call the signal
+count.call()
+
+count.cleanup()  // cleans up the signal
+
+count.get() // returns the signal detail
+ 
+
 ```
 
 ### Function Binding
 
 ```javascript
-rf('login', login);
-return html`<button onclick="login()">Login</button>`;
+const fn = this.$Function(function fn() {
+    console.log("Hello World");
+});
+ 
+return html`<button onclick="${fn}">Click Me</button>`
 ```
 
 ### Authentication & Authorization
 
 ```javascript
-const auth = useAuth({
+const auth = this.useAuth({
     rulesets: rules,
     user: currentUser
 });
@@ -70,68 +163,23 @@ if (auth.can('edit')) {
 }
 ```
 
-### Global State Management
-
-```javascript
-const store = createStore(initialState);
-const { state, setState, subscribe } = store;
-```
-
+ 
 ### Simplified Component Creation
 
 ```javascript
-// id is a unique component key in which allows vader to update the component state!
-const myComponent = (id) = component(id, {
- render: (states, props) => {
-   return vhtml`
-    <div>${props.message}</div>
-   `
+import { Vader } from 'vaderjs';
+
+export class App extends Vader.Component{
+  constructor(){
+    super('App')
+  }
+  render(){
+    return html`<div>Hello World</div>`
+  }
 }
-})
-
- // then call
-
-myComponent(key).render({props})
-
-//example
-
-import VaderRouter from "./router.js";
-import { vhtml, component, rf } from './script.js'
-
-const app = component('app', {
-  render: (states) => {
-    let [count, setCount] = useState('count', 0);
-    useEffect(() => {
-      console.log(states)
-      console.log('App component mounted');
-    }, [count]);
-
-    function incrementHandler() {
-      setCount(count + 1);
-    }
-    rf('incrementHandler', incrementHandler);
-
-
-    return vhtml`
-     
-      <div>
-        <button className="btn" onclick="incrementHandler()"
-        
-        >Count: ${count}</button>
-        ${
-          count > 10 ? '<h1 style="color:lightBlue">Greater Than 10</h1>' : 'Less than 10'
-        }
-      </div>
-    `;
-  },
-})
-
-(async ()=>{
-   document.body.innerHTML = await app.render()
-})
 ```
 
-## External views
+## Include views
 
 As of v1.1.0 - Vader allows you to include html files as templates 
 
@@ -147,30 +195,20 @@ ${
 
 ```js
 // home.js
-import { vhtml, component, rf, include } from 'vader.js'
-const Home = component('Home', {
- render: async () =>{
-  let html = await include('views/app.html')
-  return vhtml(html) || vhtml`${html}` // if using more than one view component
-  },
- componentDidMount: () =>{
-  console.log('home mounted')
- }
-})
+import {  Vader, include } from "vaderjs";
+
+class Home extends Vader.Component {
+  constructor() {
+    super();
+  }
+  render() {
+    return this.html(include("views/app.html"));
+  }
+}
+
+ 
 ```
-
-## Get Started
-
-1. Install VaderJS:
-   ```sh
-   npm install vaderjs
-   ```
-
-2. Import components and utilities into your project.
-
-3. Use VaderJS features for routing, state management, auth, and more.
-
-4. Create dynamic SPAs with enhanced user experiences.
+ 
 
 ## License
 
