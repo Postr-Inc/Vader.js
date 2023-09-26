@@ -692,7 +692,7 @@ export class Component {
    */
   html(strings, ...args) {
     // @ts-ignore
-    if(new Error().stack && new Error().stack.split("\n").length > 0 && new Error().stack.split("\n")[2].trim().includes("render") && !this.componentMounted) {
+    if(new Error().stack && new Error().stack.split("\n").length > 0 && new Error().stack.split("\n")[2] && new Error().stack.split("\n")[2].includes("render") && !this.componentMounted) {
      this.componentMounted = true;
       this.componentDidMount();
     }
