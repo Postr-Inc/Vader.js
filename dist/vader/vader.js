@@ -695,6 +695,7 @@ export class Component {
     if(new Error().stack && new Error().stack.split("\n").length > 0 && new Error().stack.split("\n")[2] && new Error().stack.split("\n")[2].includes("render") && !this.componentMounted) {
      this.componentMounted = true;
       this.componentDidMount();
+      console.log("component mounted")
     }
   
 
