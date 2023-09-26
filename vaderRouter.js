@@ -1,6 +1,6 @@
-// @ts-ignore
+ // @ts-ignore
 window.$URL_PARAMS = {};
-// @ts-ignore
+ // @ts-ignore
 window.$URL_QUERY = {};
 
 /**
@@ -95,8 +95,9 @@ class VaderRouter {
     this.customerror = true;
   }
   handleRoute(method) {
+   
     let route = window.location.hash.substring(1);
-    // @ts-ignore
+ // @ts-ignore
     window.$CURRENT_URL = route;
 
     // remove query params from route
@@ -105,11 +106,12 @@ class VaderRouter {
     }
     route = route.split("/")[0] + "/" + route.split("/")[1];
     if (this.routes[route]) {
+       
       this.storedroutes.push(route);
       const req = {
-        // @ts-ignore
+         // @ts-ignore
         params: $URL_PARAMS ? $URL_PARAMS : {},
-        // @ts-ignore
+         // @ts-ignore
         query: $URL_QUERY ? $URL_QUERY : {},
         url: route,
         method: method ? method : "GET",
@@ -122,7 +124,7 @@ class VaderRouter {
           document.querySelector(selector).innerHTML = data;
         },
       };
-      if (typeof this.routes[route] === "function") {
+      if(typeof this.routes[route] === 'function'){
         this.routes[route](req, res);
       }
     } else {
@@ -132,6 +134,8 @@ class VaderRouter {
       } else {
         console.error("404: Route not found");
       }
+
+       
     }
   }
   /**
@@ -193,13 +197,10 @@ class VaderRouter {
         path.includes(":") &&
         window.location.hash.substring(1).split("?")[1]
       ) {
+         
+
         return false;
       }
-      /**
-       * @alias query
-       * @type {Object}
-       * @property {Object} params - The params object.
-       */
       const query = {};
 
       const queryString = window.location.hash.substring(1).split("?")[1];
@@ -223,11 +224,11 @@ class VaderRouter {
         url: window.location.hash.substring(1),
         method: "GET",
       };
-      // @ts-ignore
+ // @ts-ignore
       window.$URL_PARAMS = params;
-      // @ts-ignore
+       // @ts-ignore
       window.$URL_QUERY = query;
-      // @ts-ignore
+       // @ts-ignore
       window.$CURRENT_URL = window.location.hash.substring(1);
       /**
        * @alias render
@@ -238,26 +239,23 @@ class VaderRouter {
        * @description  Allows you to perform actions when the currentRoute changes.
        */
       const res = {
-         
+        return: function (data) {
+          this.hooked = false;
+        },
         render: function (selector, data) {
           document.querySelector(selector).innerHTML = data;
         },
       };
 
       callback(req, res);
-      // @ts-ignore
+     // @ts-ignore
       return true;
     }
 
     this.hooked = false;
     return false;
   }
- 
-  /**
-   * @alias kill
-   * @description  Allows you to kill a route.
-   * @param {string} path 
-   */
+
   kill(path) {
     if (this.routes[path]) {
       delete this.routes[path];
@@ -275,27 +273,27 @@ class VaderRouter {
     const regexPattern = pattern
       .replace(/:[^/]+/g, "([^/]+)") // Replace :param with a capturing group
       .replace(/\//g, "\\/"); // Escape forward slashes
-
+  
     const regex = new RegExp("^" + regexPattern + "(\\?(.*))?$");
     let params = {};
     let query = {};
-
+  
     // Get params
     const match = window.location.hash.substring(1).match(regex);
-
+  
     if (match) {
       this.storedroutes.push(window.location.hash.substring(1));
       const matches = match.slice(1); // Extract matched groups
-
+  
       // Extract named params from the pattern
       const paramNames = pattern.match(/:[^/]+/g) || [];
       for (let i = 0; i < paramNames.length; i++) {
         const paramName = paramNames[i].substring(1); // Remove the leading ":"
         params[paramName] = matches[i];
       }
-
+  
       query = {};
-
+  
       const queryString = matches[paramNames.length]; // The last match is the query string
       if (queryString) {
         const queryParts = queryString.split("&");
@@ -305,11 +303,11 @@ class VaderRouter {
         }
       }
     }
-    // @ts-ignore
+   // @ts-ignore
     window.$URL_PARAMS = params;
-    // @ts-ignore
+     // @ts-ignore
     window.$URL_QUERY = query;
-
+  
     if (callback) {
       this.routes[pattern] = callback;
     } else {
@@ -317,16 +315,14 @@ class VaderRouter {
       this.storedroutes.push(window.location.hash.substring(1));
     }
   }
+  
+  
 
-  /**
-   * @alias onload
-   * @param {Function} callback 
-   */
   onload(callback) {
     // await dom to be done make sure no new elements are added
     if (
       document.readyState === "complete" ||
-      // @ts-ignore
+       // @ts-ignore
       document.readyState === "loaded" ||
       document.readyState === "interactive"
     ) {
@@ -345,16 +341,8 @@ class VaderRouter {
    */
   on(path, callback) {
     window.addEventListener("hashchange", () => {
-      /**
-       * @alias paramNames
-       * @typedef {Array}
-       */
-      const paramNames =  new Array();
-      /**
-       * @alias queryNames
-       * @typedef {Array}
-       */
-      const queryNames = new Array();
+      const paramNames = [];
+      const queryNames = [];
       const parsedPath = path
         .split("/")
         .map((part) => {
@@ -389,11 +377,11 @@ class VaderRouter {
       this.currentUrl = route;
       // @ts-ignore
       window.$CURRENT_URL = route;
-      // @ts-ignore
+       // @ts-ignore
       window.$URL_PARAMS = {};
       if (
         window.location.hash.substring(1).match(regex) &&
-        // @ts-ignore
+         // @ts-ignore
         this.routes[window.$CURRENT_URL]
       ) {
         this.storedroutes.push(window.location.hash.substring(1));
@@ -401,7 +389,6 @@ class VaderRouter {
         const params = {};
 
         for (let i = 0; i < paramNames.length; i++) {
-          // @ts-ignore
           params[paramNames[i]] = matches[i + 1];
         }
         if (
@@ -422,7 +409,6 @@ class VaderRouter {
           const queryParts = queryString.split("&");
           for (let i = 0; i < queryParts.length; i++) {
             const queryParam = queryParts[i].split("=");
-            // @ts-ignore
             query[queryParam[0]] = queryParam[1];
           }
         }
@@ -433,7 +419,9 @@ class VaderRouter {
           method: "POST",
         };
         const res = {
-         
+          return: function (data) {
+            this.hooked = false;
+          },
           /**
            * @alias send
            * @param {String} selector
@@ -445,7 +433,6 @@ class VaderRouter {
            * res.send('#root', '<h1>Hello World</h1>');
            * */
           send: function (selector, data) {
-            // @ts-ignore
             document.querySelector(selector).innerHTML = data;
           },
           /**
@@ -457,13 +444,12 @@ class VaderRouter {
            * @description  Allows you to perform actions when the currentRoute changes.
            */
           render: function (selector, data) {
-            // @ts-ignore
             document.querySelector(selector).innerHTML = data;
           },
         };
-        // @ts-ignore
+         // @ts-ignore
         window.$URL_QUERY = query;
-        // @ts-ignore
+         // @ts-ignore
         window.$URL_PARAMS = params;
 
         /**
@@ -475,8 +461,8 @@ class VaderRouter {
          * @description  Allows you to perform actions when the currentRoute changes.
          */
         callback(req, res);
-      } else {
-        console.log("no route");
+      }else{
+        console.log('no route')
       }
     });
   }
