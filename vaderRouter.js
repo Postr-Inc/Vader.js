@@ -1,5 +1,5 @@
  // @ts-ignore
-window.$URL_PARAMS = {};
+ window.$URL_PARAMS = {};
  // @ts-ignore
 window.$URL_QUERY = {};
 
@@ -71,7 +71,6 @@ class VaderRouter {
     if (window.location.hash === "") {
       window.location.hash = this.starturl;
     }
-    console.log(this.routes);
     this.handleRoute("GET");
     window.addEventListener("hashchange", () => {
       this.handleRoute("POST");
@@ -147,7 +146,7 @@ class VaderRouter {
    * @description used by start() to handle errors.
    */
 
-  handleError(type, data, res) {
+  handleError(type, data) {
     if (this.errorHandlers[type]) {
       this.errorHandlers[type](data);
     } else {
@@ -380,7 +379,7 @@ class VaderRouter {
        // @ts-ignore
       window.$URL_PARAMS = {};
       if (
-        window.location.hash.substring(1).match(regex) &&
+        window.location.hash.substring(1).match(regex)  &&
          // @ts-ignore
         this.routes[window.$CURRENT_URL]
       ) {
@@ -461,9 +460,7 @@ class VaderRouter {
          * @description  Allows you to perform actions when the currentRoute changes.
          */
         callback(req, res);
-      }else{
-        console.log('no route')
-      }
+      } 
     });
   }
 }
