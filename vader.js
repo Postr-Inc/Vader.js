@@ -47,7 +47,7 @@ let components = [];
 /**
  * @class Component
  * @description Allows you to create a component
- * @returns {null}
+ * @returns {void}
  * @example
  * import { Vader } from "../../dist/vader/index.js";
  * export class Home extends Vader.Component {
@@ -68,7 +68,6 @@ export class Component {
     this.states = {};
     //@ts-ignore
     this.name = this.constructor.name;
-    console.log(this.name);
     this.executedEffects = {};
     this.storedProps = {};
     this.componentMounted = false;
@@ -163,6 +162,7 @@ export class Component {
         this.$_useStore_subscribers = [];
         this.init();
         this.Componentcontent = null;
+        this.$_signal_calls = []
      }
     }
 
@@ -260,6 +260,7 @@ export class Component {
       );
     };
     this.$_signal_dispatch = () => {
+    
       for (var i = 0; i < this.$_signal_subscribers.length; i++) {
         if (
           this.$_signal_subscribers[i].runonce &&
@@ -287,6 +288,7 @@ export class Component {
      */
     this.$_signal_set = (detail) => {
       setState(detail);
+      
     };
 
     return {
@@ -665,7 +667,7 @@ export class Component {
   /**
    * @method html
    * @description Allows you to create html templates
-   * @param {String} strings
+   * @param {TemplateStringsArray | String} strings
    * @param  {...any} args
    * @returns
    */
@@ -692,6 +694,7 @@ export class Component {
           "<!-- #vader-allow_class -->"
         )
       ) {
+        console.warn('you can disable class errors using, <!-- #vader-allow_class -->');
         throw new Error(
           "class attribute is not allowed, please use className instead"
         );
@@ -719,6 +722,7 @@ export class Component {
       if (
         element.hasAttribute("href") &&
         element.getAttribute("href").startsWith("/")
+        &&  !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_relative-paths -->')
       ) {
         element.setAttribute(
           "href",
@@ -728,24 +732,19 @@ export class Component {
       if (
         element.hasAttribute("src") &&
         element.getAttribute("src").startsWith("/") 
+        &&  !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_relative-paths -->')
       ) {
         element.setAttribute(
           "src",
           `${
-            window.location.origin + window.location.pathname
+            window.location.origin
           }/public${element.getAttribute("src")}`
         );
       }
-      if(element.hasAttribute('style')){
-        
-        let style = element.getAttribute('style');
-        let newStyle = style.split(';').map((e)=>{
-          return e.split(':').map((e)=>{
-            return e.trim();
-          }).join(':')
-        }).join(';');
-        element.setAttribute('style', newStyle);
+      if(element.nodeName === 'IMG' && !element.hasAttribute('alt') && !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_accessibility -->')){
+        throw new SyntaxError(`Image:  ${element.outerHTML} missing alt attribute`)
       }
+      
 
       
     });
@@ -767,7 +766,7 @@ export class Component {
    * @method render
    * @description Allows you to render the component
    * @scope {private}
-   * @returns {Promise<String>}
+   * @returns {Promise}
    */
  
   async render() {
@@ -797,7 +796,27 @@ export class Component {
  * `);
  * }
  */
-export const Vader = {
+const Vader = {
+  /**
+ * @class Component
+ * @description Allows you to create a component
+ * @returns {void}
+ * @memberof {Vader}
+ * @example
+ * import { Vader } from "../../dist/vader/index.js";
+ * export class Home extends Vader.Component {
+ *  constructor() {
+ *   super();
+ * }
+ *  async render() {
+ *  return this.html(`
+ *     <div className="hero p-5">
+ *        <h1>Home</h1>
+ *     </div>
+ *   `);
+ *  }
+ * }
+ */
   Component: Component,
   useRef: useRef,
 };
@@ -820,12 +839,17 @@ let cache = {};
 /**
  * @function include
  * @description Allows you to include html file
- * @returns   - modified string with html content
+ * @returns {Promise}  - modified string with html content
  * @param {string}  path
- * @param {Object} options
  */
 
-export const include = (path, options) => {
+export const include = async (path) => {
+  if(path.startsWith('/') && !path.includes('/src/')
+  && !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_relative-paths -->')
+  ){
+    
+    path = '/src/' + path
+  }
   if (cache[path]) {
     return new Function(`return \`${cache[path]}\`;`)();
   }
@@ -837,14 +861,23 @@ export const include = (path, options) => {
       }
       return res.text();
     })
-    .then((data) => {
+    .then(async (data) => {
       // Handle includes
       let includes = data.match(/<include src="(.*)"\/>/gs);
       if (includes) {
         // Use Promise.all to fetch all includes concurrently
         const includePromises = includes.map((e) => {
           let includePath = e.match(/<include src="(.*)"\/>/)[1];
+           
+          if(includePath.startsWith('/')
+          && !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_relative-paths -->')
+          ){
+             
+            includePath =  '/src' + includePath
+           
+          }
           return include(includePath).then((includeData) => {
+             
             // Replace the include tag with the fetched data
             data = data.replace(e, includeData);
           });
@@ -861,3 +894,5 @@ export const include = (path, options) => {
       }
     });
 };
+
+export default Vader
