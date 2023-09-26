@@ -1,4 +1,3 @@
-
 let dom = /**@type {Obect}  **/ {};
 /**
  * @function useRef
@@ -8,20 +7,19 @@ let dom = /**@type {Obect}  **/ {};
  */
 export const useRef = (ref /** @type {string} */) => {
   // Try to get the existing DOM element from window.dom
-   /**@type {object }*/
-  let el =   dom[ref] || document.querySelector(`[ref="${ref}"]`);
+  /**@type {object }*/
+  let el = dom[ref] || document.querySelector(`[ref="${ref}"]`);
 
   // Function to update the DOM element with new HTML content
   /**
    * @function update
    * @description Allows you to update the DOM element with new HTML content
-   * @param {String} data 
+   * @param {String} data
    */
   const update = (data) => {
     // Parse the new HTML data
     const newDom = new DOMParser().parseFromString(data, "text/html");
-     
-     
+
     const newHtml = newDom.body.firstChild;
 
     if (el) {
@@ -80,8 +78,8 @@ export class Component {
      * @property {Array} $_signal_subscribers_ran
      * @description Allows you to keep track of signal subscribers
      * @private
-    */
-    this.$_signal_subscribers_ran =   [];
+     */
+    this.$_signal_subscribers_ran = [];
     this.effects = {};
     this.$_useStore_subscribers = [];
     this.init();
@@ -92,42 +90,48 @@ export class Component {
         state: null,
       },
     });
+    this.snapshots = [];
   }
+
+   // props
+
+
+ 
 
   init() {
     //@ts-ignore
     this.registerComponent();
-      //@ts-ignore
+    //@ts-ignore
     window.states = this.states;
-      //@ts-ignore
+    //@ts-ignore
     window.useState = this.useState;
-      //@ts-ignore
+    //@ts-ignore
     window.setState = this.setState;
-      //@ts-ignore
+    //@ts-ignore
     window.useEffect = this.useEffect;
-      //@ts-ignore
+    //@ts-ignore
     window.useAuth = this.useAuth;
-      //@ts-ignore
+    //@ts-ignore
     window.useSyncStore = this.useSyncStore;
-      //@ts-ignore
+    //@ts-ignore
     window.useReducer = this.useReducer;
-      //@ts-ignore
+    //@ts-ignore
     window.runEffects = this.runEffects;
-      //@ts-ignore
+    //@ts-ignore
     window.rf = this.rf;
-      //@ts-ignore
+    //@ts-ignore
     window.signal = this.signal;
   }
 
   registerComponent() {
     components.push(this);
   }
- 
+
   /**
    * @method setState
    * @description Allows you to set state
    * @param {String} key
-   * @param {*} value 
+   * @param {*} value
    * @returns {void}
    * @example
    * this.setState('count', 1)
@@ -136,13 +140,60 @@ export class Component {
     this.states[key] = value;
     this.updateComponent();
   }
+   /**
+   * @method componentUnmount
+   * @description Allows you to run code after component has unmounted
+   * @type {VoidFunction}
+   * @returns {void}
+   */
+   unmount() {
+    this.componentMounted = false;
+    this.componentWillUnmount();
+    document.querySelector(`[data-component="${this.name}"]`).remove();
+     if(!document.querySelector(`[data-component="${this.name}"]`)){
+        this.snapshots = [];
+        this.states = {};
+        this.executedEffects = {};
+        this.storedProps = {};
+        this.componentMounted = false;
+        this.hasMounted = false;
+        this.$_signal_subscribers = [];
+        this.$_signal_subscribers_ran = [];
+        this.effects = {};
+        this.$_useStore_subscribers = [];
+        this.init();
+        this.Componentcontent = null;
+     }
+    }
 
-  componentUpdate() {}
+
+    /**
+     * @method componentUpdate
+     * @description Allows you to run code after component has updated
+     * @param {Object} prev_state
+     * @param {Object} prev_props
+     * @param {Object} snapshot
+     * @returns {void}
+     * @example
+     * componentUpdate(prev_state, prev_props, snapshot) {
+     * console.log(prev_state, prev_props, snapshot)
+     * }
+     * */
+   componentUpdate(prev_state, prev_props, snapshot) {}
   /**
    * @method componentDidMount
    * @description Allows you to run code after component has mounted
    */
   componentDidMount() {}
+
+  /**
+   * @method componentWillUnmount
+   * @description Allows you to run code before component unmounts
+   * @type {VoidFunction}
+   * @returns {void}
+   */
+  componentWillUnmount() {}
+  
   /**
    * @method signal
    * @description Allows you to create a signal
@@ -305,8 +356,8 @@ export class Component {
    * auth.can('create') // true
    */
   useAuth(options) {
-    /**@type {Array}**/ 
-    let rules =  options.rulesets;
+    /**@type {Array}**/
+    let rules = options.rulesets;
     if (!rules) {
       throw new Error("No rulesets provided");
     }
@@ -336,8 +387,8 @@ export class Component {
       /**
        * @function canWithRole
        * @param {String} action
-       * @param {String} role 
-       * @returns 
+       * @param {String} role
+       * @returns
        */
       canWithRole: (action, role) => {
         return auth.can(action) && auth.hasRole(role);
@@ -408,22 +459,21 @@ export class Component {
   /**
    * @method useSyncStore
    * @description Allows you to create a store
-   * @param {*} storeName 
-   * @param {*} initialState 
+   * @param {*} storeName
+   * @param {*} initialState
    * @returns  {Object} {getField, setField, subscribe, clear}
    * @example
    *  let store = this.useSyncStore('store', {count: 0})
    *  store.setField('count', 1)
    *  store.getField('count') // 1
-   * 
+   *
    */
   useSyncStore(storeName, initialState) {
     let [storedState, setStoredState] = this.useState(
       storeName,
       initialState ||
-       // @ts-ignore
+        // @ts-ignore
         localStorage.getItem(`$_vader_${storeName}`, (s) => {
-          
           localStorage.setItem(`$_vader_${storeName}`, JSON.stringify(s));
           this.$_useStore_subscribers.forEach((subscriber) => {
             subscriber(s);
@@ -511,13 +561,13 @@ export class Component {
       this.hasMounted = true;
     }
 
-    return{
+    return {
       cleanup: () => {
         this.effects[this.name] = this.effects[this.name].filter(
           (effect) => effect !== effectFn
         );
       },
-    }
+    };
   }
   /**
    * @method $Function
@@ -546,12 +596,23 @@ export class Component {
   // Add other methods like render, useEffect, useReducer, useAuth, etc.
 
   updateComponent() {
+    
     Object.keys(components).forEach(async (component) => {
       const { name } = components[component];
       const componentContainer = document.querySelector(
         `[data-component="${name}"]`
       );
 
+      let time = new Date().getTime().toLocaleString();
+      let snapshot =  {
+        name: name,
+        time: time,
+        prev_state: this.states,
+        prev_props: this.storedProps,
+        content: componentContainer.innerHTML
+      }
+      
+       
       if (!componentContainer) return;
       const newHtml = await new Function(
         "useState",
@@ -574,12 +635,40 @@ export class Component {
         this.render
       );
       this.componentDidMount();
+      
 
       if (newHtml && newHtml !== componentContainer.innerHTML) {
+        if (this.snapshots.length > 0) {
+            let lastSnapshot = this.snapshots[this.snapshots.length - 1];
+            if (lastSnapshot !== snapshot) {
+                this.snapshots.push(snapshot);
+            }
+        }else{
+            this.snapshots.push(snapshot);
+        }
+        this.componentUpdate(snapshot.prev_state, snapshot.prev_props, snapshot);
         componentContainer.outerHTML = newHtml;
       }
     });
   }
+  /**
+   * @method validateClassName
+   * @param {String} className 
+   * @private
+   * @returns {Boolean}
+   */
+  validateClassName(className) {
+    // validate classNames ensure they are camelCase but also allow for - and _
+    return /^[a-zA-Z0-9-_]+$/.test(className);
+  }
+
+  /**
+   * @method html
+   * @description Allows you to create html templates
+   * @param {String} strings
+   * @param  {...any} args
+   * @returns
+   */
   html(strings, ...args) {
     let result = "";
     for (let i = 0; i < strings.length; i++) {
@@ -588,26 +677,105 @@ export class Component {
         result += args[i];
       }
     }
-    // add ref to all elements
+    
     let dom = new DOMParser().parseFromString(result, "text/html");
     let elements = dom.body.querySelectorAll("*");
+    // style={{color: 'red'}} => style="color: red"
+    
     elements.forEach((element) => {
       if (element.hasAttribute("ref")) {
         dom[element.getAttribute("ref")] = element;
       }
+      if (
+        element.hasAttribute("class") &&
+        !document.documentElement.outerHTML.includes(
+          "<!-- #vader-allow_class -->"
+        )
+      ) {
+        throw new Error(
+          "class attribute is not allowed, please use className instead"
+        );
+      } else if (element.hasAttribute("className")) {
+        if (
+          (!this.validateClassName(element.getAttribute("className")) &&
+            window.location.href.includes("localhost")) ||
+          (window.location.href.includes("127.0.0.1") &&
+            !document.documentElement.outerHTML.trim().includes(
+              "<!-- #vader-class-ignore -->"
+            ) &&
+            !document.documentElement.outerHTML.trim().includes(
+              "<!-- #vader-allow_class -->"
+            ))
+        ) {
+          throw new Error(
+            `Invalid className ${element.getAttribute(
+              "className"
+            )}, please use camelCase instead - example: myClass`
+          );
+        }
+        element.setAttribute("class", element.getAttribute("className"));
+        element.removeAttribute("className");
+      }
+      if (
+        element.hasAttribute("href") &&
+        element.getAttribute("href").startsWith("/")
+      ) {
+        element.setAttribute(
+          "href",
+          `#/${element.getAttribute("href").replace("/", "")}`
+        );
+      }
+      if (
+        element.hasAttribute("src") &&
+        element.getAttribute("src").startsWith("/") 
+      ) {
+        element.setAttribute(
+          "src",
+          `${
+            window.location.origin + window.location.pathname
+          }/public${element.getAttribute("src")}`
+        );
+      }
+      if(element.hasAttribute('style')){
+        
+        let style = element.getAttribute('style');
+        let newStyle = style.split(';').map((e)=>{
+          return e.split(':').map((e)=>{
+            return e.trim();
+          }).join(':')
+        }).join(';');
+        element.setAttribute('style', newStyle);
+      }
+
+      
     });
+
+    result = dom.body.innerHTML;
+
     this.Componentcontent = result;
     if (!result.includes("<div data-component")) {
       result = `<div data-component="${this.name}">${result}</div>`;
     }
+ 
+    
+
+    
 
     return result;
   }
+  /**
+   * @method render
+   * @description Allows you to render the component
+   * @scope {private}
+   * @returns {Promise<String>}
+   */
+ 
   async render() {
     this.componentMounted = true;
     this.componentDidMount();
     return await new Function(`return \`${this.Componentcontent}\`;`)();
   }
+  
 }
 
 /**
@@ -634,7 +802,7 @@ export const Vader = {
   useRef: useRef,
 };
 export const component = (name) => {
-  return new Component()
+  return new Component();
 };
 
 /**
