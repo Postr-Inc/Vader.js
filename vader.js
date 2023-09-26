@@ -3,46 +3,32 @@ let dom = /**@type {Obect}  **/ {};
  * @function useRef
  * @description Allows you to get reference to DOM element
  * @param {String} ref
- * @returns {Object} {current}
+ * @returns {void | Object} {current, update}
  */
-export const useRef = (ref /** @type {string} */) => {
-  // Try to get the existing DOM element from window.dom
-  /**@type {object }*/
-  let el = dom[ref] || document.querySelector(`[ref="${ref}"]`);
+export const useRef = (ref) => {
+  const element = document.querySelector(`[ref="${ref}"]`);
+  const getElement = () => element;
 
-  // Function to update the DOM element with new HTML content
-  /**
-   * @function update
-   * @description Allows you to update the DOM element with new HTML content
-   * @param {String} data
-   */
   const update = (data) => {
-    // Parse the new HTML data
     const newDom = new DOMParser().parseFromString(data, "text/html");
+    const newElement = newDom.body.firstChild;
 
-    const newHtml = newDom.body.firstChild;
-
-    if (el) {
-      // If the element already exists, update it
-      const isDifferent = !newHtml.isEqualNode(el);
+    if (element) {
+      // @ts-ignore
+      const isDifferent = !newElement.isEqualNode(element);
       if (isDifferent) {
-        const newElement = newHtml.cloneNode(true);
-        // Replace the old element with the new one
-        el.parentNode.replaceChild(newElement, el);
-        dom[ref] = newElement;
+        // @ts-ignore
+        element.parentNode.replaceChild(newElement, element);
       }
-    } else {
-      // If the element doesn't exist, create it
-      el = newHtml.cloneNode(true);
-      dom[ref] = el;
     }
   };
 
   return {
-    current: el,
+    current: getElement(),
     update,
   };
 };
+
 let components = [];
 /**
  * @class Component
@@ -92,34 +78,8 @@ export class Component {
     this.snapshots = [];
   }
 
-   // props
-
-
- 
-
   init() {
-    //@ts-ignore
     this.registerComponent();
-    //@ts-ignore
-    window.states = this.states;
-    //@ts-ignore
-    window.useState = this.useState;
-    //@ts-ignore
-    window.setState = this.setState;
-    //@ts-ignore
-    window.useEffect = this.useEffect;
-    //@ts-ignore
-    window.useAuth = this.useAuth;
-    //@ts-ignore
-    window.useSyncStore = this.useSyncStore;
-    //@ts-ignore
-    window.useReducer = this.useReducer;
-    //@ts-ignore
-    window.runEffects = this.runEffects;
-    //@ts-ignore
-    window.rf = this.rf;
-    //@ts-ignore
-    window.signal = this.signal;
   }
 
   registerComponent() {
@@ -139,47 +99,37 @@ export class Component {
     this.states[key] = value;
     this.updateComponent();
   }
-   /**
+  /**
    * @method componentUnmount
    * @description Allows you to run code after component has unmounted
    * @type {VoidFunction}
    * @returns {void}
    */
-   unmount() {
+  unmount() {
     this.componentMounted = false;
     this.componentWillUnmount();
+    // @ts-ignore
     document.querySelector(`[data-component="${this.name}"]`).remove();
-     if(!document.querySelector(`[data-component="${this.name}"]`)){
-        this.snapshots = [];
-        this.states = {};
-        this.executedEffects = {};
-        this.storedProps = {};
-        this.componentMounted = false;
-        this.hasMounted = false;
-        this.$_signal_subscribers = [];
-        this.$_signal_subscribers_ran = [];
-        this.effects = {};
-        this.$_useStore_subscribers = [];
-        this.init();
-        this.Componentcontent = null;
-        this.$_signal_calls = []
-     }
+    if (!document.querySelector(`[data-component="${this.name}"]`)) {
+      components = components.filter(
+        (component) => component.name !== this.name
+      );
     }
+  }
 
-
-    /**
-     * @method componentUpdate
-     * @description Allows you to run code after component has updated
-     * @param {Object} prev_state
-     * @param {Object} prev_props
-     * @param {Object} snapshot
-     * @returns {void}
-     * @example
-     * componentUpdate(prev_state, prev_props, snapshot) {
-     * console.log(prev_state, prev_props, snapshot)
-     * }
-     * */
-   componentUpdate(prev_state, prev_props, snapshot) {}
+  /**
+   * @method componentUpdate
+   * @description Allows you to run code after component has updated
+   * @param {Object} prev_state
+   * @param {Object} prev_props
+   * @param {Object} snapshot
+   * @returns {void}
+   * @example
+   * componentUpdate(prev_state, prev_props, snapshot) {
+   * console.log(prev_state, prev_props, snapshot)
+   * }
+   * */
+  componentUpdate(prev_state, prev_props, snapshot) {}
   /**
    * @method componentDidMount
    * @description Allows you to run code after component has mounted
@@ -193,7 +143,7 @@ export class Component {
    * @returns {void}
    */
   componentWillUnmount() {}
-  
+
   /**
    * @method signal
    * @description Allows you to create a signal
@@ -260,7 +210,6 @@ export class Component {
       );
     };
     this.$_signal_dispatch = () => {
-    
       for (var i = 0; i < this.$_signal_subscribers.length; i++) {
         if (
           this.$_signal_subscribers[i].runonce &&
@@ -279,6 +228,7 @@ export class Component {
     };
     this.$_signal_call = () => {
       hasCaller = true;
+      // @ts-ignore
       this.$_signal_dispatch();
     };
     /**
@@ -288,7 +238,6 @@ export class Component {
      */
     this.$_signal_set = (detail) => {
       setState(detail);
-      
     };
 
     return {
@@ -441,12 +390,22 @@ export class Component {
    *  setCount({type: 'increment'})
    */
   useReducer(key, reducer, initialState) {
-    const [state, setState] = this.useState(key, initialState);
-    const dispatch = (action) => {
-      const newState = reducer(state, action);
-      setState(newState);
-    };
-    return [state, dispatch];
+    if (!this.states[key]) {
+      this.states[key] = initialState;
+    }
+    return [
+      this.states[key],
+      /**
+       * @function dispatch
+       * @description Allows you to dispatch a reducer
+       * @param {*} action
+       * @returns {void}
+       */
+      (action) => {
+        this.states[key] = reducer(this.states[key], action);
+        this.updateComponent();
+      },
+    ];
   }
   runEffects() {
     Object.keys(this.effects).forEach((component) => {
@@ -461,7 +420,7 @@ export class Component {
   /**
    * @method useSyncStore
    * @description Allows you to create a store
-   * @param {*} storeName
+   * @param {String} storeName
    * @param {*} initialState
    * @returns  {Object} {getField, setField, subscribe, clear}
    * @example
@@ -481,7 +440,8 @@ export class Component {
             subscriber(s);
           });
         }) ||
-        {}
+        {},
+      () => {}
     );
 
     const getField = (fieldName) => {
@@ -512,7 +472,7 @@ export class Component {
    * @description Allows you to create a state
    * @param {String} key
    * @param {*} initialValue
-   * @param {*} callback
+   * @param {Function} callback
    * @url - useState works similarly to - https://react.dev/reference/react/useState
    * @returns  {Array} [state, setState]
    * @example
@@ -528,6 +488,12 @@ export class Component {
     }
     return [
       this.states[key],
+      /**
+       * @function setState
+       * @description Allows you to set state
+       * @param {*} value
+       * @returns {void}
+       */
       (value) => {
         this.states[key] = value;
         this.updateComponent();
@@ -588,7 +554,7 @@ export class Component {
     }
     let name = fn.name;
     if (!name) {
-      name = "anonymous";
+      name = "anonymous" + Math.floor(Math.random() * 100000000000000000);
     }
     window[name] = fn;
     // @ts-ignore
@@ -598,7 +564,7 @@ export class Component {
   // Add other methods like render, useEffect, useReducer, useAuth, etc.
 
   updateComponent() {
-    
+    const fragment = document.createDocumentFragment();
     Object.keys(components).forEach(async (component) => {
       const { name } = components[component];
       const componentContainer = document.querySelector(
@@ -606,15 +572,21 @@ export class Component {
       );
 
       let time = new Date().getTime().toLocaleString();
-      let snapshot =  {
+      /**
+       * @property {Object} snapshot
+       * @description Allows you to keep track of component snapshots
+       * @private
+       * @returns {Object} {name, time, prev_state, prev_props, content}
+       */
+      let snapshot = {
         name: name,
         time: time,
         prev_state: this.states,
         prev_props: this.storedProps,
-        content: componentContainer.innerHTML
-      }
-      
-       
+        // @ts-ignore
+        content: componentContainer.innerHTML,
+      };
+
       if (!componentContainer) return;
       const newHtml = await new Function(
         "useState",
@@ -636,26 +608,34 @@ export class Component {
         this.signal,
         this.render
       );
-      this.componentDidMount();
-      
 
-      if (newHtml && newHtml !== componentContainer.innerHTML) {
+      if (newHtml !== componentContainer.innerHTML) {
         if (this.snapshots.length > 0) {
-            let lastSnapshot = this.snapshots[this.snapshots.length - 1];
-            if (lastSnapshot !== snapshot) {
-                this.snapshots.push(snapshot);
-            }
-        }else{
+          let lastSnapshot = this.snapshots[this.snapshots.length - 1];
+          if (lastSnapshot !== snapshot) {
             this.snapshots.push(snapshot);
+          }
+        } else {
+          this.snapshots.push(snapshot);
         }
-        this.componentUpdate(snapshot.prev_state, snapshot.prev_props, snapshot);
-        componentContainer.outerHTML = newHtml;
+        this.componentUpdate(
+          snapshot.prev_state,
+          snapshot.prev_props,
+          snapshot.content
+        );
+        // batch updates
+        fragment.appendChild(
+          document.createRange().createContextualFragment(newHtml)
+        );
+        componentContainer.innerHTML = "";
+        componentContainer.appendChild(fragment);
+        this.runEffects();
       }
     });
   }
   /**
    * @method validateClassName
-   * @param {String} className 
+   * @param {String} className
    * @private
    * @returns {Boolean}
    */
@@ -665,13 +645,69 @@ export class Component {
   }
 
   /**
-   * @method html
-   * @description Allows you to create html templates
-   * @param {TemplateStringsArray | String} strings
-   * @param  {...any} args
-   * @returns
+   * The `html` method generates and processes HTML content for a component, performing various validations and tasks.
+   *
+   * @param {String} strings - The HTML content to be processed.
+   * @param {...any} args - Dynamic values to be inserted into the template.
+   * @returns {string} - The processed HTML content as a string.
+   *
+   * @throws {SyntaxError} - Throws a `SyntaxError` if image-related attributes are missing or invalid.
+   * @throws {Error} - Throws an `Error` if there are issues with class names or relative paths.
+   *
+   * @example
+   * // Example usage within a component:
+   * const myComponent = new Component();
+   * const htmlContent = myComponent.html`
+   *   <div>
+   *     <img src="/images/example.jpg" alt="Example Image" />
+   *   </div>
+   * `;
+   * document.body.innerHTML = htmlContent;
+   *
+   * @remarks
+   * The `html` method is a core function used in component rendering. It allows you to define and generate HTML content within your component while enforcing best practices and accessibility standards. The method performs several essential tasks:
+   *
+   * 1. **Image Validation**: It checks images for the presence of 'alt' attributes and their validity.
+   *    - Throws a `SyntaxError` if an image is missing the 'alt' attribute.
+   *    - Throws a `SyntaxError` if the 'alt' attribute is empty.
+   *    - Checks for an 'aria-hidden' attribute for image elements.
+   *
+   * 2. **Class Attribute Handling**: It enforces class attribute usage and allows optional configuration via comments.
+   *    - Throws an `Error` if 'class' attributes are used without permission.
+   *    - Supports 'className' attributes for class definitions.
+   *    - Allows or disallows class-related comments based on your configuration.
+   *
+   * 3. **Relative Path Handling**: It processes relative paths in 'href' and 'src' attributes, ensuring proper routing.
+   *    - Converts relative 'href' attributes to anchor links with appropriate routing.
+   *    - Converts relative 'src' attributes to absolute paths with 'public' directories.
+   *
+   * 4. **Custom Component Attributes**: It supports adding a 'data-component' attribute to the root element.
+   *    - Ensures that the 'data-component' attribute is present for component identification.
+   *
+   * 5. **Lifecycle Method Invocation**: It invokes the `componentDidMount` method if called from a 'render' context.
+   *    - Executes `componentDidMount` to handle component initialization once the DOM is ready.
+   *
+   * @see {@link Component}
+   * @see {@link Component#componentDidMount}
    */
   html(strings, ...args) {
+    // @ts-ignore
+    if (
+      // @ts-ignore
+      new Error().stack &&
+       // @ts-ignore
+      new Error().stack.split("\n").length > 0 &&
+       // @ts-ignore
+      new Error().stack.split("\n")[2] &&
+       // @ts-ignore
+      new Error().stack.split("\n")[2].includes("render") &&
+      !this.componentMounted
+    ) {
+      this.componentMounted = true;
+      this.componentDidMount();
+      console.log("component mounted");
+    }
+
     let result = "";
     for (let i = 0; i < strings.length; i++) {
       result += strings[i];
@@ -679,102 +715,175 @@ export class Component {
         result += args[i];
       }
     }
-    
+
+    if (!result.trim().startsWith("<body>")) {
+      console.warn(
+        "You should wrap your html in a body tag, vader may not grab all html!"
+      );
+    }
     let dom = new DOMParser().parseFromString(result, "text/html");
     let elements = dom.body.querySelectorAll("*");
-    // style={{color: 'red'}} => style="color: red"
-    
-    elements.forEach((element) => {
-      if (element.hasAttribute("ref")) {
-        dom[element.getAttribute("ref")] = element;
-      }
-      if (
-        element.hasAttribute("class") &&
-        !document.documentElement.outerHTML.includes(
-          "<!-- #vader-allow_class -->"
-        )
-      ) {
-        console.warn('you can disable class errors using, <!-- #vader-allow_class -->');
-        throw new Error(
-          "class attribute is not allowed, please use className instead"
-        );
-      } else if (element.hasAttribute("className")) {
-        if (
-          (!this.validateClassName(element.getAttribute("className")) &&
-            window.location.href.includes("localhost")) ||
-          (window.location.href.includes("127.0.0.1") &&
-            !document.documentElement.outerHTML.trim().includes(
-              "<!-- #vader-class-ignore -->"
-            ) &&
-            !document.documentElement.outerHTML.trim().includes(
-              "<!-- #vader-allow_class -->"
-            ))
-        ) {
-          throw new Error(
-            `Invalid className ${element.getAttribute(
-              "className"
-            )}, please use camelCase instead - example: myClass`
-          );
-        }
-        element.setAttribute("class", element.getAttribute("className"));
-        element.removeAttribute("className");
-      }
-      if (
-        element.hasAttribute("href") &&
-        element.getAttribute("href").startsWith("/")
-        &&  !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_relative-paths -->')
-      ) {
-        element.setAttribute(
-          "href",
-          `#/${element.getAttribute("href").replace("/", "")}`
-        );
-      }
-      if (
-        element.hasAttribute("src") &&
-        element.getAttribute("src").startsWith("/") 
-        &&  !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_relative-paths -->')
-      ) {
-        element.setAttribute(
-          "src",
-          `${
-            window.location.origin
-          }/public${element.getAttribute("src")}`
-        );
-      }
-      if(element.nodeName === 'IMG' && !element.hasAttribute('alt') && !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_accessibility -->')){
-        throw new SyntaxError(`Image:  ${element.outerHTML} missing alt attribute`)
-      }
-      
 
-      
+    elements.forEach((element) => {
+      switch (element.nodeName) {
+        case "IMG":
+          if (
+            !element.hasAttribute("alt") &&
+            !document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-disable_accessibility -->")
+          ) {
+            throw new SyntaxError(
+              `Image: ${element.outerHTML} missing alt attribute`
+            );
+          } else if (
+            element.hasAttribute("alt") &&
+            // @ts-ignore
+            element.getAttribute("alt").length < 1 &&
+            !document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-disable_accessibility -->")
+          ) {
+            throw new SyntaxError(
+              `Image: ${element.outerHTML} alt attribute cannot be empty`
+            );
+          } else if (
+            element.hasAttribute("src") &&
+            !document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-disable_accessibility -->")
+          ) {
+            let prevurl = element.getAttribute("src");
+            element.setAttribute("aria-hidden", "true");
+            element.setAttribute("hidden", "true");
+            let url =
+              window.location.origin +
+              window.location.pathname +
+              "/public/" +
+              element.getAttribute("src");
+            let image = new Image();
+            image.src = url;
+            image.onerror = () => {
+              // @ts-ignore
+              element.setAttribute("src", prevurl);
+              throw new Error(`Image: ${element.outerHTML} not found`);
+            };
+            element.setAttribute("src", url);
+
+            image.onload = () => {
+              document.querySelectorAll(`img[src="${url}"]`).forEach((img) => {
+                img.setAttribute("src", url);
+                img.removeAttribute("aria-hidden");
+                img.removeAttribute("hidden");
+              });
+            };
+          }
+          break;
+
+        default:
+          if (element.hasAttribute("ref")) {
+            // @ts-ignore
+            dom[element.getAttribute("ref")] = element;
+          }
+
+          if (element.hasAttribute("class")) {
+            const allowClassComments =
+              document.documentElement.outerHTML.includes(
+                "<!-- #vader-allow_class -->"
+              );
+            if (!allowClassComments) {
+              console.warn(
+                "you can disable class errors using, <!-- #vader-allow_class -->"
+              );
+              throw new Error(
+                "class attribute is not allowed, please use className instead"
+              );
+            }
+          } else if (element.hasAttribute("className")) {
+            const isLocalhost = window.location.href.includes("localhost");
+            const is127001 = window.location.href.includes("127.0.0.1");
+            const ignoreClassComments = document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-class-ignore -->");
+            const allowClassComments = document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-allow_class -->");
+
+            if (
+              // @ts-ignore
+              (!this.validateClassName(element.getAttribute("className")) &&
+                isLocalhost) ||
+              (is127001 && !ignoreClassComments && !allowClassComments)
+            ) {
+              throw new Error(
+                `Invalid className ${element.getAttribute(
+                  "className"
+                )}, please use camelCase instead - example: myClass`
+              );
+            }
+            // @ts-ignore
+            element.setAttribute("class", element.getAttribute("className"));
+            element.removeAttribute("className");
+          }
+
+          if (
+            element.hasAttribute("href") &&
+            // @ts-ignore
+            element.getAttribute("href").startsWith("/") &&
+            !document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-disable_relative-paths -->")
+          ) {
+            element.setAttribute(
+              "href",
+              // @ts-ignore
+              `#/${element.getAttribute("href").replace("/", "")}`
+            );
+          }
+
+          if (
+            element.hasAttribute("src") &&
+            // @ts-ignore
+            element.getAttribute("src").startsWith("/") &&
+            !document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-disable_relative-paths -->")
+          ) {
+            element.setAttribute(
+              "src",
+              `${window.location.origin}/public${element.getAttribute("src")}`
+            );
+          }
+          break;
+      }
     });
 
     result = dom.body.innerHTML;
 
     this.Componentcontent = result;
-    if (!result.includes("<div data-component")) {
-      result = `<div data-component="${this.name}">${result}</div>`;
-    }
- 
-    
 
-    
+    if (!result.includes("<div data-component")) {
+      result = `<div 
+      
+      data-component="${this.name}">${result}</div>`;
+    }
 
     return result;
   }
+  // write types to ensure it returns a string
   /**
    * @method render
-   * @description Allows you to render the component
-   * @scope {private}
-   * @returns {Promise}
+   * @description Allows you to render html
+   * @returns {Promise <any>}
+   * @example
+   * async render() {
+   * return this.html(`
+   * <div className="hero p-5">
+   * <h1>Home</h1>
+   * </div>
+   * `);
    */
- 
-  async render() {
-    this.componentMounted = true;
-    this.componentDidMount();
-    return await new Function(`return \`${this.Componentcontent}\`;`)();
-  }
-  
+  async render() {}
 }
 
 /**
@@ -798,25 +907,25 @@ export class Component {
  */
 const Vader = {
   /**
- * @class Component
- * @description Allows you to create a component
- * @returns {void}
- * @memberof {Vader}
- * @example
- * import { Vader } from "../../dist/vader/index.js";
- * export class Home extends Vader.Component {
- *  constructor() {
- *   super();
- * }
- *  async render() {
- *  return this.html(`
- *     <div className="hero p-5">
- *        <h1>Home</h1>
- *     </div>
- *   `);
- *  }
- * }
- */
+   * @class Component
+   * @description Allows you to create a component
+   * @returns {void}
+   * @memberof {Vader}
+   * @example
+   * import { Vader } from "../../dist/vader/index.js";
+   * export class Home extends Vader.Component {
+   *  constructor() {
+   *   super();
+   * }
+   *  async render() {
+   *  return this.html(`
+   *     <div className="hero p-5">
+   *        <h1>Home</h1>
+   *     </div>
+   *   `);
+   *  }
+   * }
+   */
   Component: Component,
   useRef: useRef,
 };
@@ -844,11 +953,14 @@ let cache = {};
  */
 
 export const include = async (path) => {
-  if(path.startsWith('/') && !path.includes('/src/')
-  && !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_relative-paths -->')
-  ){
-    
-    path = '/src/' + path
+  if (
+    path.startsWith("/") &&
+    !path.includes("/src/") &&
+    !document.documentElement.outerHTML
+      .trim()
+      .includes("<!-- #vader-disable_relative-paths -->")
+  ) {
+    path = "/src/" + path;
   }
   if (cache[path]) {
     return new Function(`return \`${cache[path]}\`;`)();
@@ -867,17 +979,18 @@ export const include = async (path) => {
       if (includes) {
         // Use Promise.all to fetch all includes concurrently
         const includePromises = includes.map((e) => {
+          // @ts-ignore
           let includePath = e.match(/<include src="(.*)"\/>/)[1];
-           
-          if(includePath.startsWith('/')
-          && !document.documentElement.outerHTML.trim().includes('<!-- #vader-disable_relative-paths -->')
-          ){
-             
-            includePath =  '/src' + includePath
-           
+
+          if (
+            includePath.startsWith("/") &&
+            !document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-disable_relative-paths -->")
+          ) {
+            includePath = "/src" + includePath;
           }
           return include(includePath).then((includeData) => {
-             
             // Replace the include tag with the fetched data
             data = data.replace(e, includeData);
           });
@@ -895,4 +1008,4 @@ export const include = async (path) => {
     });
 };
 
-export default Vader
+export default Vader;
