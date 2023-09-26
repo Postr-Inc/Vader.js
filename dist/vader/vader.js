@@ -14,8 +14,10 @@ export const useRef = (ref) => {
     const newElement = newDom.body.firstChild;
 
     if (element) {
+      // @ts-ignore
       const isDifferent = !newElement.isEqualNode(element);
       if (isDifferent) {
+        // @ts-ignore
         element.parentNode.replaceChild(newElement, element);
       }
     }
@@ -106,6 +108,7 @@ export class Component {
   unmount() {
     this.componentMounted = false;
     this.componentWillUnmount();
+    // @ts-ignore
     document.querySelector(`[data-component="${this.name}"]`).remove();
     if (!document.querySelector(`[data-component="${this.name}"]`)) {
       components = components.filter(
@@ -225,6 +228,7 @@ export class Component {
     };
     this.$_signal_call = () => {
       hasCaller = true;
+      // @ts-ignore
       this.$_signal_dispatch();
     };
     /**
@@ -416,7 +420,7 @@ export class Component {
   /**
    * @method useSyncStore
    * @description Allows you to create a store
-   * @param {*} storeName
+   * @param {String} storeName
    * @param {*} initialState
    * @returns  {Object} {getField, setField, subscribe, clear}
    * @example
@@ -436,7 +440,8 @@ export class Component {
             subscriber(s);
           });
         }) ||
-        {}
+        {},
+      () => {}
     );
 
     const getField = (fieldName) => {
@@ -467,7 +472,7 @@ export class Component {
    * @description Allows you to create a state
    * @param {String} key
    * @param {*} initialValue
-   * @param {*} callback
+   * @param {Function} callback
    * @url - useState works similarly to - https://react.dev/reference/react/useState
    * @returns  {Array} [state, setState]
    * @example
@@ -578,6 +583,7 @@ export class Component {
         time: time,
         prev_state: this.states,
         prev_props: this.storedProps,
+        // @ts-ignore
         content: componentContainer.innerHTML,
       };
 
@@ -603,7 +609,6 @@ export class Component {
         this.render
       );
 
-      
       if (newHtml !== componentContainer.innerHTML) {
         if (this.snapshots.length > 0) {
           let lastSnapshot = this.snapshots[this.snapshots.length - 1];
@@ -639,56 +644,60 @@ export class Component {
     return /^[a-zA-Z0-9-_]+$/.test(className);
   }
 
-/**
- * The `html` method generates and processes HTML content for a component, performing various validations and tasks.
- *
- * @param {String} strings - The HTML content to be processed.
- * @param {...any} args - Dynamic values to be inserted into the template.
- * @returns {string} - The processed HTML content as a string.
- *
- * @throws {SyntaxError} - Throws a `SyntaxError` if image-related attributes are missing or invalid.
- * @throws {Error} - Throws an `Error` if there are issues with class names or relative paths.
- *
- * @example
- * // Example usage within a component:
- * const myComponent = new Component();
- * const htmlContent = myComponent.html`
- *   <div>
- *     <img src="/images/example.jpg" alt="Example Image" />
- *   </div>
- * `;
- * document.body.innerHTML = htmlContent;
- *
- * @remarks
- * The `html` method is a core function used in component rendering. It allows you to define and generate HTML content within your component while enforcing best practices and accessibility standards. The method performs several essential tasks:
- *
- * 1. **Image Validation**: It checks images for the presence of 'alt' attributes and their validity.
- *    - Throws a `SyntaxError` if an image is missing the 'alt' attribute.
- *    - Throws a `SyntaxError` if the 'alt' attribute is empty.
- *    - Checks for an 'aria-hidden' attribute for image elements.
- *
- * 2. **Class Attribute Handling**: It enforces class attribute usage and allows optional configuration via comments.
- *    - Throws an `Error` if 'class' attributes are used without permission.
- *    - Supports 'className' attributes for class definitions.
- *    - Allows or disallows class-related comments based on your configuration.
- *
- * 3. **Relative Path Handling**: It processes relative paths in 'href' and 'src' attributes, ensuring proper routing.
- *    - Converts relative 'href' attributes to anchor links with appropriate routing.
- *    - Converts relative 'src' attributes to absolute paths with 'public' directories.
- *
- * 4. **Custom Component Attributes**: It supports adding a 'data-component' attribute to the root element.
- *    - Ensures that the 'data-component' attribute is present for component identification.
- *
- * 5. **Lifecycle Method Invocation**: It invokes the `componentDidMount` method if called from a 'render' context.
- *    - Executes `componentDidMount` to handle component initialization once the DOM is ready.
- *
- * @see {@link Component}
- * @see {@link Component#componentDidMount}
- */
+  /**
+   * The `html` method generates and processes HTML content for a component, performing various validations and tasks.
+   *
+   * @param {String} strings - The HTML content to be processed.
+   * @param {...any} args - Dynamic values to be inserted into the template.
+   * @returns {string} - The processed HTML content as a string.
+   *
+   * @throws {SyntaxError} - Throws a `SyntaxError` if image-related attributes are missing or invalid.
+   * @throws {Error} - Throws an `Error` if there are issues with class names or relative paths.
+   *
+   * @example
+   * // Example usage within a component:
+   * const myComponent = new Component();
+   * const htmlContent = myComponent.html`
+   *   <div>
+   *     <img src="/images/example.jpg" alt="Example Image" />
+   *   </div>
+   * `;
+   * document.body.innerHTML = htmlContent;
+   *
+   * @remarks
+   * The `html` method is a core function used in component rendering. It allows you to define and generate HTML content within your component while enforcing best practices and accessibility standards. The method performs several essential tasks:
+   *
+   * 1. **Image Validation**: It checks images for the presence of 'alt' attributes and their validity.
+   *    - Throws a `SyntaxError` if an image is missing the 'alt' attribute.
+   *    - Throws a `SyntaxError` if the 'alt' attribute is empty.
+   *    - Checks for an 'aria-hidden' attribute for image elements.
+   *
+   * 2. **Class Attribute Handling**: It enforces class attribute usage and allows optional configuration via comments.
+   *    - Throws an `Error` if 'class' attributes are used without permission.
+   *    - Supports 'className' attributes for class definitions.
+   *    - Allows or disallows class-related comments based on your configuration.
+   *
+   * 3. **Relative Path Handling**: It processes relative paths in 'href' and 'src' attributes, ensuring proper routing.
+   *    - Converts relative 'href' attributes to anchor links with appropriate routing.
+   *    - Converts relative 'src' attributes to absolute paths with 'public' directories.
+   *
+   * 4. **Custom Component Attributes**: It supports adding a 'data-component' attribute to the root element.
+   *    - Ensures that the 'data-component' attribute is present for component identification.
+   *
+   * 5. **Lifecycle Method Invocation**: It invokes the `componentDidMount` method if called from a 'render' context.
+   *    - Executes `componentDidMount` to handle component initialization once the DOM is ready.
+   *
+   * @see {@link Component}
+   * @see {@link Component#componentDidMount}
+   */
   html(strings, ...args) {
-    
-    let caller = new Error().stack.split("\n")[2].trim();
-     
+    // @ts-ignore
+    if(new Error().stack.split("\n").length > 0 && new Error().stack.split("\n")[2].trim().includes("render") && !this.componentMounted) {
+     this.componentMounted = true;
+      this.componentDidMount();
+    }
+  
+
     let result = "";
     for (let i = 0; i < strings.length; i++) {
       result += strings[i];
@@ -697,8 +706,10 @@ export class Component {
       }
     }
 
-    if(!result.trim().startsWith('<body>')){
-         console.warn('You should wrap your html in a body tag, vader may not grab all html!')
+    if (!result.trim().startsWith("<body>")) {
+      console.warn(
+        "You should wrap your html in a body tag, vader may not grab all html!"
+      );
     }
     let dom = new DOMParser().parseFromString(result, "text/html");
     let elements = dom.body.querySelectorAll("*");
@@ -706,7 +717,6 @@ export class Component {
     elements.forEach((element) => {
       switch (element.nodeName) {
         case "IMG":
-       
           if (
             !element.hasAttribute("alt") &&
             !document.documentElement.outerHTML
@@ -718,6 +728,7 @@ export class Component {
             );
           } else if (
             element.hasAttribute("alt") &&
+            // @ts-ignore
             element.getAttribute("alt").length < 1 &&
             !document.documentElement.outerHTML
               .trim()
@@ -743,23 +754,25 @@ export class Component {
             let image = new Image();
             image.src = url;
             image.onerror = () => {
+              // @ts-ignore
               element.setAttribute("src", prevurl);
               throw new Error(`Image: ${element.outerHTML} not found`);
             };
             element.setAttribute("src", url);
+
             image.onload = () => {
-                console.log('loaded')
-                document.querySelectorAll(`img[src="${url}"]`).forEach((img)=>{
-                    img.setAttribute('src', url)
-                    img.removeAttribute('aria-hidden')
-                    img.removeAttribute('hidden')
-                })
+              document.querySelectorAll(`img[src="${url}"]`).forEach((img) => {
+                img.setAttribute("src", url);
+                img.removeAttribute("aria-hidden");
+                img.removeAttribute("hidden");
+              });
             };
           }
           break;
 
         default:
           if (element.hasAttribute("ref")) {
+            // @ts-ignore
             dom[element.getAttribute("ref")] = element;
           }
 
@@ -787,6 +800,7 @@ export class Component {
               .includes("<!-- #vader-allow_class -->");
 
             if (
+              // @ts-ignore
               (!this.validateClassName(element.getAttribute("className")) &&
                 isLocalhost) ||
               (is127001 && !ignoreClassComments && !allowClassComments)
@@ -797,13 +811,14 @@ export class Component {
                 )}, please use camelCase instead - example: myClass`
               );
             }
-
+            // @ts-ignore
             element.setAttribute("class", element.getAttribute("className"));
             element.removeAttribute("className");
           }
 
           if (
             element.hasAttribute("href") &&
+            // @ts-ignore
             element.getAttribute("href").startsWith("/") &&
             !document.documentElement.outerHTML
               .trim()
@@ -811,12 +826,14 @@ export class Component {
           ) {
             element.setAttribute(
               "href",
+              // @ts-ignore
               `#/${element.getAttribute("href").replace("/", "")}`
             );
           }
 
           if (
             element.hasAttribute("src") &&
+            // @ts-ignore
             element.getAttribute("src").startsWith("/") &&
             !document.documentElement.outerHTML
               .trim()
@@ -840,12 +857,7 @@ export class Component {
       
       data-component="${this.name}">${result}</div>`;
     }
-    if (caller.includes("render")
-    && !this.componentMounted
-    ) {
-        this.componentMounted = true;
-        this.componentDidMount();
-    } 
+   
 
     return result;
   }
@@ -862,9 +874,7 @@ export class Component {
    * </div>
    * `);
    */
-  async render() {
-   
-  }
+  async render() {}
 }
 
 /**
@@ -960,6 +970,7 @@ export const include = async (path) => {
       if (includes) {
         // Use Promise.all to fetch all includes concurrently
         const includePromises = includes.map((e) => {
+          // @ts-ignore
           let includePath = e.match(/<include src="(.*)"\/>/)[1];
 
           if (
