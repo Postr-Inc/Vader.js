@@ -1,26 +1,34 @@
-import { component, rf, include, vhtml, useRef } from "vader";
+import Vader,{  include, useRef} from "./../../dist/vader/vader.js";
 
-export const Home = component("Home", {
-  render: async () => {
-    let count = signal("count", 0);
-
-    let counter = count.subscribe((s) => {
-      console.log("count state updated", s);
-      return () => {
-        count.cleanup(counter);
-      };
-    }, false); // this is ran once
-    count.call();
-    count.cleanup(counter);
-
-    function increment() {
-      count.set(count.get() + 1);
+export class Home extends Vader.Component {
+    constructor() {
+        
+        super();
     }
-    rf("increment", increment);
-    let home = await include("/src/views/home.html");
-    return vhtml(home);
-  },
-  componentDidMount: () => {
-    console.log("componentDidMount");
-  },
-});
+     
+     
+
+    async render() {
+
+        let counter = this.signal('count', 0)
+ 
+
+        
+         
+         
+        let e = this.$Function((e)=>{
+            counter.set(counter.get() + 1);
+             
+        })
+         
+         
+        return this.html(await include('/views/home.html'))
+    }
+    componentUpdated(prev_state, prev_props, content){
+        console.log(prev_state);
+    }
+    componentDidMount() {
+        console.log('mounted');
+    }
+    
+}

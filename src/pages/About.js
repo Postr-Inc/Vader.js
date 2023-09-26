@@ -1,11 +1,14 @@
-import { component, rf, include, vhtml, useRef } from "vader";
+import Vader from "./../../dist/vader/vader.js";
 
-export const About = component("About", {
-  render: async (state) => {
-    let a = await include("/src/views/about.html");
-    return vhtml(a);
-  },
-  componentDidMount: () => {
-    console.log("componentDidMount");
-  },
-});
+export class About extends Vader.Component{
+    constructor(){
+        super()
+    }
+    async render(){
+        return this.html(`
+        <div className="hero p-5">
+        <h1>About</h1>
+        </div>
+        `)
+    }
+}

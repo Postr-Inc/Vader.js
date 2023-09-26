@@ -1,23 +1,42 @@
-<div class="navbar bg-base-100 p-2">
-    <div class="flex-1">
-      <img src="./dist/vader/icon.jpeg" alt="logo" class="w-16 rounded-full  ">
-      <a href="#/" class="font-bold text-2xl hover:text-sky-500 hover:cursor-pointer">Vader.js</a>
-    </div>
-    <div class="flex-none">
-      <ul class="menu menu-horizontal px-1">
-       
-        <li>
-          <details>
-            <summary>
-              About
-            </summary>
-            <ul class="p-2 bg-base-100 w-32">
-              <li><a href="#/about">About Vader</a></li>
-              <li><a>Developers</a></li>
+ 
+    <div className="navbar  p-2 border border-base-200 text-black bg-base-100    ">
+         <div class="flex-1">
+             
+            <h1 class="text-2xl font-semibold hero flex gap-2  ">
+                <img src="/icons/logo.png" class="w-12" alt="logo">
+                Vader.js
+            </h1>
+          </div>
+          <div class="flex-none">
+            <ul class="menu menu-horizontal px-1">
+                <li><a  class="
+                    xl:flex hidden
+                    hover:text-blue-300">About</a></li>
+                <li><a   class="hover:text-blue-300">Docs</a></li>
+                 <li>
+                    <div class="dropdown dropdown-end">
+                        
+                         <label tabindex="0"  >
+                            <p>Resources</p>
+                         </label>
+                         
+                        
+                        <ul tabindex="0" class="mt-32 z-[1] text-black p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52">
+                          <li>
+                            <a class="justify-between">
+                              Profile
+                              <span class="badge">New</span>
+                            </a>
+                          </li>
+                          <li><a>Settings</a></li>
+                          <li><a>Logout</a></li>
+                        </ul>
+                      </div>
+                     
+                 </li>
+                 
             </ul>
-          </details>
-        </li>
-        <li><a>Docs</a></li>
-      </ul>
-    </div>
-  </div>
+        </div>
+         
+      </div>
+ 
