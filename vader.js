@@ -17,13 +17,16 @@ function markdown(content) {
     let link = line.match(/\[(.*?)\]\((.*?)\)/g);
     let ul = line.match(/^\-\s/);
     let ol = line.match(/^\d\.\s/);
+    let li = line.match(/^\s/);
     let hr = line.match(/^\-\-\-\s/);
     let blockquote = line.match(/^\>\s/);
     let image = line.match(/\!\[(.*?)\]\((.*?)\)/g);
     
+    
     let codeBlock = line.match(/\`\`\`/g);
     let codeBlockEnd = line.match(/\`\`\`/g);
 
+     
     if (heading) {
        // @ts-ignore
       let headingLevel = heading[0].match(/#/g).length;
@@ -81,11 +84,15 @@ function markdown(content) {
       });
     }
     if(codeBlock){
-      line = line.replace(codeBlock[0], `<pre><code>`);
+      line = line.replace(codeBlock[0], `<code>`);
+      
     }
     if(codeBlockEnd){
-      line = line.replace(codeBlockEnd[0], `</code></pre>`);
+      line = line.replace(codeBlockEnd[0], `</code>`);
+      // remove spaces
+      line = line.replace(/^\s+/g, '');
     }
+    
 
 
     result += `${line}\n`;
@@ -826,8 +833,9 @@ export class Component {
         "You should wrap your html in a body tag, vader may not grab all html!"
       );
     }
-    let dom = new DOMParser().parseFromString(result, "text/html");
-    let elements = dom.body.querySelectorAll("*");
+     
+    const dom = new DOMParser().parseFromString(result, "text/html");
+    const elements = dom.documentElement.querySelectorAll("*");
 
     elements.forEach((element) => {
       switch (element.nodeName) {
@@ -861,11 +869,8 @@ export class Component {
             let prevurl = element.getAttribute("src");
             element.setAttribute("aria-hidden", "true");
             element.setAttribute("hidden", "true");
-            let url =
-              window.location.origin +
-              window.location.pathname +
-              "/public/" +
-              element.getAttribute("src");
+             // if window.lcoation.pathname includes a html file remove it and only use the path
+             let url = window.location.origin +  window.location.pathname.replace(/\/[^\/]*$/, '') + '/public/' + element.getAttribute("src");
             let image = new Image();
             image.src = url;
             image.onerror = () => {
@@ -891,7 +896,7 @@ export class Component {
             dom[element.getAttribute("ref")] = element;
           }
           if(element.nodeName === "MARKDOWN"){
-            element.innerHTML = markdown(element.innerHTML.trim())
+            element.innerHTML = markdown(element.innerHTML.replace(/\\n/g, '\n').trim())
           }
 
           if (element.hasAttribute("class")) {
@@ -1119,4 +1124,4 @@ export const include = async (path) => {
     });
 };
 
-export default Vader;
+export default Vader
