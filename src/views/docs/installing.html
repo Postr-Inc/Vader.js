@@ -1,10 +1,10 @@
 <body>
     <include src="/components/nav.html"/>
     <include src="/components/sidedrawer.html"/>
-    <div class="drawer-content   xl:z-[1] lg:z-[1] md:z-[1] z-[-1] absolute mt-16 xl:w-screen 
+    <div class="drawer-content   xl:z-[1] lg:z-[1] md:z-[1] z-[-1] absolute mt-16 xl:w-screen  w-5/6
   left-1/2 transform -translate-x-1/2  
- max-w-xl justify-center flex flex-col mx-auto p-8 xl:p-5 gap-3">
-        <div class="">
+ xl:max-w-xl max-w-screen justify-center flex flex-col mx-auto p-8 xl:p-5 gap-3">
+        <div class="w-screen">
             <markdown class="xl:text-5xl md:text-5xl lg:text-5xl text-4xl   font-extrabold">
                 ## Installing
             </markdown>
@@ -44,21 +44,7 @@
         <p>
             Use cdn version - this does not include vscode jsdoc types and is not recommended for production use
         </p>
-        <span class="bg-base-200 p-5 flex flex-row gap-5 prose justify-between rounded ">
-            &lt;script type="module" src="https://cdn.jsdelivr.net/npm/vaderjs@latest/index.js"&gt; &lt;/script&gt;
-            <br>
-            &lt;script type="module" src="https://unpkg.com/vaderjs@latest/index.js"&gt; &lt;/script&gt;
-        </span>
-
-        <span class="text-2xl mt-8 font-bold"> 2. Setting Up Import Maps</span>
-        <p>Import maps allow you to import modules without having to use relative paths</p>
-        <br>
-        <code class="bg-base-200 p-5 flex flex-row justify-between rounded h-fit"> <pre > &lt;script type="importmap"&gt;  {
-        "imports":{
-            "vaderjs":"./dist/vader/index.js",
-         }
-     }
- &lt;/script&gt;
+         
     </pre></code>
 
     <br>
