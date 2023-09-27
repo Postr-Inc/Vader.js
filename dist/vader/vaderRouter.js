@@ -100,8 +100,9 @@ class VaderRouter {
    
     let route = window.location.hash.substring(1);
  // @ts-ignore
-    window.$CURRENT_URL = route;
-
+ window.$CURRENT_URL =  window.location.hash.substring(1);
+      //@ts-ignore
+      window.$FULL_URL = window.location.hash.substring(1);
     // remove query params from route
     if (route.includes("?")) {
       route = route.split("?")[0];
@@ -233,7 +234,9 @@ class VaderRouter {
        // @ts-ignore
       window.$URL_QUERY = query;
        // @ts-ignore
-      window.$CURRENT_URL = window.location.hash.substring(1);
+      window.$CURRENT_URL =  window.location.hash.substring(1);
+      //@ts-ignore
+      window.$FULL_URL = window.location.hash.substring(1);
       /**
        * @alias render
        * @param {*} selector
@@ -381,6 +384,8 @@ class VaderRouter {
       this.currentUrl = route;
       // @ts-ignore
       window.$CURRENT_URL = route;
+      //@ts-ignore
+      window.$FULL_URL = window.location.hash.substring(1);
        // @ts-ignore
       window.$URL_PARAMS = {};
       if (

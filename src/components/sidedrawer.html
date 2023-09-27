@@ -8,27 +8,46 @@ class="drawer fixed mt-16 z[-1] lg:drawer-open md:drawer-open xl:drawer-open">
       <label for="my-drawer-2" class="drawer-overlay"></label> 
       <ul class="menu p-4 w-40 min-h-full bg-base-100 border border-slate-100 text-base-content">
         <!-- Sidebar content here -->
-        <div tabindex="0" class="collapse  collapse-plus  ">
+        <div tabindex="0" class="collapse collapse-open  collapse-plus  ">
             <input type="checkbox" />
             <div class="collapse-title  
             after:collapse-arrow
             ">
                Start Here
             </div>
-            <div class="collapse-content"> 
+            <div class="collapse-content min-h-24 flex gap-5 flex-col"> 
                <a href="${
-                    !$CURRENT_URL.includes("/home")
+                    !$FULL_URL.includes("/home")
                       ? "/docs/home"
                       : "/docs/home"
                
                }" class=" 
+                
                 ${
-                    $CURRENT_URL.includes("/home")
+                    $FULL_URL.includes("/home")
                       ? "text-sky-500"
                       : "text-base-content"
                 }
                 ">Getting Started</a>
+                
+                 
+                <a href="${
+                    !$FULL_URL.includes("/installing")
+                      ? "/docs/installing"
+                      : "/docs/installing"
+               
+               }" class=" 
+              
+                ${
+                    $FULL_URL == "/docs/installing"
+                      ? "text-sky-500"
+                      : "text-base-content"
+ 
+                }
+                ">Installing</a>
             </div>
+            
+           
           </div>
    
         <li><a>Sidebar Item 1</a></li>

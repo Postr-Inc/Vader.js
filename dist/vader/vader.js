@@ -17,6 +17,7 @@ function markdown(content) {
     let link = line.match(/\[(.*?)\]\((.*?)\)/g);
     let ul = line.match(/^\-\s/);
     let ol = line.match(/^\d\.\s/);
+    let li = line.match(/^\s/);
     let hr = line.match(/^\-\-\-\s/);
     let blockquote = line.match(/^\>\s/);
     let image = line.match(/\!\[(.*?)\]\((.*?)\)/g);
@@ -86,6 +87,7 @@ function markdown(content) {
     if(codeBlockEnd){
       line = line.replace(codeBlockEnd[0], `</code></pre>`);
     }
+    
 
 
     result += `${line}\n`;
@@ -891,7 +893,7 @@ export class Component {
             dom[element.getAttribute("ref")] = element;
           }
           if(element.nodeName === "MARKDOWN"){
-            element.innerHTML = markdown(element.innerHTML.trim())
+            element.innerHTML = markdown(element.innerHTML.replace(/\\n/g, '\n').trim())
           }
 
           if (element.hasAttribute("class")) {
