@@ -47,43 +47,52 @@ or
  - Then you can import like this
 
  ```js
-  import { Vader, VaderRouter } from 'vaderjs'
+  import Vader, { VaderRouter, include } from 'vaderjs'
   ```
 
 3. Use VaderJS features for routing, state management, auth, and more.
 
 4. Create dynamic SPAs with enhanced user experiences.
 
+5. Type checking / testing
+   - Vader has jsdoc annotations built in but also allows ts using the tsconfig
+     
+  ```bash
+   npm run test // validate your code
+  ```
 ## Key Features
 
 ### Declarative Routing
 
 ```javascript
-import { VaderRouter } from "vader-router";
-import { MyComponent } from './components/my-component.js'
-const app = new VaderRouter('/') // intial route
+import VaderRouter from "../dist/vader/vaderRouter.js";
+import { Mycomponent} from "../src/pages/Home.js";
+ 
+const app = new VaderRouter('/');
 
-app.use('/') // use the route
-
-app.get('/', async (req, res) => {
-    res.render('#app', await MyComponent.render())
+app.get("/", async (req, res)=>{
+    res.send('#root', await new Home().render())
 })
-
-app.on('/', async (req, res) => {
-    res.render('#app', await MyComponent.render())
+app.get('/docs/:page/*', async (req, res)=>{
+     // page and asterisk route use req.params for params and req.params[0] to get the asterisk
+     // you can get queries from the url using req.query!
 })
-app.get('/:hello', (req, res) => {
-    res.render('#app', `<h1>Hello ${req.params.hello}</h1>`)
-})
+const middleware = (req, res)=>{
+    req.time = Date.now()
+}
+app.use(middleware) // use middlewares
 
-app.start()
+app.listen(3000, ()=>{
+    console.log('listening on port 3000')
+})
+ 
 ```
  
 
 ### State Management
 
 ```javascript
-import { Vader } from "vaderjs"
+import Vader from "vaderjs"
 
 class MyApp extends Vader.Component{
   contructor(){
@@ -152,11 +161,12 @@ window.addEventListener('signalDispatch', (e)=>{
 ### Function Binding
 
 ```javascript
+
 const fn = this.$Function(function fn() {
     console.log("Hello World");
 });
  
-return html`<button onclick="${fn}">Click Me</button>`
+return html(`<button onclick="${fn}">Click Me</button>`)
 ```
 
 ### Authentication & Authorization
@@ -175,7 +185,7 @@ if (auth.can('edit')) {
 ### Simplified Component Creation
 
 ```javascript
-import { Vader } from 'vaderjs';
+import Vader from 'vaderjs';
 
 export class App extends Vader.Component{
   constructor(){
@@ -203,7 +213,7 @@ ${
 
 ```js
 // home.js
-import {  Vader, include } from "vaderjs";
+import Vader from "vaderjs";
 
 class Home extends Vader.Component {
   constructor() {
