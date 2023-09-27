@@ -65,7 +65,7 @@ or
 ### Declarative Routing
 
 ```javascript
-import { VaderRouter } from "vader-router";
+import { VaderRouter  } from 'vaderjs'
 import { MyComponent } from './components/my-component.js'
 const app = new VaderRouter('/') // intial route
 
@@ -89,7 +89,7 @@ app.start()
 ### State Management
 
 ```javascript
-import { Vader } from "vaderjs"
+import Vader from "vaderjs"
 
 class MyApp extends Vader.Component{
   contructor(){
@@ -181,7 +181,7 @@ if (auth.can('edit')) {
 ### Simplified Component Creation
 
 ```javascript
-import { Vader } from 'vaderjs';
+import Vader from 'vaderjs';
 
 export class App extends Vader.Component{
   constructor(){
@@ -209,7 +209,7 @@ ${
 
 ```js
 // home.js
-import {  Vader, include } from "vaderjs";
+import Vader from "vaderjs";
 
 class Home extends Vader.Component {
   constructor() {
