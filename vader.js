@@ -1,10 +1,108 @@
 let dom = /**@type {Obect}  **/ {};
+let states = {};
+/**
+ * @function markdown
+ * @param {String} content
+ * @description Allows you to convert markdown to html 
+ */
+function markdown(content) {
+  const lines = content.split('\n');
+  let result = '';
+
+  lines.forEach((line) => {
+    let heading = line.match(/^#{1,6}\s/);
+    let bold = line.match(/\*\*(.*?)\*\*/g);
+    let italic = line.match(/\*(.*?)\*/g);
+ 
+    let link = line.match(/\[(.*?)\]\((.*?)\)/g);
+    let ul = line.match(/^\-\s/);
+    let ol = line.match(/^\d\.\s/);
+    let hr = line.match(/^\-\-\-\s/);
+    let blockquote = line.match(/^\>\s/);
+    let image = line.match(/\!\[(.*?)\]\((.*?)\)/g);
+    
+    let codeBlock = line.match(/\`\`\`/g);
+    let codeBlockEnd = line.match(/\`\`\`/g);
+
+    if (heading) {
+       // @ts-ignore
+      let headingLevel = heading[0].match(/#/g).length;
+      line = line.replace(heading[0], `<h${headingLevel}>`);
+      line += `</h${headingLevel}>`;
+    }
+    if (bold) {
+      bold.forEach((b) => {
+        line = line.replace(b, `<strong>${b.replace(/\*\*/g, "")}</strong>`);
+      });
+    }
+    if (italic) {
+      italic.forEach((i) => {
+        line = line.replace(i, `<em>${i.replace(/\*/g, "")}</em>`);
+      });
+    }
+
+   
+    if(link){
+      link.forEach((l) => {
+         // @ts-ignore
+        let text = l.match(/\[(.*?)\]/g)[0].replace(/\[|\]/g, "");
+         // @ts-ignore
+        let href = l.match(/\((.*?)\)/g)[0].replace(/\(|\)/g, "");
+        line = line.replace(l, `<a href="${href}">${text}</a>`);
+      });
+    }
+    if (ul) {
+      line = line.replace(ul[0], `<li
+     style="list-style-type: disc;" 
+      >`);
+      line += `</li>`;
+    }
+    if (ol) {
+      line = line.replace(ol[0], `<li
+     style="list-style-type: decimal;" 
+      >`);
+      line += `</li>`;
+    }
+    if (hr) {
+      line = line.replace(hr[0], `<hr/>`);
+    }
+    if (blockquote) {
+      line = line.replace(blockquote[0], `<blockquote>`);
+      line += `</blockquote>`;
+    }
+    if (image) {
+      image.forEach((i) => {
+        // @ts-ignore
+        let alt = i.match(/\[(.*?)\]/g)[0].replace(/\[|\]/g, "");
+         // @ts-ignore
+        let src = i.match(/\((.*?)\)/g)[0].replace(/\(|\)/g, "");
+        i.replace(i, `<img src="${src}" alt="${alt}"/>`);
+        line = line.replace(i, `<img src="${src}" alt="${alt}"/>`).replace('!','')
+      });
+    }
+    if(codeBlock){
+      line = line.replace(codeBlock[0], `<pre><code>`);
+    }
+    if(codeBlockEnd){
+      line = line.replace(codeBlockEnd[0], `</code></pre>`);
+    }
+
+
+    result += `${line}\n`;
+  });
+
+  return result;
+}
+
+ 
+
 /**
  * @function useRef
  * @description Allows you to get reference to DOM element
  * @param {String} ref
  * @returns {void | Object} {current, update}
  */
+ 
 export const useRef = (ref) => {
   const element = document.querySelector(`[ref="${ref}"]`);
   const getElement = () => element;
@@ -441,7 +539,7 @@ export class Component {
           });
         }) ||
         {},
-      () => {}
+
     );
 
     const getField = (fieldName) => {
@@ -472,7 +570,7 @@ export class Component {
    * @description Allows you to create a state
    * @param {String} key
    * @param {*} initialValue
-   * @param {Function} callback
+   * @param {*} callback
    * @url - useState works similarly to - https://react.dev/reference/react/useState
    * @returns  {Array} [state, setState]
    * @example
@@ -482,10 +580,13 @@ export class Component {
    *
    *   setCount(count + 1)
    */
-  useState(key, initialValue, callback) {
-    if (!this.states[key]) {
-      this.states[key] = initialValue;
-    }
+  useState(key, initialValue, callback = null) {
+    
+   if(!this.states[key]){
+    this.states[key] = initialValue;
+   }
+   
+     
     return [
       this.states[key],
       /**
@@ -497,6 +598,7 @@ export class Component {
       (value) => {
         this.states[key] = value;
         this.updateComponent();
+        // @ts-ignore
         typeof callback === "function" ? callback() : null;
       },
     ];
@@ -690,6 +792,7 @@ export class Component {
    * @see {@link Component}
    * @see {@link Component#componentDidMount}
    */
+  
   html(strings, ...args) {
     // @ts-ignore
     if (
@@ -715,6 +818,8 @@ export class Component {
         result += args[i];
       }
     }
+
+    result =  new Function("useRef", `return \`${result}\``)(useRef) 
 
     if (!result.trim().startsWith("<body>")) {
       console.warn(
@@ -784,6 +889,9 @@ export class Component {
           if (element.hasAttribute("ref")) {
             // @ts-ignore
             dom[element.getAttribute("ref")] = element;
+          }
+          if(element.nodeName === "MARKDOWN"){
+            element.innerHTML = markdown(element.innerHTML.trim())
           }
 
           if (element.hasAttribute("class")) {
@@ -883,7 +991,7 @@ export class Component {
    * </div>
    * `);
    */
-  async render() {}
+  async render(props) {}
 }
 
 /**
@@ -951,8 +1059,9 @@ let cache = {};
  * @returns {Promise}  - modified string with html content
  * @param {string}  path
  */
-
+ 
 export const include = async (path) => {
+    
   if (
     path.startsWith("/") &&
     !path.includes("/src/") &&
@@ -975,10 +1084,11 @@ export const include = async (path) => {
     })
     .then(async (data) => {
       // Handle includes
-      let includes = data.match(/<include src="(.*)"\/>/gs);
+      let includes = data.match(/<include src="(.*)"\/>/g);
       if (includes) {
-        // Use Promise.all to fetch all includes concurrently
+      
         const includePromises = includes.map((e) => {
+        
           // @ts-ignore
           let includePath = e.match(/<include src="(.*)"\/>/)[1];
 
@@ -991,19 +1101,20 @@ export const include = async (path) => {
             includePath = "/src" + includePath;
           }
           return include(includePath).then((includeData) => {
-            // Replace the include tag with the fetched data
             data = data.replace(e, includeData);
+            console.log("included", includePath);
           });
         });
 
         // Wait for all includes to be fetched and replaced
         return Promise.all(includePromises).then(() => {
           cache[path] = data;
-          return new Function(`return \`${data}\`;`)();
+           
+          return data
         });
       } else {
         cache[path] = data;
-        return new Function(`return \`${data}\`;`)();
+        return data;
       }
     });
 };
