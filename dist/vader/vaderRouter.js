@@ -31,6 +31,7 @@ class VaderRouter {
      * Listener function for hash change events.
      * @type {Function}
      */
+    //@ts-ignore
     this.hashChangeListener = null;
 
     /**
@@ -43,6 +44,7 @@ class VaderRouter {
      * Flag indicating if custom error handling is enabled.
      * @type {boolean}
      */
+    //@ts-ignore
     this.customerror = null;
 
     /**
@@ -129,6 +131,7 @@ class VaderRouter {
       }
     } else {
       if (this.customerror) {
+        //@ts-ignore
         this.handleError("404", route);
         console.error("404: Route not found");
       } else {
@@ -147,7 +150,7 @@ class VaderRouter {
    * @description used by start() to handle errors.
    */
 
-  handleError(type, data, res) {
+  handleError(type, data) {
     if (this.errorHandlers[type]) {
       this.errorHandlers[type](data);
     } else {
@@ -191,6 +194,7 @@ class VaderRouter {
       const params = {};
 
       for (let i = 0; i < paramNames.length; i++) {
+        //@ts-ignore
         params[paramNames[i]] = matches[i + 1];
       }
       if (
@@ -264,12 +268,12 @@ class VaderRouter {
   /**
    * @alias use
    * @param {String} pattern
-   * @param {Function} callback
+   * @param { void} callback
    * @returns {void}
    * @memberof VaderRouter
    * @description  Allows you to set routes to be used throughout your spa.
    */
-  use(pattern, callback = null) {
+  use(pattern, callback) {
     const regexPattern = pattern
       .replace(/:[^/]+/g, "([^/]+)") // Replace :param with a capturing group
       .replace(/\//g, "\\/"); // Escape forward slashes
@@ -307,7 +311,7 @@ class VaderRouter {
     window.$URL_PARAMS = params;
      // @ts-ignore
     window.$URL_QUERY = query;
-  
+  //@ts-ignore
     if (callback) {
       this.routes[pattern] = callback;
     } else {
@@ -389,6 +393,7 @@ class VaderRouter {
         const params = {};
 
         for (let i = 0; i < paramNames.length; i++) {
+          //@ts-ignore
           params[paramNames[i]] = matches[i + 1];
         }
         if (
@@ -433,6 +438,7 @@ class VaderRouter {
            * res.send('#root', '<h1>Hello World</h1>');
            * */
           send: function (selector, data) {
+            //@ts-ignore
             document.querySelector(selector).innerHTML = data;
           },
           /**
@@ -444,6 +450,7 @@ class VaderRouter {
            * @description  Allows you to perform actions when the currentRoute changes.
            */
           render: function (selector, data) {
+            //@ts-ignore
             document.querySelector(selector).innerHTML = data;
           },
         };

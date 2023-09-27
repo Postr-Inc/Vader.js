@@ -1,0 +1,39 @@
+<div
+ref="drawer"
+class="drawer fixed mt-16 z[-1] lg:drawer-open md:drawer-open xl:drawer-open">
+    <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+   
+    
+    <div class="drawer-side">
+      <label for="my-drawer-2" class="drawer-overlay"></label> 
+      <ul class="menu p-4 w-40 min-h-full bg-base-100 border border-slate-100 text-base-content">
+        <!-- Sidebar content here -->
+        <div tabindex="0" class="collapse  collapse-plus  ">
+            <input type="checkbox" />
+            <div class="collapse-title  
+            after:collapse-arrow
+            ">
+               Start Here
+            </div>
+            <div class="collapse-content"> 
+               <a href="${
+                    !$CURRENT_URL.includes("/home")
+                      ? "/docs/home"
+                      : "/docs/home"
+               
+               }" class=" 
+                ${
+                    $CURRENT_URL.includes("/home")
+                      ? "text-sky-500"
+                      : "text-base-content"
+                }
+                ">Getting Started</a>
+            </div>
+          </div>
+   
+        <li><a>Sidebar Item 1</a></li>
+        <li><a>Sidebar Item 2</a></li>
+      </ul>
+    
+    </div>
+  </div>
