@@ -46,7 +46,8 @@
                       </div>
                      
                  </li>
-                 <li class=" lg:hidden xl:hidden md:hidden flex">
+                  ${
+                  $FULL_URL.includes('docs') ? `<li class=" lg:hidden xl:hidden md:hidden flex">
                   <a
                   onclick="document.querySelector('.drawer').classList.toggle('drawer-open')"
                   >
@@ -55,7 +56,8 @@
                    </svg>
                    
                   </a>
-               </li>
+               </li>` : ""
+                 }
                  
             </ul>
         </div>
