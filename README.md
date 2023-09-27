@@ -47,7 +47,7 @@ or
  - Then you can import like this
 
  ```js
-  import { Vader, VaderRouter } from 'vaderjs'
+  import Vader, { VaderRouter, include } from 'vaderjs'
   ```
 
 3. Use VaderJS features for routing, state management, auth, and more.
