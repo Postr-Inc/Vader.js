@@ -22,9 +22,11 @@ function markdown(content) {
     let blockquote = line.match(/^\>\s/);
     let image = line.match(/\!\[(.*?)\]\((.*?)\)/g);
     
+    
     let codeBlock = line.match(/\`\`\`/g);
     let codeBlockEnd = line.match(/\`\`\`/g);
 
+     
     if (heading) {
        // @ts-ignore
       let headingLevel = heading[0].match(/#/g).length;
@@ -82,10 +84,13 @@ function markdown(content) {
       });
     }
     if(codeBlock){
-      line = line.replace(codeBlock[0], `<pre><code>`);
+      line = line.replace(codeBlock[0], `<code>`);
+      
     }
     if(codeBlockEnd){
-      line = line.replace(codeBlockEnd[0], `</code></pre>`);
+      line = line.replace(codeBlockEnd[0], `</code>`);
+      // remove spaces
+      line = line.replace(/^\s+/g, '');
     }
     
 
@@ -828,8 +833,9 @@ export class Component {
         "You should wrap your html in a body tag, vader may not grab all html!"
       );
     }
-    let dom = new DOMParser().parseFromString(result, "text/html");
-    let elements = dom.body.querySelectorAll("*");
+     
+    const dom = new DOMParser().parseFromString(result, "text/html");
+    const elements = dom.documentElement.querySelectorAll("*");
 
     elements.forEach((element) => {
       switch (element.nodeName) {
@@ -863,11 +869,8 @@ export class Component {
             let prevurl = element.getAttribute("src");
             element.setAttribute("aria-hidden", "true");
             element.setAttribute("hidden", "true");
-            let url =
-              window.location.origin +
-              window.location.pathname +
-              "/public/" +
-              element.getAttribute("src");
+             // if window.lcoation.pathname includes a html file remove it and only use the path
+             let url = window.location.origin +  window.location.pathname.replace(/\/[^\/]*$/, '') + '/public/' + element.getAttribute("src");
             let image = new Image();
             image.src = url;
             image.onerror = () => {

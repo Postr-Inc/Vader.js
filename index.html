@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <!-- #vader-allow_class -->
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,9 @@
     <meta name="description" content="A reactive framework for single application web apps similar to react.js">
     <link rel="stylesheet" href="./dist/styles/main.css">
     <link rel="shortcut icon" href="./public/icons/logo.png" type="image/x-icon">
+    
 </head>
+
 <body>
     <div id="root"></div>
     <script type="importmap">
@@ -20,6 +23,15 @@
         }
     </script>
     <script src="dist/init.js" type="module"></script>
-    
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/highlight.min.js"></script>
+ 
+ 
+        <script type="module">
+
+            import javascript from 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/es/languages/javascript.min.js';
+            hljs.registerLanguage('javascript', javascript);
+        </script>
+
 </body>
+
 </html>

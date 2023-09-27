@@ -1,0 +1,129 @@
+ 
+<html>
+
+<body>
+    <include src="/components/nav.html"/>
+    <include src="/components/sidedrawer.html"/>
+
+    <div class="drawer-content    lg:z-[1] xl:z-[1] z-[-1] absolute mt-16  w-screen 
+            left-1/2 transform -translate-x-1/2  
+           max-w-sm  xl:max-w-xl  md:max-w-xl lg:max-w-xl justify-center flex flex-col mx-auto p-5 xl:p-5 gap-3">
+        <div class="">
+            <markdown class="xl:text-5xl md:text-5xl lg:text-5xl text-4xl   font-extrabold">
+                ## Installing
+            </markdown>
+            <br>
+
+            <markdown class="text-lg font-bold pt-16">
+                ## Prerequisites
+
+            </markdown>
+
+            <ul class="list-disc list-inside  500 mt-6">
+                <li>Nodejs- <span class="badge badge-ghost"> v18.14.1</span> or higher.
+                <li>Text Editor - Recommended: <a class="link text-rose-500" target="_blank"
+                        href="https://code.visualstudio.com/">Vscode</a>
+            </ul>
+
+        </div>
+
+        <span class="text-2xl mt-8 font-bold"> 1. Setting up Vader</span>
+        <p>Before you can create your webapp you need to install the vaderjs npm package or use a cdn</p>
+        <br>
+        <span class="bg-base-200 p-5 flex flex-row justify-between rounded ">
+            npm install vaderjs
+            <div "
+                class=" invisible hover:visible hover:cursor-pointer">
+                <svg class="w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+            </div>
+        </span>
+
+        <span class="text-rose-500 text-lg">
+            or
+        </span>
+        <p>
+            Use cdn version - this does not include vscode jsdoc types and is not recommended for production use
+        </p>
+        <markdown class=" text-start p-5 bg-base-200 max-w-4/5
+                overflow-y-hidden
+                overflow-x-auto
+                ">
+
+
+            &lt;script
+            src="https://cdn.jsdelivr.net/npm/vaderjs/dist/vader.min.js"&gt;
+            &lt;/script&gt;
+
+
+        </markdown>
+
+
+
+
+        <br>
+        <p>Then you can</p>
+        <code class="bg-base-200 p-5 flex flex-row justify-between rounded h-fit ">
+
+                    import Vader, { include } from "vaderjs"
+                
+            </code>
+        <br>
+        <h1 class="font-extrabold text-4xl">Next Steps</h1>
+        <span class="mt-8  ">
+            YAY! You just setup your project! 🥳
+        </span>
+        <p>
+            Here are a few resouces to help you layout your webpage!
+        </p>
+
+        <ul class="flex flex-col gap-5 mt-5 mb-6">
+            <li>📚 - Page & File Structure: Learn how to structure your project pages
+                in our <a class="link underline-offset-2 text-sky-500" href="/docs/guides/page-structure">Page Structure</a> guide.
+            </li>
+            <li>📚 - Deploying: Learn how to deploy your static Vader project
+                in our <a class="link underline-offset-2 text-sky-500" href="/docs/guides/deploying">Deploying</a> guide.
+            </li>
+            <li>📚 - Dive Into State Management: take a look at how state interchanges with your code
+                in our <a class="link underline-offset-2 text-sky-500" href="/docs/guides/state-management">State Management</a> guide.
+            </li>
+        </ul>
+
+
+        <div class="flex flex-row flex-wrap  w-full gap-5">
+            <a href="/docs/base/getting-started"
+                class="btn  btn-ghost rounded  flex w-full  btn-md  flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
+
+
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                    stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 15.75L3 12m0 0l3.75-3.75M3 12h18" />
+                </svg>
+
+
+                Getting Started
+
+
+            </a>
+            <button
+                class="btn  btn-md xl:btn-md btn-ghost rounded flex w-full flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
+
+                <a href="/docs/guides/project-structure">
+
+                    Project Structure
+
+                </a>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                    stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+</body>
+
+</html>

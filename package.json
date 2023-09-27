@@ -10,7 +10,7 @@
     "scripts": {
         "test": "echo hello world",
         "dev": "npx tailwindcss -i ./src/dev/app.css -o ./dist/styles/main.css --watch  ",
-        "build": "postcss  ./src/dev/app.css -o ./dist/styles/main.css  ",
+        "build": "postcss  ./src/dev/app.css -o ./dist/styles/main.css --minify --watch ",
         "start": "npx live-server ./ --port=8080 --entry-file=./index.html && npm run dev"
     },
     "dependencies": {

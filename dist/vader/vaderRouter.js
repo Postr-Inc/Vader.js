@@ -1,482 +1,218 @@
- // @ts-ignore
-window.$URL_PARAMS = {};
- // @ts-ignore
-window.$URL_QUERY = {};
 
 /**
- * @file VaderRouter.js
- * @version 1.0.0
- * @license MIT
- * @description A simple router for single page applications.
+ * @class VaderRouter
+ * @description  - creates an instance of Vader Express Router
+ * @param {String} path
+ * @param {Function} handler
+ * @param {object} req  request object
+ * @param {object} res  response object
+ * @returns {Object} Express
+ *  
  */
-class VaderRouter {
-  /**
-   * Creates an instance of VaderRouter.
-   * @param {string} starturl - The starting URL for the router.
-   */
-  constructor(starturl) {
-    /**
-     * Object to store route information.
-     * @type {Object}
-     */
-    this.routes = {};
-
-    /**
-     * The current URL being navigated.
-     * @type {string}
-     */
-    this.currentUrl = "";
-
-    /**
-     * Listener function for hash change events.
-     * @type {Function}
-     */
-    //@ts-ignore
-    this.hashChangeListener = null;
-
-    /**
-     * Error handlers for different error types.
-     * @type {Object}
-     */
-    this.errorHandlers = {};
-
-    /**
-     * Flag indicating if custom error handling is enabled.
-     * @type {boolean}
-     */
-    //@ts-ignore
-    this.customerror = null;
-
-    /**
-     * Flag indicating if the router is currently handling a route.
-     * @type {boolean}
-     */
-    this.hooked = false;
-
-    /**
-     * The starting URL for the router.
-     * @type {string}
-     */
-    this.starturl = starturl;
-
-    /**
-     * Array to store stored routes.
-     * @type {string[]}
-     */
-    this.storedroutes = [];
+class VaderRouter{
+  constructor() {
+    this.routes = [];
+    this.middlewares = [];
+    this.errorMiddlewares = [];
+    this.listeners = [];
   }
 
   /**
-   * Starts the router.
+   * @method get
+   * @param {String} path
+   * @param {Function} handler
+   * @description This method is used to register a get route
+   * @returns {void}
+   * @memberof Express
    */
-  start() {
-    if (window.location.hash === "") {
-      window.location.hash = this.starturl;
-    }
-    console.log(this.routes);
-    this.handleRoute("GET");
-    window.addEventListener("hashchange", () => {
-      this.handleRoute("POST");
+  get(path, handler) {
+   
+    this.routes.push({
+      path,
+      handler,
+      method: 'get',
     });
   }
+  /**
+   * @method use
+   * @description This method allows you to use middlewares
+   * @param {Function} middleware 
+   */
+
+  use(/* path, */ middleware) {
+    this.middlewares.push(middleware);
+  }
 
   /**
-   * @alias handleErrors
-   * @param {*} type
-   * @param {*} callback
+   * @method listen
+   * @param {String} port - unique id for the listener
+   * @param {Function} callback - callback function
+   * @description This method is used to start listening to the routes
    * @returns {void}
-   * @memberof VaderRouter
-   * @description Handles errors for the router.
-   * @example
-   * router.handleErrors('404', (err) => {
-   *  // do something with err
-   * });
-   */
-  handleErrors(type, callback) {
-    this.errorHandlers[type] = callback;
-    this.customerror = true;
-  }
-  handleRoute(method) {
-   
-    let route = window.location.hash.substring(1);
- // @ts-ignore
- window.$CURRENT_URL =  window.location.hash.substring(1);
-      //@ts-ignore
-      window.$FULL_URL = window.location.hash.substring(1);
-    // remove query params from route
-    if (route.includes("?")) {
-      route = route.split("?")[0];
-    }
-    route = route.split("/")[0] + "/" + route.split("/")[1];
-    if (this.routes[route]) {
-       
-      this.storedroutes.push(route);
-      const req = {
-         // @ts-ignore
-        params: $URL_PARAMS ? $URL_PARAMS : {},
-         // @ts-ignore
-        query: $URL_QUERY ? $URL_QUERY : {},
-        url: route,
-        method: method ? method : "GET",
-      };
-      const res = {
-        return: function (data) {
-          this.hooked = false;
-        },
-        render: function (selector, data) {
-          document.querySelector(selector).innerHTML = data;
-        },
-      };
-      if(typeof this.routes[route] === 'function'){
-        this.routes[route](req, res);
-      }
-    } else {
-      if (this.customerror) {
-        //@ts-ignore
-        this.handleError("404", route);
-        console.error("404: Route not found");
-      } else {
-        console.error("404: Route not found");
-      }
-
-       
-    }
-  }
-  /**
-   *
-   * @param {*} type
-   * @param {*} data
-   * @returns {void}
-   * @memberof VaderRouter
-   * @description used by start() to handle errors.
+   * 
    */
 
-  handleError(type, data) {
-    if (this.errorHandlers[type]) {
-      this.errorHandlers[type](data);
-    } else {
-      console.error("Error: No error handler found for " + type);
+  listen(port, callback) {
+    if(!port){
+     port = Math.random().toString(36).substring(7);
     }
-  }
-  /**
-   * @alias get
-   * @param {String} path
-   * @param {Function} callback
-   * @returns  {boolean}
-   * @memberof VaderRouter
-   * @description  Allows you to perform actions when path matches the current Route on visit.
-   */
-  get(path, callback) {
-    const paramNames = [];
-    const queryNames = [];
-    const parsedPath = path
-      .split("/")
-      .map((part) => {
-        if (part.startsWith(":")) {
-          paramNames.push(part.substring(1));
-          return "([^/]+)";
-        }
-        if (part.startsWith("*")) {
-          paramNames.push(part.substring(1));
-          return "(.*)";
-        }
-        if (part.startsWith("?")) {
-          queryNames.push(part.substring(1));
-          return "([^/]+)";
-        }
-        return part;
-      })
-      .join("/");
-    const regex = new RegExp("^" + parsedPath + "(\\?(.*))?$");
-
-    if (window.location.hash.substring(1).match(regex)) {
-      this.storedroutes.push(window.location.hash.substring(1));
-      const matches = window.location.hash.substring(1).match(regex);
-      const params = {};
-
-      for (let i = 0; i < paramNames.length; i++) {
-        //@ts-ignore
-        params[paramNames[i]] = matches[i + 1];
-      }
-      if (
-        path.includes(":") &&
-        window.location.hash.substring(1).split("?")[1]
-      ) {
-         
-
-        return false;
-      }
-      const query = {};
-
-      const queryString = window.location.hash.substring(1).split("?")[1];
-      if (queryString) {
-        const queryParts = queryString.split("&");
-        for (let i = 0; i < queryParts.length; i++) {
-          const queryParam = queryParts[i].split("=");
-          query[queryParam[0]] = queryParam[1];
-        }
-      }
-      /**
-       * @alias req
-       * @type {Object}
-       * @property {Object} params - The params object.
-       * @returns {Object}  current url params
-       */
-
-      const req = {
-        params: params,
-        query: query,
-        url: window.location.hash.substring(1),
-        method: "GET",
-      };
- // @ts-ignore
-      window.$URL_PARAMS = params;
-       // @ts-ignore
-      window.$URL_QUERY = query;
-       // @ts-ignore
-      window.$CURRENT_URL =  window.location.hash.substring(1);
-      //@ts-ignore
-      window.$FULL_URL = window.location.hash.substring(1);
-      /**
-       * @alias render
-       * @param {*} selector
-       * @param {*} data
-       * @returns {void}
-       * @memberof VaderRouter
-       * @description  Allows you to perform actions when the currentRoute changes.
-       */
-      const res = {
-        return: function (data) {
-          this.hooked = false;
-        },
-        render: function (selector, data) {
-          document.querySelector(selector).innerHTML = data;
-        },
-      };
-
-      callback(req, res);
-     // @ts-ignore
-      return true;
+    this.listeners.push(port);
+    callback();
+    if (this.listeners.length === 1) {
+      this.handleRoute(window.location.hash);
+    }else{
+      this.listeners.pop();
     }
-
-    this.hooked = false;
-    return false;
-  }
-
-  kill(path) {
-    if (this.routes[path]) {
-      delete this.routes[path];
-    }
-  }
-  /**
-   * @alias use
-   * @param {String} pattern
-   * @param { void} callback
-   * @returns {void}
-   * @memberof VaderRouter
-   * @description  Allows you to set routes to be used throughout your spa.
-   */
-  use(pattern, callback) {
-    const regexPattern = pattern
-      .replace(/:[^/]+/g, "([^/]+)") // Replace :param with a capturing group
-      .replace(/\//g, "\\/"); // Escape forward slashes
-  
-    const regex = new RegExp("^" + regexPattern + "(\\?(.*))?$");
-    let params = {};
-    let query = {};
-  
-    // Get params
-    const match = window.location.hash.substring(1).match(regex);
-  
-    if (match) {
-      this.storedroutes.push(window.location.hash.substring(1));
-      const matches = match.slice(1); // Extract matched groups
-  
-      // Extract named params from the pattern
-      const paramNames = pattern.match(/:[^/]+/g) || [];
-      for (let i = 0; i < paramNames.length; i++) {
-        const paramName = paramNames[i].substring(1); // Remove the leading ":"
-        params[paramName] = matches[i];
-      }
-  
-      query = {};
-  
-      const queryString = matches[paramNames.length]; // The last match is the query string
-      if (queryString) {
-        const queryParts = queryString.split("&");
-        for (let i = 0; i < queryParts.length; i++) {
-          const queryParam = queryParts[i].split("=");
-          query[queryParam[0]] = queryParam[1];
-        }
-      }
-    }
-   // @ts-ignore
-    window.$URL_PARAMS = params;
-     // @ts-ignore
-    window.$URL_QUERY = query;
-  //@ts-ignore
     if (callback) {
-      this.routes[pattern] = callback;
-    } else {
-      this.routes[pattern] = true;
-      this.storedroutes.push(window.location.hash.substring(1));
-    }
-  }
-  
-  
-
-  onload(callback) {
-    // await dom to be done make sure no new elements are added
-    if (
-      document.readyState === "complete" ||
-       // @ts-ignore
-      document.readyState === "loaded" ||
-      document.readyState === "interactive"
-    ) {
       callback();
     }
+    window.onhashchange = () => {
+      this.handleRoute(window.location.hash);
+    }
+  }
+  /**
+   * @method extractParams
+   * @description This method is used to extract parameters from the route path
+   * @param {*} routePath
+   * @param {*} hash 
+   * @returns  {Object} params
+   * @memberof Express
+   */
+
+  extractParams(routePath, hash) {
+    const routeParts = routePath.split('/');
+    const hashParts = hash.split('/');
+    const params = {};
+    routeParts.forEach((part, index) => {
+      if (part.startsWith(':')) {
+        const paramName = part.slice(1);
+        params[paramName] = hashParts[index];
+      }else if(part.startsWith('*')){
+        // remove queries from this par
+        params[0] = hashParts.slice(index).join('/').split('?')[0];
+      }
+    });
+    return params;
+  }
+  extractQueryParams(hash){
+    
+    const queryParams = hash.split('?')[1];
+    if(!queryParams){
+      return {};
+    }
+    const params = {};
+    queryParams.split('&').forEach((param)=>{
+      const [key, value] = param.split('=');
+      params[key] = value;
+    })
+    return params;
   }
 
   /**
-   * @alias on
-   * @param {String} path
-   * @param {Function} callback
-   * @returns {void}
-   * @memberof VaderRouter
-   * @description  Allows you to perform actions when the currentRoute changes.
-   *
+   * @method handleRoute
+   * @param {String} hash
+   * @description This method is used to handle the route
    */
-  on(path, callback) {
-    window.addEventListener("hashchange", () => {
-      const paramNames = [];
-      const queryNames = [];
-      const parsedPath = path
-        .split("/")
-        .map((part) => {
-          if (part.startsWith(":")) {
-            paramNames.push(part.substring(1));
-            return "([^/]+)";
-          }
-          if (part.startsWith("*")) {
-            paramNames.push(part.substring(1));
-            return "(.*)";
-          }
-          if (part.startsWith("?")) {
-            queryNames.push(part.substring(1));
-            return "([^/]+)";
-          }
-          return part;
-        })
-        .join("/");
-      const regex = new RegExp("^" + parsedPath + "(\\?(.*))?$");
 
-      let hash = window.location.hash.split("#")[1]
-        ? window.location.hash.split("#")[1]
-        : window.location.hash;
-
-      let basePath = "";
-      if (hash.length > 1) {
-        basePath = hash.split("/")[0] + "/" + hash.split("/")[1];
-      } else {
-        basePath = hash[0];
+  handleRoute(hash) {
+    hash = hash.slice(1);
+    let status = 200;
+    let route = this.routes.find((route) => {
+     
+      if (route.path === hash) {
+        return true;
       }
-      const route = basePath;
-      this.currentUrl = route;
-      // @ts-ignore
-      window.$CURRENT_URL = route;
-      //@ts-ignore
-      window.$FULL_URL = window.location.hash.substring(1);
-       // @ts-ignore
-      window.$URL_PARAMS = {};
-      if (
-        window.location.hash.substring(1).match(regex) &&
-         // @ts-ignore
-        this.routes[window.$CURRENT_URL]
-      ) {
-        this.storedroutes.push(window.location.hash.substring(1));
-        const matches = window.location.hash.substring(1).match(regex);
-        const params = {};
-
-        for (let i = 0; i < paramNames.length; i++) {
-          //@ts-ignore
-          params[paramNames[i]] = matches[i + 1];
-        }
-        if (
-          path.includes(":") &&
-          window.location.hash.substring(1).split("?")[1]
-        ) {
-          console.error(
-            "Cannot use query params with path params",
-            path,
-            window.location.hash.substring(1).split("?")[1]
-          );
-          return false;
-        }
-        const query = {};
-
-        const queryString = window.location.hash.substring(1).split("?")[1];
-        if (queryString) {
-          const queryParts = queryString.split("&");
-          for (let i = 0; i < queryParts.length; i++) {
-            const queryParam = queryParts[i].split("=");
-            query[queryParam[0]] = queryParam[1];
-          }
-        }
-        const req = {
-          params: params,
-          query: query,
-          url: window.location.hash.substring(1),
-          method: "POST",
-        };
-        const res = {
-          return: function (data) {
-            this.hooked = false;
-          },
-          /**
-           * @alias send
-           * @param {String} selector
-           * @param {String} data
-           * @returns {void}
-           * @memberof VaderRouter
-           * @description  Allows you to perform actions when the currentRoute changes.
-           * @example
-           * res.send('#root', '<h1>Hello World</h1>');
-           * */
-          send: function (selector, data) {
-            //@ts-ignore
-            document.querySelector(selector).innerHTML = data;
-          },
-          /**
-           * @alias render
-           * @param {String} selector
-           * @param {String} data
-           * @returns {void}
-           * @memberof VaderRouter
-           * @description  Allows you to perform actions when the currentRoute changes.
-           */
-          render: function (selector, data) {
-            //@ts-ignore
-            document.querySelector(selector).innerHTML = data;
-          },
-        };
-         // @ts-ignore
-        window.$URL_QUERY = query;
-         // @ts-ignore
-        window.$URL_PARAMS = params;
-
-        /**
-         * @alias callback
-         * @type {function}
-         * @param {Object} req - The request object.
-         * @returns {void}
-         * @memberof VaderRouter
-         * @description  Allows you to perform actions when the currentRoute changes.
-         */
-        callback(req, res);
-      }else{
-        console.log('no route')
+      const routePathParts = route.path.split('/');
+      const hashParts = hash.split('/');
+      // if asterisk is present in route path then it will be the last part
+      if(routePathParts[routePathParts.length-1].startsWith('*')){
+        return true;
+      }else if (routePathParts.length !== hashParts.length) {
+        return false;
       }
+     
+      const params = this.extractParams( route.path, hash);
+      return Object.keys(params).length > 0;
     });
+  
+    if (!route) {
+      route = this.routes.find((route) => {
+        return route.path === '/404';
+      });
+
+      status = 404;
+    }
+
+     
+    const queryParams = this.extractQueryParams(hash);
+    const params =  route && route.path ? this.extractParams(route.path, hash) : {};
+    const req = {
+      headers: {},
+      params: params,
+      query: queryParams,
+      path: hash,
+      method: route ? route.method : 'get',
+    };
+  
+    // @ts-ignore
+    window.$CURRENT_URL = req.path
+   
+    // @ts-ignore
+    window.$FULL_URL = window.location.href.replace('#', '')
+   
+    const res = {
+      status: status,
+      /**
+       * @method log
+       * @param {String} type 
+       * @description This method is used to log the request and response
+       */
+      log: (type) => {
+        if(type === undefined){
+          console.log(`${req.path} ${req.method} ${res.status} ${req.timestamp}`);
+        }else{
+          console.table({
+            'Request Path': req.path,
+            'Request Method': route.method,
+            'Response Status': res.status,
+            'Request Timestamp': req.timestamp,
+          });
+        }
+      },
+      send: (selector, data) => {
+        if(typeof selector === 'string'){
+          // @ts-ignore
+          document.querySelector(selector).innerHTML = data;
+        }else if(typeof selector === 'number'){
+          res.status = selector;
+        }else if(typeof selector === 'object'){
+          res.status = selector.status;
+        }
+      },
+      json: (selector, data) => {
+        
+        if(typeof selector === 'string'){
+          // @ts-ignore
+          let obj = document.createElement('object');
+           // data url
+          obj.data =  URL.createObjectURL(new Blob([JSON.stringify(data)], {type: 'application/json'}));
+          // @ts-ignore
+          document.querySelector(selector).appendChild(obj);
+        }else{
+          throw new Error('Selector must be a string');
+        }
+      },
+    };
+    this.middlewares.forEach((middleware) => {
+      middleware(req, res);
+    });
+  
+    route ? route.handler(req, res) : null;
+     
   }
+  
 }
+
 export default VaderRouter;
+ 
+ 
