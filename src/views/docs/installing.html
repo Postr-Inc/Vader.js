@@ -1,91 +1,64 @@
-<body>
+<body  >
     <include src="/components/nav.html"/>
     <include src="/components/sidedrawer.html"/>
-    <div class="drawer-content   xl:z-[1] lg:z-[1] md:z-[1] z-[-1] absolute mt-16 w-5/6
-     left-1/2 transform -translate-x-1/2  
-       xl:max-w-xl max-w-xl xl:justify-center flex flex-col xl:mx-auto p-8 xl:p-5 gap-3">
-        <div class="w-screen">
-            <markdown class="xl:text-5xl md:text-5xl lg:text-5xl text-4xl   font-extrabold">
-                ## Installing
-            </markdown>
-            <br>
-
-            <markdown class="text-lg font-bold pt-16">
-                ## Prerequisites
-
-            </markdown>
-
-            <ul class="list-disc list-inside  500 mt-6">
-                <li>Nodejs- <span class="badge badge-ghost"> v18.14.1</span> or higher.
-                <li>Text Editor - Recommended: <a class="link text-rose-500"
-                        href="https://code.visualstudio.com/">Vscode</a>
-            </ul>
-
-        </div>
-
-        <span class="text-2xl mt-8 font-bold"> 1. Setting up Vader</span>
-        <p>Before you can create your webapp you need to install the vaderjs npm package or use a cdn</p>
-        <br>
-        <span class="bg-base-200 p-5 flex flex-row justify-between rounded ">
-            npm install vaderjs
-            <div "
-        class=" invisible hover:visible hover:cursor-pointer">
-                <svg class="w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-            </div>
-        </span>
-
-        <span class="text-rose-500 text-lg">
-            or
-        </span>
-        <p>
-            Use cdn version - this does not include vscode jsdoc types and is not recommended for production use
-        </p>
-         
-    </pre></code>
-
-    <br>
-    <p>Then you can</p>
-    <span class="bg-base-200 p-5 flex flex-row justify-between rounded h-fit">
+    <div class="drawer-content   xl:z-[1] lg:z-[1] md:z-[1] z-[-1] absolute mt-16  
+  m-auto left-0 right-0  w-screen  
+     justify-center flex flex-col mx-auto p-8 xl:p-5 gap-3">
+      <div class="">
+        <markdown
+        class="xl:text-5xl md:text-5xl lg:text-5xl text-4xl   font-extrabold"
+        >
+        ## Installing
+       </markdown>
         
-            import Vader from "vaderjs"
-        
-    </span>
-    <br>
-    <h1 class="font-extrabold text-4xl">Next Steps</h1>
-    <span class="mt-8  "> 
-        YAY! You just setup your project! 🥳
-    </span>
-
-
-     <div class="flex flex-row gap-5">
-        <button class="btn  btn-ghost rounded flex flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
-     
-         
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 15.75L3 12m0 0l3.75-3.75M3 12h18" />
-            </svg>
-            <a href="/docs/installing"
-            >
-           Getting Started
        
-          </a>
-          </button>
-          <button class="btn  btn-ghost rounded flex flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
+    
+      </div>
+      <markdown class="text-lg font-bold pt-16">
+        ## Prerequisites
+
+     </markdown>
+     <ul class="list-disc list-inside  500 mt-6">
+        <li>Nodejs- <span class="badge badge-ghost"> v18.14.1</span> or higher.
+        <li>Text Editor - Recommended: <a class="link text-rose-500"
+                href="https://code.visualstudio.com/">Vscode</a>
+    </ul>
+      <markdown class="text-2xl mt-8 font-bold">
+       
+       
+      <p class="break-words  ">
+      
+     </p>
      
-            <a href="/docs/installing"
-              >
-              
-              First Page
-           
-            </a>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
-            </svg>
-          </button>
-     </div>
-    </div>
-</body>
+   
+  
+    
+     
+     
+      <markdown
+      class="text-2xl mt-8 font-bold" 
+      >
+        # Learn Vader
+        
+      </markdown>
+      <p>
+        See examples, best practices, and key concepts to of a Vader app!
+      </p>
+    
+      <br>
+      <br>
+      <button class="btn  btn-ghost rounded flex flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
+         
+        <a href="/docs/installing"
+          >
+          Install Vader
+     
+        </a>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
+        </svg>
+      </button>
+    
+    </div> 
+     
+    </body>
