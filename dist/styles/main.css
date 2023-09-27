@@ -7794,14 +7794,11 @@ details.collapse summary::-webkit-details-marker {
 .end-5 {
   inset-inline-end: 1.25rem;
 }
-.left-0 {
-  left: 0px;
-}
 .left-1\/2 {
   left: 50%;
 }
-.top-0 {
-  top: 0px;
+.top-1\/2 {
+  top: 50%;
 }
 .isolate {
   isolation: isolate;
@@ -7866,8 +7863,17 @@ details.collapse summary::-webkit-details-marker {
   margin-top: 2rem;
   margin-bottom: 2rem;
 }
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+.mb-40 {
+  margin-bottom: 10rem;
+}
 .mb-5 {
   margin-bottom: 1.25rem;
+}
+.mb-6 {
+  margin-bottom: 1.5rem;
 }
 .mt-16 {
   margin-top: 4rem;
@@ -7886,9 +7892,6 @@ details.collapse summary::-webkit-details-marker {
 }
 .mt-8 {
   margin-top: 2rem;
-}
-.mb-6 {
-  margin-bottom: 1.5rem;
 }
 .box-border {
   box-sizing: border-box;
@@ -7990,9 +7993,6 @@ details.collapse summary::-webkit-details-marker {
 .w-4 {
   width: 1rem;
 }
-.w-40 {
-  width: 10rem;
-}
 .w-5 {
   width: 1.25rem;
 }
@@ -8007,6 +8007,9 @@ details.collapse summary::-webkit-details-marker {
 }
 .w-6 {
   width: 1.5rem;
+}
+.w-64 {
+  width: 16rem;
 }
 .w-\[100vw\] {
   width: 100vw;
@@ -8924,6 +8927,9 @@ details.collapse summary::-webkit-details-marker {
 }
 .p-5 {
   padding: 1.25rem;
+}
+.p-8 {
+  padding: 2rem;
 }
 .px-1 {
   padding-left: 0.25rem;
@@ -11336,6 +11342,10 @@ details.collapse summary::-webkit-details-marker {
 }
 @media (min-width: 768px) {
 
+  .md\:z-\[1\] {
+    z-index: 1;
+  }
+
   .md\:hidden {
     display: none;
   }
@@ -11414,6 +11424,10 @@ details.collapse summary::-webkit-details-marker {
 
   .xl\:w-\[60vw\] {
     width: 60vw;
+  }
+
+  .xl\:w-screen {
+    width: 100vw;
   }
 
   .xl\:max-w-2xl {

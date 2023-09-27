@@ -2,6 +2,7 @@
 /**
  * @class VaderRouter
  * @description  - creates an instance of Vader Express Router
+ *  
  * @param {String} path
  * @param {Function} handler
  * @param {object} req  request object
@@ -10,11 +11,18 @@
  *  
  */
 class VaderRouter{
-  constructor() {
+  /**
+   * @constructor
+   * @param {*} basePath 
+   *  
+   */
+  constructor(basePath) {
     this.routes = [];
     this.middlewares = [];
     this.errorMiddlewares = [];
     this.listeners = [];
+     
+    this.basePath = basePath;
   }
 
   /**
@@ -124,21 +132,26 @@ class VaderRouter{
       }
       const routePathParts = route.path.split('/');
       const hashParts = hash.split('/');
-      // if asterisk is present in route path then it will be the last part
-      if(routePathParts[routePathParts.length-1].startsWith('*')){
-        return true;
-      }else if (routePathParts.length !== hashParts.length) {
+      if (routePathParts.length !== hashParts.length) {
         return false;
+      }else if(routePathParts[routePathParts.length-1].startsWith('*')){
+        return true;
       }
-     
       const params = this.extractParams( route.path, hash);
       return Object.keys(params).length > 0;
     });
   
     if (!route) {
       route = this.routes.find((route) => {
-        return route.path === '/404';
+         
+         if(route.path === '/404'){
+          return  true;
+         }else{
+           window.location.hash = this.basePath  
+         }
       });
+
+      route ? status = 200 :
 
       status = 404;
     }
