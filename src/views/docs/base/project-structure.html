@@ -1,0 +1,92 @@
+${
+    document.title = "Project Structure | Vader Docs", ""
+}
+<body>
+    <include src="/components/nav.html"/>
+    <include src="/components/sidedrawer.html"/>
+
+    <div class="drawer-content lg:z-[1] xl:z-[1] z-[-1] absolute mt-16 w-screen 
+        left-1/2 transform -translate-x-1/2 max-w-xl xl:max-w-xl md:max-w-screen lg:max-w-xl justify-center flex flex-col mx-auto p-5 xl:p-5 gap-3">
+        
+        <h1 class="xl:text-5xl md:text-5xl text-4xl font-extrabold">Project Structure</h1>
+        
+        <p class="mt-2 break-words">
+            When you create a new project, there are a few things to keep in mind regarding folder structure.
+            Here's how Vader organizes content on your webpage.
+        </p>
+
+        <h2 class="text-4xl font-bold mt-8">Directories</h2>
+        
+        <p class="mt-2 break-words">
+             Below is how every vader project should be structured!
+        </p>
+        <p>
+            Every vader root should include these two folders.
+            src is used for finding relative paths for included page views, public is used in vader to finding
+            images and fonts for your webpage.
+        </p>
+        <markdown class="list-inside">
+            - **src/*** - Your project source code (components, views, styles, etc.)
+            - **public/*** - Your public folder (images, fonts, library files)
+        </markdown>
+        
+        <markdown class="  text-2xl  bg-base-200 p-2 w-fit rounded  ">
+           src/
+        </markdown>
+        <markdown class="">
+            The  <span class="badge badge-ghost  ">
+                src/
+            </span> folder is where most of your project source code lives. This includes:
+        </markdown>
+        <markdown class="list-inside">
+            - **components/*** - Your components  
+            - **views/*** - Your views
+            - **styles/*** - Your styles
+            - **markdown/*** - Your markdown files
+
+        </markdown>
+        <markdown class="  text-2xl  bg-base-200 p-2 w-fit rounded  ">
+            public/
+        </markdown>
+        <markdown>
+            The  <span class="badge badge-ghost  ">
+                public/
+            </span> folder contains all of your static assets. This includes:
+        </markdown>
+        <markdown class="list-inside">
+            - **images/*** - Your images
+            - **fonts/*** - Your fonts
+            - **js/*** - Your external imported javascript libraries
+        </markdown>
+        
+      
+            
+            <div class="flex flex-row flex-wrap mt-12 w-full gap-5">
+                <a href="/docs/base/installing"
+                    class="btn  btn-ghost rounded  flex w-full  btn-md  flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
+    
+    
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 15.75L3 12m0 0l3.75-3.75M3 12h18" />
+                    </svg>
+    
+    
+                    Installing
+    
+    
+                </a>
+            <a href="/docs/basics/components" class="btn mb-2  w-full btn-ghost rounded flex flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
+       
+     
+                Components
+           
+             
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
+              </svg>
+            </a>
+      
+    </div>
+</body>
+</html>
