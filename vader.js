@@ -6,7 +6,8 @@ let states = {};
  * @description Allows you to convert markdown to html 
  */
 function markdown(content) {
-  const lines = content.split('\n');
+  const lines = content.split('\n').filter((line) => line !== '').map((line) => line.trim());
+   
   let result = '';
 
   lines.forEach((line) => {
@@ -16,7 +17,8 @@ function markdown(content) {
  
     let link = line.match(/\[(.*?)\]\((.*?)\)/g);
     let ul = line.match(/^\-\s/);
-    let ol = line.match(/^\d\.\s/);
+    let ol =  line.match(/^\d\.\s/);
+  
     let li = line.match(/^\s/);
     let hr = line.match(/^\-\-\-\s/);
     let blockquote = line.match(/^\>\s/);
@@ -25,6 +27,8 @@ function markdown(content) {
     
     let codeBlock = line.match(/\`\`\`/g);
     let codeBlockEnd = line.match(/\`\`\`/g);
+    let code = line.match(/\`(.*?)\`/g);
+    
 
      
     if (heading) {
@@ -55,15 +59,11 @@ function markdown(content) {
       });
     }
     if (ul) {
-      line = line.replace(ul[0], `<li
-     style="list-style-type: disc;" 
-      >`);
+      line = line.replace(ul[0], `<li style="list-style-type: disc;">`);
       line += `</li>`;
     }
     if (ol) {
-      line = line.replace(ol[0], `<li
-     style="list-style-type: decimal;" 
-      >`);
+      line = line.replace(ol[0], `<li style="list-style-type: decimal;">`);
       line += `</li>`;
     }
     if (hr) {
@@ -83,15 +83,27 @@ function markdown(content) {
         line = line.replace(i, `<img src="${src}" alt="${alt}"/>`).replace('!','')
       });
     }
-    if(codeBlock){
-      line = line.replace(codeBlock[0], `<code>`);
-      
+    if (li) {
+      line = line.replace(li[0], `<li>`);
+      line += `</li>`;
     }
-    if(codeBlockEnd){
-      line = line.replace(codeBlockEnd[0], `</code>`);
-      // remove spaces
-      line = line.replace(/^\s+/g, '');
+    if (codeBlock) {
+      line = line.replace(codeBlock[0], `<pre><code>`);
     }
+    if (codeBlockEnd) {
+      line = line.replace(codeBlockEnd[0], `</code></pre>`);
+    }
+
+    if (code) {
+      code.forEach((c) => {
+        line = line.replace(c, `<code
+        style="background-color: #f5f5f5; padding: 5px; border-radius: 5px;
+        
+        "
+        >${c.replace(/\`/g, "")}</code>`);
+      });
+    }
+   
     
 
 
@@ -835,6 +847,10 @@ export class Component {
         result += args[i];
       }
     }
+   
+    result = result.replace(/\\n/g, '\n').trim()
+    // replace ` 
+    result = result.replace(/`/g, '\`').trim()
 
     result =  new Function("useRef", `return \`${result}\``)(useRef) 
 
@@ -1120,7 +1136,6 @@ export const include = async (path) => {
           }
           return include(includePath).then((includeData) => {
             data = data.replace(e, includeData);
-            console.log("included", includePath);
           });
         });
 
