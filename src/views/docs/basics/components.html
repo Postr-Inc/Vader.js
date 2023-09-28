@@ -1,0 +1,116 @@
+${
+    document.title = "Component Syntax | Vader Docs", ""
+}
+<body>
+    <include src="/components/nav.html"/>
+    <include src="/components/sidedrawer.html"/>
+
+    <div class="drawer-content lg:z-[1] xl:z-[1] z-[-1] absolute mt-16 w-screen 
+        left-1/2 transform -translate-x-1/2 max-w-xl xl:max-w-xl md:max-w-screen lg:max-w-xl justify-center flex flex-col mx-auto p-5 xl:p-5 gap-3">
+        
+        <h1 class="xl:text-5xl md:text-5xl text-4xl font-extrabold">Components</h1>
+        
+        <p class="mt-2 break-words w-full">
+            Vader components are the base of your webpage. They define the logic and structure while 
+            also allowing you to add reactivity to your webpage. They are similar to react.js components
+            but also have a method for writing external html views!
+        </p>
+        <p>
+            Vader components often times may just hold your state logic for other components, or other times
+            may be the single main component for your webpage. Vader is flexible and can be used for many different
+            use cases.
+        </p>
+
+        <h2 class="text-4xl font-bold mt-8">Component Structure</h2>
+        
+        <p class="mt-2 break-words">
+             <span class="text-rose-500 underline">
+                Vader.Component
+            </span> is the base class for all components in Vader. Which is defined by
+            <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes"
+            target="_blank" class="link text-rose-500">ES6 classes</a>.
+            <div class="mockup-code rounded"
+            onload="this.innerHTML = this.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;')"
+            >
+                <pre data-prefix="1."><code
+                  
+                    >import Vader, {include} from 'vaderjs'</code></pre> 
+                <pre data-prefix="2." class=""><code>class myApp extends Vader.Component{ </code> </pre>
+                </code></pre> 
+                <pre data-prefix="3." class=""><code>   constructor(){ </code> </pre>
+                <pre data-prefix="4." class=""><code>      super()</code> </pre>
+                <pre data-prefix="5." class=""><code>   }</code> </pre>z
+                <pre data-prefix="6." class=""><code>   render(){ </code> </pre>
+                <pre data-prefix="7." class=""><code>      return this.html(	&#768; </code> </pre>
+                <pre data-prefix="8." class=""><code>           &lt;div&gt; </code> </pre>
+                <pre data-prefix="9." class=""><code>           &lt;h1&gt;Hello World&lt;/h1&gt; </code> </pre>
+                <pre data-prefix="10." class=""><code>           &lt;/div&gt; </code> </pre>
+                <pre data-prefix="11." class=""><code>      	&#768; )</code> </pre>
+                <pre data-prefix="12." class=""><code>   }</code> </pre>
+                <pre data-prefix="13." class=""><code> }</code> </pre>
+              </div>
+        </p>
+        <p>
+            Only the render method is required for a component to be valid. 
+            the other methods are optional per your projects needs.
+        </p>
+        
+        <h1 class="text-2xl font-bold mt-8">References</h1>
+        <markdown>
+        
+         - **render()**: The render method is responsible for generating HTML content for the component. You can customize this method to define your component's visual representation.
+
+         - **componentDidMount()**: This method is called explicitly when the component is mounted. It's not handled directly by Vader; you need to manually call it when needed in your component. You can use it to perform actions after the component has been added to the DOM.
+       
+        </markdown>
+
+        <markdown class="text-3xl font-bold">
+            ## Component Lifecycles
+        </markdown>
+        <p>
+            Vader.js provides several lifecycle methods that you can override to handle different events throughout the component's lifecycle:
+        </p>
+        <markdown class="text-lg font-bold badge badge-ghost te">
+            ###  componentUpdated(prev_states, prev_props, snapshot) 
+        </markdown>
+        <markdown class="list-inside flex flex-col gap-4 mt-3">
+            - The <span class="badge badge-ghost">componentUpdated</span> method is an overrideable method that is called by Vader when the component's content has changed.
+       It receives three arguments:
+  - <span class="badge badge-ghost">prev_states</span> An object representing the previous instance of the component's state before it changed.
+  - <span class="badge badge-ghost">prev_props</span>: An object representing the previous instance of the component's props before they changed.
+  - <span class="badge badge-ghost">snapshot</span>: An object representing the last full snapshot of the component.
+        </markdown>
+        <markdown>
+           You can use  <span class="badge badge-ghost">componentUpdated</span> to handle logic when the component's content is updated.
+        </markdown>
+        <markdown class="text-lg font-bold badge badge-ghost te">
+            ### componentWillUnmount()
+        </markdown>
+        <markdown class="list-inside flex flex-col gap-1">
+            - The   <span class="badge badge-ghost">componentWillUnmount</span>
+             method is an overrideable method that is called by Vader when <span class="badge badge-ghost">
+                Vader.Component.unmount()</span> is called.
+            - This method allows you to specify logic that should run when the component is about to be unmounted from the DOM. It's useful for performing cleanup tasks before the component is removed.
+        </markdown>
+            
+        
+
+            <div class="flex flex-row flex-wrap  mt-8 w-full gap-5">
+                <a href="/docs/base/installing"
+                    class="btn  btn-ghost rounded  flex w-full  btn-md  flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
+    
+    
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 15.75L3 12m0 0l3.75-3.75M3 12h18" />
+                    </svg>
+    
+    
+                    Installing
+    
+    
+                </a>
+             
+        </p>
+    </div>
+</body>

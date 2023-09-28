@@ -1,6 +1,6 @@
 <div
 ref="drawer"
-class="drawer fixed mt-16 z[-1] lg:drawer-open md:drawer-open xl:drawer-open">
+class="drawer fixed mt-16 z[-1] lg:drawer-open xl:drawer-open">
     <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
    
     
@@ -8,8 +8,15 @@ class="drawer fixed mt-16 z[-1] lg:drawer-open md:drawer-open xl:drawer-open">
       <label for="my-drawer-2" class="drawer-overlay"></label> 
       <ul class="menu p-4 w-64 min-h-full bg-base-100 border border-slate-100 text-base-content">
         <!-- Sidebar content here -->
-        <div tabindex="0" class="collapse collapse-open  collapse-plus  ">
-            <input type="checkbox" />
+        <div tabindex="0" class="collapse 
+        collapse-open
+        collapse-plus  ">
+            <input type="checkbox"
+            onclick="
+            this.parentElement.classList.toggle('collapse-open')
+            this.parentElement.classList.toggle('collapse-close')
+            "
+            />
             <div class="collapse-title  
             after:collapse-arrow
             ">
@@ -49,9 +56,47 @@ class="drawer fixed mt-16 z[-1] lg:drawer-open md:drawer-open xl:drawer-open">
             
            
           </div>
-   
-        <li><a>Sidebar Item 1</a></li>
-        <li><a>Sidebar Item 2</a></li>
+          <div tabindex="0"
+         
+          class="collapse 
+          cursor-pointer
+          collapse-open
+           collapse-plus  ">
+            <input
+            onclick="
+            this.parentElement.classList.toggle('collapse-open')
+            this.parentElement.classList.toggle('collapse-close')
+            "
+            type="checkbox" />
+            <div class="collapse-title  
+            after:collapse-arrow
+            ">
+              Basics
+            </div>
+            <div class="collapse-content min-h-24 flex gap-5 flex-col"> 
+               <a href="/docs/basics/project-structure" class=" 
+                
+                ${
+                    $FULL_URL.includes("/project-structure")
+                      ? "text-sky-500"
+                      : "text-base-content"
+                }
+                ">Project Structure</a>
+                <a href="/docs/basics/components" class=" 
+                
+                ${
+                    $FULL_URL.includes("/components")
+                      ? "text-sky-500"
+                      : "text-base-content"
+                }
+                ">Components</a>
+                 
+                 
+            </div>
+            
+           
+          </div>
+    
       </ul>
     
     </div>

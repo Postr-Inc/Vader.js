@@ -2,12 +2,14 @@
 <html>
 
 <body>
+    ${
+        document.title = "Installing | Vader Docs", ""
+      }
     <include src="/components/nav.html"/>
     <include src="/components/sidedrawer.html"/>
 
-    <div class="drawer-content    lg:z-[1] xl:z-[1] z-[-1] absolute mt-16  w-screen 
-            left-1/2 transform -translate-x-1/2  
-           max-w-sm  xl:max-w-xl  md:max-w-xl lg:max-w-xl justify-center flex flex-col mx-auto p-5 xl:p-5 gap-3">
+    <div class="drawer-content lg:z-[1] xl:z-[1] z-[-1] absolute mt-16 w-screen 
+    left-1/2 transform -translate-x-1/2 max-w-xl xl:max-w-xl md:max-w-screen lg:max-w-xl justify-center flex flex-col mx-auto p-5 xl:p-5 gap-3">
         <div class="">
             <markdown class="xl:text-5xl md:text-5xl lg:text-5xl text-4xl   font-extrabold">
                 ## Installing
@@ -82,7 +84,7 @@
 
         <ul class="flex flex-col gap-5 mt-5 mb-6">
             <li>📚 - Page & File Structure: Learn how to structure your project pages
-                in our <a class="link underline-offset-2 text-sky-500" href="/docs/guides/page-structure">Page Structure</a> guide.
+                in our <a class="link underline-offset-2 text-sky-500" href="/docs/basics/project-structure">Page Structure</a> guide.
             </li>
             <li>📚 - Deploying: Learn how to deploy your static Vader project
                 in our <a class="link underline-offset-2 text-sky-500" href="/docs/guides/deploying">Deploying</a> guide.
@@ -108,19 +110,15 @@
 
 
             </a>
-            <button
+            <a href="/docs/basics/project-structure"
                 class="btn  btn-md xl:btn-md btn-ghost rounded flex w-full flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
 
-                <a href="/docs/guides/project-structure">
-
-                    Project Structure
-
-                </a>
+                 Project Structure
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                     stroke="currentColor" class="w-6 h-6">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
                 </svg>
-            </button>
+            </a>
         </div>
     </div>
 
