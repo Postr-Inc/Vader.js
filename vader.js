@@ -181,8 +181,18 @@ export class Component {
       },
     });
     this.snapshots = [];
+    
   }
 
+  /**
+   * @method adapter
+   * @description Allows you to create an adapter - this is used to create  custom logic
+   *  
+   * 
+   */
+  adapter() {
+    return  
+  }
   init() {
     this.registerComponent();
   }
@@ -860,8 +870,10 @@ export class Component {
             throw new SyntaxError(
               `Image: ${element.outerHTML} alt attribute cannot be empty`
             );
+            
           } else if (
             element.hasAttribute("src") &&
+            !element.getAttribute("src")?.includes("http") || !element.getAttribute("src")?.includes("https") &&
             !document.documentElement.outerHTML
               .trim()
               .includes("<!-- #vader-disable_accessibility -->")
@@ -955,16 +967,17 @@ export class Component {
           }
 
           if (
-            element.hasAttribute("src") &&
-            // @ts-ignore
-            element.getAttribute("src").startsWith("/") &&
-            !document.documentElement.outerHTML
-              .trim()
-              .includes("<!-- #vader-disable_relative-paths -->")
+             element.hasAttribute("src") &&
+             // @ts-ignore
+             !element.getAttribute("src").includes("http") &&
+                 // @ts-ignore
+              !element.getAttribute("src").includes("https") &&
+            !document.documentElement.outerHTML.includes(`<!-- #vader-disable_relative-paths -->`)
           ) {
             element.setAttribute(
               "src",
-              `${window.location.origin}/public${element.getAttribute("src")}`
+              // @ts-ignore
+              `./public/${element.getAttribute("src")}`
             );
           }
           break;
@@ -1124,4 +1137,4 @@ export const include = async (path) => {
     });
 };
 
-export default Vader
+export default Vader;
