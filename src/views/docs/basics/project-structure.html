@@ -18,42 +18,50 @@ ${
         <h2 class="text-4xl font-bold mt-8">Directories</h2>
         
         <p class="mt-2 break-words">
-            Vader.js offers relative file paths for easier importing of assets on your webpage and for routing.
-            <span class="text-rose-500 underline">Fun fact: the page you are viewing is imported using a relative file path!</span>
+             Below is how every vader project should be structured!
         </p>
-        
         <p>
-            There are two directories used in Vader for relative paths: <span class="badge badge-ghost">/src</span> and 
-            <span class="badge badge-ghost">/public</span>. 
-            This allows you to link images or files on your webpage without having to 
-            navigate in and out of folders. 
-            <span>An example: </span>
-            <div class="p-3 bg-base-200">
-                &lt;img src="/images/logo.png"&gt;
-            </div> 
-            <br>
-            In this case, we only need to reference the /images folder. In Vader, this is changed to
-            an absolute path:
-            <br>
-            <br>
-            <div class="p-3 overflow-auto bg-base-200 mt-2 rounded">
-                &lt;img src="https://yourpath/public/images/logo.png"&gt;
-            </div>.
-            <p>
-                Vader also handles hash routes for you - this means you can use relative paths inside of a tags to link between pages
-                without having to worry about whether or not you have included the hash.
-            </p>
-            <br>
-            <p>
-                <span class="text-rose-500 underline">Note:</span>  you can opt to turn this off simply by adding a comment to your index.html file.
-          
-                <span class="badge badge-ghos p-3 mt-2 mb-6">
-                    &lt;!-- #vader-disable_relative-paths --&gt;
-                </span>
-            </p>
-            
+            Every vader root should include these two folders.
+            src is used for finding relative paths for included page views, public is used in vader to finding
+            images and fonts for your webpage.
+        </p>
+        <markdown class="list-inside">
+            - **src/*** - Your project source code (components, views, styles, etc.)
+            - **public/*** - Your public folder (images, fonts, library files)
+        </markdown>
+        
+        <markdown class="  text-2xl  bg-base-200 p-2 w-fit rounded  ">
+           src/
+        </markdown>
+        <markdown class="">
+            The  <span class="badge badge-ghost  ">
+                src/
+            </span> folder is where most of your project source code lives. This includes:
+        </markdown>
+        <markdown class="list-inside">
+            - **components/*** - Your components  
+            - **views/*** - Your views
+            - **styles/*** - Your styles
+            - **markdown/*** - Your markdown files
 
-            <div class="flex flex-row flex-wrap  w-full gap-5">
+        </markdown>
+        <markdown class="  text-2xl  bg-base-200 p-2 w-fit rounded  ">
+            public/
+        </markdown>
+        <markdown>
+            The  <span class="badge badge-ghost  ">
+                public/
+            </span> folder contains all of your static assets. This includes:
+        </markdown>
+        <markdown class="list-inside">
+            - **images/*** - Your images
+            - **fonts/*** - Your fonts
+            - **js/*** - Your external imported javascript libraries
+        </markdown>
+        
+      
+            
+            <div class="flex flex-row flex-wrap mt-12 w-full gap-5">
                 <a href="/docs/base/installing"
                     class="btn  btn-ghost rounded  flex w-full  btn-md  flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
     
@@ -78,7 +86,7 @@ ${
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
               </svg>
             </a>
-        </p>
+      
     </div>
 </body>
 </html>
