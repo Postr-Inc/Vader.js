@@ -29,27 +29,9 @@ ${
             </span> is the base class for all components in Vader. Which is defined by
             <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes"
             target="_blank" class="link text-rose-500">ES6 classes</a>.
-            <div class="mockup-code rounded"
-            onload="this.innerHTML = this.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;')"
-            >
-                <pre data-prefix="1."><code
-                  
-                    ><span class="text-[#c586c0]">import</span> <span class="text-white">Vader</span>, <span class="text-slate-200">{include}</span> <span class="text-[#c586c0]">from</span>  <span class="text-[#ce9178]">'vaderjs'</span></code></pre> 
-                <pre data-prefix="2." class=""><code><span class="text-blue-700">class </span> <span class="text-[#4ec9b0]">myApp</span> <span class="text-blue-700"> extends</span> <span class="text-[#4ec9b0]"> Vader.Component</span><span class="text-blue-700">{</span> </code> </pre>
-                </code></pre> 
-                <pre data-prefix="3." class=""><code>   <span class="text-blue-700">constructor</span><span class="text-green-500">(){</span> </code> </pre>
-                <pre data-prefix="4." class=""><code>      <span class="text-blue-700">super()</span></code> </pre>
-                <pre data-prefix="5." class=""><code>   }</code> </pre>
-                <pre data-prefix="6." class=""><code>   render<span class="text-green-500">(){</span> </code> </pre>
-                <pre data-prefix="7." class=""><code>      <span class="text-blue-700">return this</span>.<span class="text-error">html</span><span class="text-white">(</span> &#768; </code> </pre>
-                <pre data-prefix="8." class=""><code class="text-[#ce9178]">           &lt;div&gt; </code> </pre>
-                <pre data-prefix="9." class=""><code class="text-[#ce9178]">           &lt;h1&gt;Hello World&lt;/h1&gt; </code> </pre>
-                <pre data-prefix="10." class=""><code class="text-[#ce9178]">           &lt;/div&gt; </code> </pre>
-                <pre data-prefix="11." class=""><code class="text-[#ce9178]">      	&#768; <span class="text-white">)</span></code> </pre>
-                <pre data-prefix="12." class=""><code>   <span class="text-green-500">}</span></code> </pre>
-                <pre data-prefix="13." class=""><code> <span class="text-blue-700">}</span></code> </pre>
-              </div>
+     
         </p>
+             <embed src="https://stackblitz.com/edit/js-ts8bbk?embed=1&file=src%2Fviews%2Fapp.js&hideExplorer=1&view=editor" height="500px" width="100%">
         <p>
             Only the render method is required for a component to be valid. 
             the other methods are optional per your projects needs.
