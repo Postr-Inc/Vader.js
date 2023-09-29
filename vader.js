@@ -3,36 +3,36 @@ let states = {};
 /**
  * @function markdown
  * @param {String} content
- * @description Allows you to convert markdown to html 
+ * @description Allows you to convert markdown to html
  */
 function markdown(content) {
-  const lines = content.split('\n').filter((line) => line !== '').map((line) => line.trim());
-   
-  let result = '';
+  const lines = content
+    .split("\n")
+    .filter((line) => line !== "")
+    .map((line) => line.trim());
+
+  let result = "";
 
   lines.forEach((line) => {
     let heading = line.match(/^#{1,6}\s/);
     let bold = line.match(/\*\*(.*?)\*\*/g);
     let italic = line.match(/\*(.*?)\*/g);
- 
+
     let link = line.match(/\[(.*?)\]\((.*?)\)/g);
     let ul = line.match(/^\-\s/);
-    let ol =  line.match(/^\d\.\s/);
-  
+    let ol = line.match(/^\d\.\s/);
+
     let li = line.match(/^\s/);
     let hr = line.match(/^\-\-\-\s/);
     let blockquote = line.match(/^\>\s/);
     let image = line.match(/\!\[(.*?)\]\((.*?)\)/g);
-    
-    
+
     let codeBlock = line.match(/\`\`\`/g);
     let codeBlockEnd = line.match(/\`\`\`/g);
     let code = line.match(/\`(.*?)\`/g);
-    
 
-     
     if (heading) {
-       // @ts-ignore
+      // @ts-ignore
       let headingLevel = heading[0].match(/#/g).length;
       line = line.replace(heading[0], `<h${headingLevel}>`);
       line += `</h${headingLevel}>`;
@@ -48,12 +48,11 @@ function markdown(content) {
       });
     }
 
-   
-    if(link){
+    if (link) {
       link.forEach((l) => {
-         // @ts-ignore
+        // @ts-ignore
         let text = l.match(/\[(.*?)\]/g)[0].replace(/\[|\]/g, "");
-         // @ts-ignore
+        // @ts-ignore
         let href = l.match(/\((.*?)\)/g)[0].replace(/\(|\)/g, "");
         line = line.replace(l, `<a href="${href}">${text}</a>`);
       });
@@ -77,10 +76,12 @@ function markdown(content) {
       image.forEach((i) => {
         // @ts-ignore
         let alt = i.match(/\[(.*?)\]/g)[0].replace(/\[|\]/g, "");
-         // @ts-ignore
+        // @ts-ignore
         let src = i.match(/\((.*?)\)/g)[0].replace(/\(|\)/g, "");
         i.replace(i, `<img src="${src}" alt="${alt}"/>`);
-        line = line.replace(i, `<img src="${src}" alt="${alt}"/>`).replace('!','')
+        line = line
+          .replace(i, `<img src="${src}" alt="${alt}"/>`)
+          .replace("!", "");
       });
     }
     if (li) {
@@ -96,16 +97,16 @@ function markdown(content) {
 
     if (code) {
       code.forEach((c) => {
-        line = line.replace(c, `<code
+        line = line.replace(
+          c,
+          `<code
         style="background-color: #f5f5f5; padding: 5px; border-radius: 5px;
         
         "
-        >${c.replace(/\`/g, "")}</code>`);
+        >${c.replace(/\`/g, "")}</code>`,
+        );
       });
     }
-   
-    
-
 
     result += `${line}\n`;
   });
@@ -113,15 +114,13 @@ function markdown(content) {
   return result;
 }
 
- 
-
 /**
  * @function useRef
  * @description Allows you to get reference to DOM element
  * @param {String} ref
  * @returns {void | Object} {current, update}
  */
- 
+
 export const useRef = (ref) => {
   const element = document.querySelector(`[ref="${ref}"]`);
   const getElement = () => element;
@@ -193,17 +192,16 @@ export class Component {
       },
     });
     this.snapshots = [];
-    
   }
 
   /**
    * @method adapter
    * @description Allows you to create an adapter - this is used to create  custom logic
-   *  
-   * 
+   *
+   *
    */
   adapter() {
-    return  
+    return;
   }
   init() {
     this.registerComponent();
@@ -239,7 +237,7 @@ export class Component {
     document.querySelector(`[data-component="${this.name}"]`).remove();
     if (!document.querySelector(`[data-component="${this.name}"]`)) {
       components = components.filter(
-        (component) => component.name !== this.name
+        (component) => component.name !== this.name,
       );
     }
   }
@@ -300,7 +298,7 @@ export class Component {
               this.$_signal_subscribers[i].runonce &&
               // @ts-ignore
               this.$_signal_subscribers_ran.includes(
-                this.$_signal_subscribers[i]
+                this.$_signal_subscribers[i],
               )
             ) {
               break;
@@ -333,7 +331,7 @@ export class Component {
     };
     this.$_signal_cleanup = (fn) => {
       this.$_signal_subscribers = this.$_signal_subscribers.filter(
-        (subscriber) => subscriber.function !== fn
+        (subscriber) => subscriber.function !== fn,
       );
     };
     this.$_signal_dispatch = () => {
@@ -568,7 +566,6 @@ export class Component {
           });
         }) ||
         {},
-
     );
 
     const getField = (fieldName) => {
@@ -610,12 +607,10 @@ export class Component {
    *   setCount(count + 1)
    */
   useState(key, initialValue, callback = null) {
-    
-   if(!this.states[key]){
-    this.states[key] = initialValue;
-   }
-   
-     
+    if (!this.states[key]) {
+      this.states[key] = initialValue;
+    }
+
     return [
       this.states[key],
       /**
@@ -651,7 +646,7 @@ export class Component {
       dependencies.forEach((d) => {
         if (d.set) {
           throw new Error(
-            "signal found, do not use effect and signals at the same time - signals are more efficient"
+            "signal found, do not use effect and signals at the same time - signals are more efficient",
           );
         }
       });
@@ -663,7 +658,7 @@ export class Component {
     return {
       cleanup: () => {
         this.effects[this.name] = this.effects[this.name].filter(
-          (effect) => effect !== effectFn
+          (effect) => effect !== effectFn,
         );
       },
     };
@@ -699,7 +694,7 @@ export class Component {
     Object.keys(components).forEach(async (component) => {
       const { name } = components[component];
       const componentContainer = document.querySelector(
-        `[data-component="${name}"]`
+        `[data-component="${name}"]`,
       );
 
       let time = new Date().getTime().toLocaleString();
@@ -729,7 +724,7 @@ export class Component {
         "rf",
         "props",
         "render",
-        "return `" + (await this.render()) + "`;"
+        "return `" + (await this.render()) + "`;",
       )(
         this.useState,
         this.useEffect,
@@ -737,7 +732,7 @@ export class Component {
         this.useReducer,
         this.useSyncStore,
         this.signal,
-        this.render
+        this.render,
       );
 
       if (newHtml !== componentContainer.innerHTML) {
@@ -752,11 +747,11 @@ export class Component {
         this.componentUpdate(
           snapshot.prev_state,
           snapshot.prev_props,
-          snapshot.content
+          snapshot.content,
         );
         // batch updates
         fragment.appendChild(
-          document.createRange().createContextualFragment(newHtml)
+          document.createRange().createContextualFragment(newHtml),
         );
         componentContainer.innerHTML = "";
         componentContainer.appendChild(fragment);
@@ -821,17 +816,17 @@ export class Component {
    * @see {@link Component}
    * @see {@link Component#componentDidMount}
    */
-  
+
   html(strings, ...args) {
     // @ts-ignore
     if (
       // @ts-ignore
       new Error().stack &&
-       // @ts-ignore
+      // @ts-ignore
       new Error().stack.split("\n").length > 0 &&
-       // @ts-ignore
+      // @ts-ignore
       new Error().stack.split("\n")[2] &&
-       // @ts-ignore
+      // @ts-ignore
       new Error().stack.split("\n")[2].includes("render") &&
       !this.componentMounted
     ) {
@@ -847,24 +842,24 @@ export class Component {
         result += args[i];
       }
     }
-   
-    result = result.replace(/\\n/g, '\n').trim()
-    // replace ` 
-    result = result.replace(/`/g, '\`').trim()
 
-    result =  new Function("useRef", `return \`${result}\``)(useRef) 
+    result = result.replace(/\\n/g, "\n").trim();
+    // replace `
+    result = result.replace(/`/g, "`").trim();
+
+    result = new Function("useRef", `return \`${result}\``)(useRef);
 
     if (!result.trim().startsWith("<body>")) {
       console.warn(
-        "You should wrap your html in a body tag, vader may not grab all html!"
+        "You should wrap your html in a body tag, vader may not grab all html!",
       );
     }
-     
+
     const dom = new DOMParser().parseFromString(result, "text/html");
     const elements = dom.documentElement.querySelectorAll("*");
 
     elements.forEach((element) => {
-      switch (element.nodeName) {
+      switch (element.tagName.toLocaleUpperCase()) {
         case "IMG":
           if (
             !element.hasAttribute("alt") &&
@@ -873,7 +868,7 @@ export class Component {
               .includes("<!-- #vader-disable_accessibility -->")
           ) {
             throw new SyntaxError(
-              `Image: ${element.outerHTML} missing alt attribute`
+              `Image: ${element.outerHTML} missing alt attribute`,
             );
           } else if (
             element.hasAttribute("alt") &&
@@ -884,21 +879,25 @@ export class Component {
               .includes("<!-- #vader-disable_accessibility -->")
           ) {
             throw new SyntaxError(
-              `Image: ${element.outerHTML} alt attribute cannot be empty`
+              `Image: ${element.outerHTML} alt attribute cannot be empty`,
             );
-            
           } else if (
-            element.hasAttribute("src") &&
-            !element.getAttribute("src")?.includes("http") || !element.getAttribute("src")?.includes("https") &&
-            !document.documentElement.outerHTML
-              .trim()
-              .includes("<!-- #vader-disable_accessibility -->")
+            (element.hasAttribute("src") &&
+              !element.getAttribute("src")?.includes("http")) ||
+            (!element.getAttribute("src")?.includes("https") &&
+              !document.documentElement.outerHTML
+                .trim()
+                .includes("<!-- #vader-disable_accessibility -->"))
           ) {
             let prevurl = element.getAttribute("src");
             element.setAttribute("aria-hidden", "true");
             element.setAttribute("hidden", "true");
-             // if window.lcoation.pathname includes a html file remove it and only use the path
-             let url = window.location.origin +  window.location.pathname.replace(/\/[^\/]*$/, '') + '/public/' + element.getAttribute("src");
+            // if window.lcoation.pathname includes a html file remove it and only use the path
+            let url =
+              window.location.origin +
+              window.location.pathname.replace(/\/[^\/]*$/, "") +
+              "/public/" +
+              element.getAttribute("src");
             let image = new Image();
             image.src = url;
             image.onerror = () => {
@@ -916,31 +915,7 @@ export class Component {
               });
             };
           }
-          break;
-
-        default:
-          if (element.hasAttribute("ref")) {
-            // @ts-ignore
-            dom[element.getAttribute("ref")] = element;
-          }
-          if(element.nodeName === "MARKDOWN"){
-            element.innerHTML = markdown(element.innerHTML.replace(/\\n/g, '\n').trim())
-          }
-
-          if (element.hasAttribute("class")) {
-            const allowClassComments =
-              document.documentElement.outerHTML.includes(
-                "<!-- #vader-allow_class -->"
-              );
-            if (!allowClassComments) {
-              console.warn(
-                "you can disable class errors using, <!-- #vader-allow_class -->"
-              );
-              throw new Error(
-                "class attribute is not allowed, please use className instead"
-              );
-            }
-          } else if (element.hasAttribute("className")) {
+          if (element.hasAttribute("classname")) {
             const isLocalhost = window.location.href.includes("localhost");
             const is127001 = window.location.href.includes("127.0.0.1");
             const ignoreClassComments = document.documentElement.outerHTML
@@ -952,18 +927,75 @@ export class Component {
 
             if (
               // @ts-ignore
-              (!this.validateClassName(element.getAttribute("className")) &&
+              (!this.validateClassName(element.getAttribute("classname")) &&
                 isLocalhost) ||
               (is127001 && !ignoreClassComments && !allowClassComments)
             ) {
               throw new Error(
                 `Invalid className ${element.getAttribute(
-                  "className"
-                )}, please use camelCase instead - example: myClass`
+                  "className",
+                )}, please use camelCase instead - example: myClass`,
               );
             }
+
+            element.setAttribute("class", element.getAttribute("classname"));
+            element.removeAttribute("className");
+          }
+          break;
+
+        default:
+          if (element.hasAttribute("ref")) {
             // @ts-ignore
-            element.setAttribute("class", element.getAttribute("className"));
+            dom[element.getAttribute("ref")] = element;
+          }
+          if (element.nodeName === "MARKDOWN") {
+            element.innerHTML = markdown(
+              element.innerHTML.replace(/\\n/g, "\n").trim(),
+            );
+          }
+
+          if (element.hasAttribute("class")) {
+            const isLocalhost = window.location.href.includes("localhost");
+            const is127001 = window.location.href.includes("127.0.0.1");
+            const allowClassComments =
+              document.documentElement.outerHTML.includes(
+                "<!-- #vader-allow_class -->",
+              );
+            if (
+              (!allowClassComments && isLocalhost) ||
+              (is127001 && !ignoreClassComments && !allowClassComments)
+            ) {
+              console.warn(
+                "you can disable class errors using, <!-- #vader-allow_class -->",
+              );
+              throw new SyntaxError(
+                `class attribute is not allowed, please use className instead \n \n cause: ${element.outerHTML.trim()} `,
+              );
+            }
+          } else if (element.hasAttribute("classname")) {
+            const isLocalhost = window.location.href.includes("localhost");
+            const is127001 = window.location.href.includes("127.0.0.1");
+            const ignoreClassComments = document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-class-ignore -->");
+            const allowClassComments = document.documentElement.outerHTML
+              .trim()
+              .includes("<!-- #vader-allow_class -->");
+
+            if (
+              // @ts-ignore
+              (!this.validateClassName(element.getAttribute("classname")) &&
+                isLocalhost) ||
+              (is127001 && !ignoreClassComments && !allowClassComments)
+            ) {
+              throw new Error(
+                `Invalid className ${element.getAttribute(
+                  "className",
+                )}, please use camelCase instead - example: myClass`,
+              );
+            }
+
+            element.setAttribute("class", element.getAttribute("classname"));
             element.removeAttribute("className");
           }
 
@@ -978,22 +1010,24 @@ export class Component {
             element.setAttribute(
               "href",
               // @ts-ignore
-              `#/${element.getAttribute("href").replace("/", "")}`
+              `#/${element.getAttribute("href").replace("/", "")}`,
             );
           }
 
           if (
-             element.hasAttribute("src") &&
-             // @ts-ignore
-             !element.getAttribute("src").includes("http") &&
-                 // @ts-ignore
-              !element.getAttribute("src").includes("https") &&
-            !document.documentElement.outerHTML.includes(`<!-- #vader-disable_relative-paths -->`)
+            element.hasAttribute("src") &&
+            // @ts-ignore
+            !element.getAttribute("src").includes("http") &&
+            // @ts-ignore
+            !element.getAttribute("src").includes("https") &&
+            !document.documentElement.outerHTML.includes(
+              `<!-- #vader-disable_relative-paths -->`,
+            )
           ) {
             element.setAttribute(
               "src",
               // @ts-ignore
-              `./public/${element.getAttribute("src")}`
+              `./public/${element.getAttribute("src")}`,
             );
           }
           break;
@@ -1093,9 +1127,8 @@ let cache = {};
  * @returns {Promise}  - modified string with html content
  * @param {string}  path
  */
- 
+
 export const include = async (path) => {
-    
   if (
     path.startsWith("/") &&
     !path.includes("/src/") &&
@@ -1120,9 +1153,7 @@ export const include = async (path) => {
       // Handle includes
       let includes = data.match(/<include src="(.*)"\/>/g);
       if (includes) {
-      
         const includePromises = includes.map((e) => {
-        
           // @ts-ignore
           let includePath = e.match(/<include src="(.*)"\/>/)[1];
 
@@ -1142,8 +1173,8 @@ export const include = async (path) => {
         // Wait for all includes to be fetched and replaced
         return Promise.all(includePromises).then(() => {
           cache[path] = data;
-           
-          return data
+
+          return data;
         });
       } else {
         cache[path] = data;
