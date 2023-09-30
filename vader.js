@@ -1,5 +1,6 @@
 let dom = /**@type {Obect}  **/ {};
 let states = {};
+let worker =  new Worker(new URL('./worker.js', import.meta.url));
 /**
  * @function markdown
  * @param {String} content
@@ -219,8 +220,7 @@ export class Component {
      * @description Allows you to use a web worker to compile html code on the fly  - client fly rendering
       
      */
-    // @ts-ignore
-    this.worker =  new Worker(new URL('./worker.js', import.meta.url));
+  
   }
 
   /**
@@ -846,7 +846,6 @@ export class Component {
             element.setAttribute("hidden", "true");
              // if window.lcoation.pathname includes a html file remove it and only use the path
              let url = window.location.origin +  window.location.pathname.replace(/\/[^\/]*$/, '') + '/public/' + element.getAttribute("src");
-             // @ts-ignore
             let image = new Image();
             image.src = url;
             image.onerror = () => {
@@ -1008,26 +1007,20 @@ export class Component {
      
     if(this.cfr){
        
-      this.worker.postMessage({strings, args, location: window.location.href, name: this.name})
+      worker.postMessage({strings, args, location: window.location.href, name: this.name})
       let promise = new Promise((resolve, reject)=>{
-        this.worker.onmessage = (e)=>{
+        worker.onmessage = (e)=>{
           if(e.data.error){
             throw new Error(e.data.error)
           }
 
-          let d = ""
-          if(new Function("useRef", `return \`${e.data}\``)(useRef).includes('#')){
-              d = markdown(new Function("useRef", `return \`${e.data}\``)(useRef))
-          }else{
-            d = new Function("useRef", `return \`${e.data}\``)(useRef)
-          }
-        
-          resolve(d)
+     
+          resolve(new Function("useRef", `return \`${e.data}\``)(useRef))
            
           
          
         }
-        this.worker.onerror = (e)=>{
+         worker.onerror = (e)=>{
           reject(e)
         }
       }) 
@@ -1131,12 +1124,91 @@ export const rf = (name, fn) => {
   window[name] = fn;
 };
 let cache = {};
+async function handletemplate(data){
+  let dom = new DOMParser().parseFromString(data, "text/html");
+  let elements = dom.documentElement.querySelectorAll("*");
+  
+  if (elements.length > 0) {
+    for (var i = 0; i < elements.length; i++) {
+    
+      if (elements[i].nodeName === "INCLUDE") {
+        if(!elements[i].getAttribute("src") || elements[i].getAttribute("src") === ""){
+          throw new Error("Include tag must have src attribute")
+        }
+        
+         let componentName = elements[i].getAttribute("src")?.split("/").pop()?.split(".")[0]
+         // @ts-ignore
+          let filedata = await include(elements[i].getAttribute("src"))
+         // replace ` with \`\` to allow for template literals
+          filedata = filedata.replace(/`/g, "\\`")
+          cache[elements[i].getAttribute("src")] = filedata
+          filedata = new Function(`return \`${filedata}\`;`)();
+          let newdom = new DOMParser().parseFromString(filedata, "text/html");
+
+          newdom.querySelectorAll("include").forEach((el)=>{
+            el.remove()
+          })
+          // @ts-ignore
+       
+          let els = dom.querySelectorAll(componentName)
+           
+          els.forEach((el)=>{
+             
+             console.log(el)
+             if(el.attributes.length > 0){
+                for(var i = 0; i < el.attributes.length; i++){
+                  newdom.body.outerHTML = newdom.body.outerHTML.replace(`{{${el.attributes[i].name}}}`, el.attributes[i].value)
+                }
+                
+             }
+             if(el.children.length > 0 && newdom.body.querySelector('slot')){
+                for(var i = 0; i < el.children.length; i++){
+                  let slots = newdom.body.querySelectorAll("slot")
+                  slots.forEach((slot)=>{
+                    let id = slot.getAttribute("id")
+                    if(id === el.nodeName.toLowerCase()){
+                      slot.outerHTML = `<div>${el.innerHTML}</div>`
+                    }
+                  })
+                  
+                  
+                }
+                
+             }
+
+             dom.body.querySelectorAll('include').forEach((el)=>{
+                el.remove()
+             })
+             // replace ` with \`\` to allow for template literals
+             dom.body.outerHTML =  dom.body.outerHTML.replace(/`/g, "\\`")
+             dom.body.outerHTML = dom.body.outerHTML.replace(el.outerHTML, new Function(`return \`${newdom.body.outerHTML}\`;`)())
+          
+           
+          })
+      
+       
+           
+
+      }
+    }
+
+     
+  }
+  
+  // replace ` with \`\` to allow for template literals
+  dom.body.outerHTML = dom.body.outerHTML.replace(/`/g, "\\`")
+  data = new Function(`return \`${dom.body.outerHTML}\`;`)();
+  console.log(data)
+  return  data;
+}
 /**
  * @function include
  * @description Allows you to include html file
  * @returns {Promise}  - modified string with html content
  * @param {string}  path
  */
+
+ 
  
 export const include = async (path) => {
     
@@ -1150,10 +1222,10 @@ export const include = async (path) => {
     path = "/src/" + path;
   }
   if (cache[path]) {
-    return new Function(`return \`${cache[path]}\`;`)();
-  }
-
-  return fetch(`./${path}`)
+    return await handletemplate(new Function(`return \`${cache[path]}\`;`)())
+   
+  }else{
+    return fetch(`./${path}`)
     .then((res) => {
       if (res.status === 404) {
         throw new Error(`No file found at ${path}`);
@@ -1161,79 +1233,14 @@ export const include = async (path) => {
       return res.text();
     })
     .then(async (data) => {
-      data = new Function(`return \`${data}\`;`)();
-       
-      let dom = new DOMParser().parseFromString(data, "text/html");
-      let elements = dom.documentElement.querySelectorAll("*");
-      let conccurentIncludes = [];
-      if(cache[path]){
-        return new Function(`return \`${cache[path]}\`;`)();
-      }
-      if (elements.length > 0) {
-        for (var i = 0; i < elements.length; i++) {
-        
-          if (elements[i].nodeName === "INCLUDE") {
-            if(!elements[i].getAttribute("src") || elements[i].getAttribute("src") === ""){
-              throw new Error("Include tag must have src attribute")
-            }
-            
-             let componentName = elements[i].getAttribute("src")?.split("/").pop()?.split(".")[0]
-             // @ts-ignore
-             let filedata = await include(elements[i].getAttribute("src"));
-             filedata = new Function(`return \`${filedata}\`;`)();
-              let newdom = new DOMParser().parseFromString(filedata, "text/html");
-
-              newdom.querySelectorAll("include").forEach((el)=>{
-                el.remove()
-              })
-              // @ts-ignore
-           
-              let els = dom.querySelectorAll(componentName)
-               
-              els.forEach((el)=>{
-                 
-                 console.log(el)
-                 if(el.attributes.length > 0){
-                    for(var i = 0; i < el.attributes.length; i++){
-                      newdom.body.outerHTML = newdom.body.outerHTML.replace(`{{${el.attributes[i].name}}}`, el.attributes[i].value)
-                    }
-                    
-                 }
-                 if(el.children.length > 0 && newdom.body.querySelector('slot')){
-                    for(var i = 0; i < el.children.length; i++){
-                      let slots = newdom.body.querySelectorAll("slot")
-                      slots.forEach((slot)=>{
-                        let id = slot.getAttribute("id")
-                        if(id === el.nodeName.toLowerCase()){
-                          slot.outerHTML = `<div>${el.innerHTML}</div>`
-                        }
-                      })
-                      
-                      
-                    }
-                    
-                 }
-
-                 dom.body.querySelectorAll('include').forEach((el)=>{
-                    el.remove()
-                 })
-                 
-                 dom.body.outerHTML = dom.body.outerHTML.replace(el.outerHTML, newdom.body.innerHTML)
-                 
-               
-              })
-
-
-          }
-        }
-
-         
-      }
-      
-      data = dom.body.outerHTML
-       
-      return  data;
+      cache[path] = data
+   
+      data =  await handletemplate(new Function(`return \`${data}\`;`)())
+    
+      return data
     });
+  }
+ 
 };
 
 export default Vader;
