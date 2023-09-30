@@ -59,22 +59,22 @@ ${
         </p>
         
         <h1 class="text-2xl font-bold mt-8">References</h1>
-        <markdown>
         
-         * **render()**: The render method is responsible for generating HTML content for the component. You can customize this method to define your component's visual representation.
+        
+         - **render()**: The render method is responsible for generating HTML content for the component. You can customize this method to define your component's visual representation.
 
          - **componentDidMount()**: This method is called explicitly when the component is mounted. It's not handled directly by Vader; you need to manually call it when needed in your component. You can use it to perform actions after the component has been added to the DOM.
        
         </markdown>
 
-        <markdown class="text-3xl font-bold">
+        <span class="text-3xl font-bold">
             ## Component Lifecycles
-        </markdown>
+        </span>
         <p>
             Vader.js provides several lifecycle methods that you can override to handle different events throughout the component's lifecycle:
         </p>
-        <markdown class="text-lg font-bold badge badge-ghost te">
-            ###  componentUpdated(prev_states, prev_props, snapshot) 
+        <markdown class="text-lg font-bold badge text-sky-500 badge-ghost te">
+            ###  componentUpdated()
         </markdown>
         <markdown class="list-inside flex flex-col gap-4 mt-3">
             - The <span class="badge badge-ghost">componentUpdated</span> method is an overrideable method that is called by Vader when the component's content has changed.
