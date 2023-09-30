@@ -10,7 +10,7 @@ border border-base-200 text-black bg-base-100    ">
         <a href="/" class="text-2xl font-semibold hero flex gap-2  ">
             <img src="/icons/logo.png" class="w-12" alt="logo">
             ${
-              '$FULL_URL.includes("docs")'
+              $FULL_URL.includes("docs")
                 ? "Docs"
                 : "Vader.js"
             }
