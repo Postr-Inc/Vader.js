@@ -62,27 +62,47 @@ or
   ```
 ## Key Features
 
+### Client Fly Rendering
+
+Vaderjs allows you to render your components & manipulate worker side vs main thread. This allows for faster page speeds and better user experience. 
+
+```javascript
+import Vader from "vaderjs";
+class Home extends Vader.Component {
+  constructor() {
+    super();
+    this.cfr = true; // enable client fly rendering -  this is optionals
+  }
+  render() {
+    return this.html(`<div>Hello World</div>`);
+  }
+}
+```
+
 ### Declarative Routing
 
 ```javascript
-import { VaderRouter  } from 'vaderjs'
-import { MyComponent } from './components/my-component.js'
-const app = new VaderRouter('/') // intial route
+import VaderRouter from "../dist/vader/vaderRouter.js";
+import { Mycomponent} from "../src/pages/Home.js";
+ 
+const app = new VaderRouter('/');
 
-app.use('/') // use the route
-
-app.get('/', async (req, res) => {
-    res.render('#app', await MyComponent.render())
+app.get("/", async (req, res)=>{
+    res.send('#root', await new Home().render())
 })
-
-app.on('/', async (req, res) => {
-    res.render('#app', await MyComponent.render())
+app.get('/docs/:page/*', async (req, res)=>{
+     // page and asterisk route use req.params for params and req.params[0] to get the asterisk
+     // you can get queries from the url using req.query!
 })
-app.get('/:hello', (req, res) => {
-    res.render('#app', `<h1>Hello ${req.params.hello}</h1>`)
-})
+const middleware = (req, res)=>{
+    req.time = Date.now()
+}
+app.use(middleware) // use middlewares
 
-app.start()
+app.listen(3000, ()=>{
+    console.log('listening on port 3000')
+})
+ 
 ```
  
 
@@ -158,11 +178,12 @@ window.addEventListener('signalDispatch', (e)=>{
 ### Function Binding
 
 ```javascript
+
 const fn = this.$Function(function fn() {
     console.log("Hello World");
 });
  
-return html`<button onclick="${fn}">Click Me</button>`
+return html(`<button onclick="${fn}">Click Me</button>`)
 ```
 
 ### Authentication & Authorization
@@ -198,13 +219,21 @@ export class App extends Vader.Component{
 As of v1.1.0 - Vader allows you to include html files as templates 
 
 ```html
-// views/app.html
+// views/app.vjs
+<body>
+  <div>Hello World</div>
+  <h1>{{title}}</h1>
+  <slot id="app" />
+</body>
+```
+```html
+// pages/app.html
+<include src="views/app.vjs"/>
+<body>
+<app tittle="this is a component">
+  <div> this is apps children! </div>
+</app>
 
-<div>
-${
- window.location.hash === "#/home" ? "Home page" : "Not on the Home Page"
-}
-</div>
 ```
 
 ```js
@@ -216,7 +245,7 @@ class Home extends Vader.Component {
     super();
   }
   render() {
-    return this.html(include("views/app.html"));
+    return this.html(include("pages/app.html"));
   }
 }
 
