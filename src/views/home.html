@@ -1,41 +1,51 @@
 <html>
     <body>
-         
-    <include src="./src/components/nav.html"/>
-
-
+        --
+        componentDidMount
+        --
+         <include src="/components/nav.vjs"></include>
+         <include src="/components/test.vjs"></include>
+ 
+         <nav></nav>
+ 
+     
+    ${
+        document.title = "Vader.js | Build reactive web apps with Vader.js", ""
+     }
     <div
-        class=" xl:max-w-2xl lg:max-w-2xl md:max-w-xl 
+        className=" xl:max-w-2xl lg:max-w-2xl md:max-w-xl 
+        mt-16  p-5 w-screen
          
-        w-[100vw] break-normal  xl:w-[60vw] lg:p-8 md:p-8   mt-6 mx-auto flex flex-col xl:p-8  ">
+         
+       break-normal  xl:w-[60vw] lg:p-8 md:p-8   mx-auto flex flex-col xl:p-8  ">
 
         <div>
             <a href="https://github.com/Postr-Inc/Vader.js" 
             target="_blank"
-            class="badge drop-shadow-sm p-3 badge-ghost bg-base-200 flex justify-center mx-auto">
+            className="badge drop-shadow-sm p-3 badge-ghost bg-base-200 flex justify-center mx-auto">
                 View On Github
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
-                    stroke="currentColor" class="mx-2 text-rose-500  cursor-pointer w-4 h-6">
+                    stroke="currentColor" className="mx-2 text-rose-500  cursor-pointer w-4 h-6">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
                 </svg>
 
             </a>
-            <h1 class="mb-5 mt-5 xl:text-7xl md:text-7xl text-5xl font-extrabold text-clip text-center text-transparent bg-clip-text bg-gradient-to-r 
+            <h1 className="mb-5 mt-5 xl:text-7xl md:text-7xl text-5xl w-full font-extrabold text-clip text-center text-transparent bg-clip-text bg-gradient-to-r 
             from-blue-400 to-blue-500 capitalize drop-shadow-lg">
                 Build reactive web apps with Vader.js
             </h1>
-            <p class="mb-5 text-lg  break-normal text-center">
+            <p className="mb-5 text-lg  break-normal text-center">
                 Vader.js helps you build reactive webpages with component based architecture similar to react.js
             </p>
-            <div class="flex flex-row mx-auto p-5 justify-center   ">
+            <div className="flex flex-row mx-auto p-5 justify-center   ">
                 <a href="/docs/base/getting-started"
-                    class="btn btn-ghost rounded-full   btn-md   hover:text-sky-500  hover:border hover:border-slate-200 hover:bg-transparent border border-slate-200 ">Get
+                    className="btn btn-ghost rounded-full   btn-md   hover:text-sky-500  hover:border hover:border-slate-200 hover:bg-transparent border border-slate-200 ">Get
                     Started
                 </a>
                 <div
-                    class="text-sm rounded relative hero xl:flex hidden text-white bg-gray-700 btn-md drop-shadow-sm text-center  font-mono  p-3   w-56 mx-5">
+                    className="text-sm rounded relative hero xl:flex hidden text-white bg-gray-700 btn-md drop-shadow-sm text-center  font-mono  p-3   w-56 mx-5">
                     <p>> npm install vader.js </p>
-                    <svg onclick="navigator.clipboard.writeText('npm i vaderjs')" class="w-4 absolute end-5
+                    <svg onclick="navigator.clipboard.writeText('npm i vaderjs')" className="w-4 absolute end-5
              focus:outline-none cursor-pointer
              focus:text-sky-500 active:text-sky-500
              " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -53,48 +63,48 @@
         </div>
 
     </div>
-    <div class="flex  flex-wrap    mx-auto justify-center lg:p-8 md:p-8  mt-8  xl:p-8 items-center   ">
+    <div className="flex  flex-wrap    mx-auto justify-center lg:p-8 md:p-8  mt-8  xl:p-8 items-center   ">
 
-        <div class="flex flex-col prose  max-w-sm  hero ">
-            <h1 class="text-6xl font-bold  hover:text-clip 
+        <div className="flex flex-col prose  max-w-sm  hero ">
+            <h1 className="text-6xl font-bold  hover:text-clip 
             hover:text-transparent bg-clip-text  bg-gradient-to-r from-blue-400 to-blue-500 hover:cursor-pointer
-            ">Class Based</h1>
-            <p class="   w-5/6 tet-md ">
-                Vader.js is a class based framework that allows you to create components with a class based syntax
+            ">Class  Based</h1>
+            <p className="   tet-md ">
+                Vader.js is a class  based framework that allows you to create components with a className based syntax
                 similar to react.js
             </p>
-            <div class="badge  badge-ghost ">
+            <div className="badge  badge-ghost ">
                 <a href="https://github.com/Postr-Inc/Vader.js/wiki/Components" 
                 target="_blank"
-                class="text-clip
+                className="text-clip
                 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-500 hover:cursor-pointer
                 ">Learn More</a>
             </div>
 
         </div>
-        <img src="/images/component.png" class="xl:w-[35vw]   object-contain hero  " alt="component example">
+        <img src="/images/component.png" className="xl:w-[35vw]   object-contain hero  " alt="component example">
 
     </div>
-    <div class="flex  flex-wrap    mx-auto justify-center lg:p-8 md:p-8  mt-8  xl:p-8 items-center   ">
+    <div className="flex  flex-wrap    mx-auto justify-center lg:p-8 md:p-8  mt-8  xl:p-8 items-center   ">
 
-        <div class="flex flex-col prose  max-w-sm  hero ">
-            <h1 class="text-6xl font-bold  hover:text-clip 
+        <div className="flex flex-col prose  max-w-sm  hero ">
+            <h1 className="text-6xl font-bold  hover:text-clip 
             hover:text-transparent bg-clip-text  bg-gradient-to-r from-blue-400 to-blue-500 hover:cursor-pointer
             "> Vader Hooks </h1>
-            <p class="   w-5/6 tet-md ">
+            <p className="   w-5/6 tet-md ">
                 Vader.js hook state management offers several methods to add reactivity to your webpage, vader trys to closely simulate react.js state hooks in a vanilla manner!
                 
             </p>
-            <div class="badge  badge-ghost ">
+            <div className="badge  badge-ghost ">
                 <a href="https://github.com/Postr-Inc/Vader.js/wiki/Hooks" 
                 target="_blank"
-                class="text-clip
+                className="text-clip
                 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-500 hover:cursor-pointer
                 ">Learn More</a>
             </div>
 
         </div>
-        <img src="/images/state.png" class="xl:w-[35vw]  object-contain hero  " alt="component example">
+        <img src="/images/state.png" className="xl:w-[35vw]  object-contain hero  " alt="component example">
 
     </div>
 

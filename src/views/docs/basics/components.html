@@ -2,9 +2,12 @@ ${
     document.title = "Component Syntax | Vader Docs", ""
 }
 <body>
-    <include src="/components/nav.html"/>
-    <include src="/components/sidedrawer.html"/>
+ 
+    <include src="/components/nav.vjs"></include>
+    <nav></nav>
+  
 
+    <!-- #vader-allow_class -->
     <div class="drawer-content lg:z-[1] xl:z-[1] z-[-1] absolute mt-16 w-screen 
         left-1/2 transform -translate-x-1/2 max-w-xl xl:max-w-xl md:max-w-screen lg:max-w-xl justify-center flex flex-col mx-auto p-5 xl:p-5 gap-3">
         
@@ -29,9 +32,27 @@ ${
             </span> is the base class for all components in Vader. Which is defined by
             <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes"
             target="_blank" class="link text-rose-500">ES6 classes</a>.
-     
+            <div class="mockup-code rounded"
+            onload="this.innerHTML = this.innerHTML.replace(/</g, '&lt;').replace(/>/g, '&gt;')"
+            >
+                <pre data-prefix="1."><code
+                  
+                    >import Vader, {include} from 'vaderjs'</code></pre> 
+                <pre data-prefix="2." class=""><code>class Myapp extends Vader.Component{ </code> </pre>
+                </code></pre> 
+                <pre data-prefix="3." class=""><code>   constructor(){ </code> </pre>
+                <pre data-prefix="4." class=""><code>      super()</code> </pre>
+                <pre data-prefix="5." class=""><code>   }</code> </pre>z
+                <pre data-prefix="6." class=""><code>   render(){ </code> </pre>
+                <pre data-prefix="7." class=""><code>      return this.html(	&#768; </code> </pre>
+                <pre data-prefix="8." class=""><code>           &lt;div&gt; </code> </pre>
+                <pre data-prefix="9." class=""><code>           &lt;h1&gt;Hello World&lt;/h1&gt; </code> </pre>
+                <pre data-prefix="10." class=""><code>           &lt;/div&gt; </code> </pre>
+                <pre data-prefix="11." class=""><code>      	&#768; )</code> </pre>
+                <pre data-prefix="12." class=""><code>   }</code> </pre>
+                <pre data-prefix="13." class=""><code> }</code> </pre>
+              </div>
         </p>
-             <embed src="https://stackblitz.com/edit/js-ts8bbk?embed=1&file=src%2Fviews%2Fapp.js&hideExplorer=1&view=editor" height="500px" width="100%">
         <p>
             Only the render method is required for a component to be valid. 
             the other methods are optional per your projects needs.
@@ -40,7 +61,7 @@ ${
         <h1 class="text-2xl font-bold mt-8">References</h1>
         <markdown>
         
-         - **render()**: The render method is responsible for generating HTML content for the component. You can customize this method to define your component's visual representation.
+         * **render()**: The render method is responsible for generating HTML content for the component. You can customize this method to define your component's visual representation.
 
          - **componentDidMount()**: This method is called explicitly when the component is mounted. It's not handled directly by Vader; you need to manually call it when needed in your component. You can use it to perform actions after the component has been added to the DOM.
        
@@ -51,16 +72,16 @@ ${
         </markdown>
         <p>
             Vader.js provides several lifecycle methods that you can override to handle different events throughout the component's lifecycle:
-        </p>    <markdown class="text-lg font-bold badge badge-ghost ">
-            ###  componentUpdated() 
+        </p>
+        <markdown class="text-lg font-bold badge badge-ghost te">
+            ###  componentUpdated(prev_states, prev_props, snapshot) 
         </markdown>
-     
         <markdown class="list-inside flex flex-col gap-4 mt-3">
             - The <span class="badge badge-ghost">componentUpdated</span> method is an overrideable method that is called by Vader when the component's content has changed.
        It receives three arguments:
-  - <span class="badge badge-ghost">prev_states</span> An object representing the previous instance of the component's state before it changed.
-  - <span class="badge badge-ghost">prev_props</span>: An object representing the previous instance of the component's props before they changed.
-  - <span class="badge badge-ghost">snapshot</span>: An object representing the last full snapshot of the component.
+     - <span class="badge badge-ghost">prev_states</span> An object representing the previous instance of the component's state before it changed.
+     - <span class="badge badge-ghost">prev_props</span>: An object representing the previous instance of the component's props before they changed.
+     - <span class="badge badge-ghost">snapshot</span>: An object representing the last full snapshot of the component.
         </markdown>
         <markdown>
            You can use  <span class="badge badge-ghost">componentUpdated</span> to handle logic when the component's content is updated.

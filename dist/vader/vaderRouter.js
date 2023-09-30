@@ -53,7 +53,7 @@ class VaderRouter{
 
   /**
    * @method listen
-   * @param {String} port - unique id for the listener
+   * @param {*} port - unique id for the listener
    * @param {Function} callback - callback function
    * @description This method is used to start listening to the routes
    * @returns {void}

@@ -1,5 +1,6 @@
 let dom = /**@type {Obect}  **/ {};
 let states = {};
+let worker =  new Worker(new URL('./worker.js', import.meta.url));
 /**
  * @function markdown
  * @param {String} content
@@ -39,12 +40,16 @@ function markdown(content) {
     }
     if (bold) {
       bold.forEach((b) => {
-        line = line.replace(b, `<strong>${b.replace(/\*\*/g, "")}</strong>`);
+        line = line.replace(b, `<strong
+        className="$vader_markdown_bold"
+        >${b.replace(/\*\*/g, "")}</strong>`);
       });
     }
     if (italic) {
       italic.forEach((i) => {
-        line = line.replace(i, `<em>${i.replace(/\*/g, "")}</em>`);
+        line = line.replace(i, `<em
+        className="$vader_markdown_italic"
+        >${i.replace(/\*/g, "")}</em>`);
       });
     }
 
@@ -55,22 +60,30 @@ function markdown(content) {
         let text = l.match(/\[(.*?)\]/g)[0].replace(/\[|\]/g, "");
          // @ts-ignore
         let href = l.match(/\((.*?)\)/g)[0].replace(/\(|\)/g, "");
-        line = line.replace(l, `<a href="${href}">${text}</a>`);
+        line = line.replace(l, `<a 
+        className="$vader_markdown_link"
+        href="${href}">${text}</a>`);
       });
     }
     if (ul) {
-      line = line.replace(ul[0], `<li style="list-style-type: disc;">`);
+      line = line.replace(ul[0], `<li
+      className="$vader_markdown_ul"
+      style="list-style-type: disc;">`);
       line += `</li>`;
     }
     if (ol) {
-      line = line.replace(ol[0], `<li style="list-style-type: decimal;">`);
+      line = line.replace(ol[0], `<li 
+      className="$vader_markdown_ol"
+      style="list-style-type: decimal;">`);
       line += `</li>`;
     }
     if (hr) {
       line = line.replace(hr[0], `<hr/>`);
     }
     if (blockquote) {
-      line = line.replace(blockquote[0], `<blockquote>`);
+      line = line.replace(blockquote[0], `<blockquote
+      className="$vader_markdown_blockquote"
+      >`);
       line += `</blockquote>`;
     }
     if (image) {
@@ -80,7 +93,9 @@ function markdown(content) {
          // @ts-ignore
         let src = i.match(/\((.*?)\)/g)[0].replace(/\(|\)/g, "");
         i.replace(i, `<img src="${src}" alt="${alt}"/>`);
-        line = line.replace(i, `<img src="${src}" alt="${alt}"/>`).replace('!','')
+        line = line.replace(i, `<img 
+        className="$vader_markdown_image"
+        src="${src}" alt="${alt}"/>`).replace('!','')
       });
     }
     if (li) {
@@ -88,7 +103,7 @@ function markdown(content) {
       line += `</li>`;
     }
     if (codeBlock) {
-      line = line.replace(codeBlock[0], `<pre><code>`);
+      line = line.replace(codeBlock[0], `<pre className="$vader_markdown_code_block" ><code>`);
     }
     if (codeBlockEnd) {
       line = line.replace(codeBlockEnd[0], `</code></pre>`);
@@ -97,8 +112,8 @@ function markdown(content) {
     if (code) {
       code.forEach((c) => {
         line = line.replace(c, `<code
+        className="$vader_markdown_code"
         style="background-color: #f5f5f5; padding: 5px; border-radius: 5px;
-        
         "
         >${c.replace(/\`/g, "")}</code>`);
       });
@@ -194,6 +209,18 @@ export class Component {
     });
     this.snapshots = [];
     
+    /**
+     * @property {Boolean} cfr
+     * @description Allows you to compile html code on the fly  - client fly rendering 
+     *  
+     */
+    this.cfr = false
+    /**
+     * @property {Boolean} worker
+     * @description Allows you to use a web worker to compile html code on the fly  - client fly rendering
+      
+     */
+  
   }
 
   /**
@@ -207,6 +234,7 @@ export class Component {
   }
   init() {
     this.registerComponent();
+    
   }
 
   registerComponent() {
@@ -775,92 +803,11 @@ export class Component {
     return /^[a-zA-Z0-9-_]+$/.test(className);
   }
 
-  /**
-   * The `html` method generates and processes HTML content for a component, performing various validations and tasks.
-   *
-   * @param {String} strings - The HTML content to be processed.
-   * @param {...any} args - Dynamic values to be inserted into the template.
-   * @returns {string} - The processed HTML content as a string.
-   *
-   * @throws {SyntaxError} - Throws a `SyntaxError` if image-related attributes are missing or invalid.
-   * @throws {Error} - Throws an `Error` if there are issues with class names or relative paths.
-   *
-   * @example
-   * // Example usage within a component:
-   * const myComponent = new Component();
-   * const htmlContent = myComponent.html`
-   *   <div>
-   *     <img src="/images/example.jpg" alt="Example Image" />
-   *   </div>
-   * `;
-   * document.body.innerHTML = htmlContent;
-   *
-   * @remarks
-   * The `html` method is a core function used in component rendering. It allows you to define and generate HTML content within your component while enforcing best practices and accessibility standards. The method performs several essential tasks:
-   *
-   * 1. **Image Validation**: It checks images for the presence of 'alt' attributes and their validity.
-   *    - Throws a `SyntaxError` if an image is missing the 'alt' attribute.
-   *    - Throws a `SyntaxError` if the 'alt' attribute is empty.
-   *    - Checks for an 'aria-hidden' attribute for image elements.
-   *
-   * 2. **Class Attribute Handling**: It enforces class attribute usage and allows optional configuration via comments.
-   *    - Throws an `Error` if 'class' attributes are used without permission.
-   *    - Supports 'className' attributes for class definitions.
-   *    - Allows or disallows class-related comments based on your configuration.
-   *
-   * 3. **Relative Path Handling**: It processes relative paths in 'href' and 'src' attributes, ensuring proper routing.
-   *    - Converts relative 'href' attributes to anchor links with appropriate routing.
-   *    - Converts relative 'src' attributes to absolute paths with 'public' directories.
-   *
-   * 4. **Custom Component Attributes**: It supports adding a 'data-component' attribute to the root element.
-   *    - Ensures that the 'data-component' attribute is present for component identification.
-   *
-   * 5. **Lifecycle Method Invocation**: It invokes the `componentDidMount` method if called from a 'render' context.
-   *    - Executes `componentDidMount` to handle component initialization once the DOM is ready.
-   *
-   * @see {@link Component}
-   * @see {@link Component#componentDidMount}
-   */
-  
-  html(strings, ...args) {
-    // @ts-ignore
-    if (
-      // @ts-ignore
-      new Error().stack &&
-       // @ts-ignore
-      new Error().stack.split("\n").length > 0 &&
-       // @ts-ignore
-      new Error().stack.split("\n")[2] &&
-       // @ts-ignore
-      new Error().stack.split("\n")[2].includes("render") &&
-      !this.componentMounted
-    ) {
-      this.componentMounted = true;
-      this.componentDidMount();
-      console.log("component mounted");
-    }
 
-    let result = "";
-    for (let i = 0; i < strings.length; i++) {
-      result += strings[i];
-      if (i < args.length) {
-        result += args[i];
-      }
-    }
-   
-    result = result.replace(/\\n/g, '\n').trim()
-    // replace ` 
-    result = result.replace(/`/g, '\`').trim()
-
-    result =  new Function("useRef", `return \`${result}\``)(useRef) 
-
-    if (!result.trim().startsWith("<body>")) {
-      console.warn(
-        "You should wrap your html in a body tag, vader may not grab all html!"
-      );
-    }
-     
+  parseHTML(result) {
+         
     const dom = new DOMParser().parseFromString(result, "text/html");
+    console.log(dom)
     const elements = dom.documentElement.querySelectorAll("*");
 
     elements.forEach((element) => {
@@ -941,27 +888,6 @@ export class Component {
               );
             }
           } else if (element.hasAttribute("className")) {
-            const isLocalhost = window.location.href.includes("localhost");
-            const is127001 = window.location.href.includes("127.0.0.1");
-            const ignoreClassComments = document.documentElement.outerHTML
-              .trim()
-              .includes("<!-- #vader-class-ignore -->");
-            const allowClassComments = document.documentElement.outerHTML
-              .trim()
-              .includes("<!-- #vader-allow_class -->");
-
-            if (
-              // @ts-ignore
-              (!this.validateClassName(element.getAttribute("className")) &&
-                isLocalhost) ||
-              (is127001 && !ignoreClassComments && !allowClassComments)
-            ) {
-              throw new Error(
-                `Invalid className ${element.getAttribute(
-                  "className"
-                )}, please use camelCase instead - example: myClass`
-              );
-            }
             // @ts-ignore
             element.setAttribute("class", element.getAttribute("className"));
             element.removeAttribute("className");
@@ -998,6 +924,7 @@ export class Component {
           }
           break;
       }
+      
     });
 
     result = dom.body.innerHTML;
@@ -1005,12 +932,122 @@ export class Component {
     this.Componentcontent = result;
 
     if (!result.includes("<div data-component")) {
-      result = `<div 
-      
-      data-component="${this.name}">${result}</div>`;
+       result = `<div data-component="${this.name}">${result}</div>`;
+    }
+    return  markdown(result.replace(/\\n/g, '\n').trim())
+
+  }
+  
+  /**
+   * The `html` method generates and processes HTML content for a component, performing various validations and tasks.
+   *
+   * @param {String} strings - The HTML content to be processed.
+   * @param {...any} args - Dynamic values to be inserted into the template.
+   * @returns {string} - The processed HTML content as a string.
+   *
+   * @throws {SyntaxError} - Throws a `SyntaxError` if image-related attributes are missing or invalid.
+   * @throws {Error} - Throws an `Error` if there are issues with class names or relative paths.
+   *
+   * @example
+   * // Example usage within a component:
+   * const myComponent = new Component();
+   * const htmlContent = myComponent.html`
+   *   <div>
+   *     <img src="/images/example.jpg" alt="Example Image" />
+   *   </div>
+   * `;
+   * document.body.innerHTML = htmlContent;
+   *
+   * @remarks
+   * The `html` method is a core function used in component rendering. It allows you to define and generate HTML content within your component while enforcing best practices and accessibility standards. The method performs several essential tasks:
+   *
+   * 1. **Image Validation**: It checks images for the presence of 'alt' attributes and their validity.
+   *    - Throws a `SyntaxError` if an image is missing the 'alt' attribute.
+   *    - Throws a `SyntaxError` if the 'alt' attribute is empty.
+   *    - Checks for an 'aria-hidden' attribute for image elements.
+   *
+   * 2. **Class Attribute Handling**: It enforces class attribute usage and allows optional configuration via comments.
+   *    - Throws an `Error` if 'class' attributes are used without permission.
+   *    - Supports 'className' attributes for class definitions.
+   *    - Allows or disallows class-related comments based on your configuration.
+   *
+   * 3. **Relative Path Handling**: It processes relative paths in 'href' and 'src' attributes, ensuring proper routing.
+   *    - Converts relative 'href' attributes to anchor links with appropriate routing.
+   *    - Converts relative 'src' attributes to absolute paths with 'public' directories.
+   *
+   * 4. **Custom Component Attributes**: It supports adding a 'data-component' attribute to the root element.
+   *    - Ensures that the 'data-component' attribute is present for component identification.
+   *
+   * 5. **Lifecycle Method Invocation**: It invokes the `componentDidMount` method if called from a 'render' context.
+   *    - Executes `componentDidMount` to handle component initialization once the DOM is ready.
+   *
+   * @see {@link Component}
+   * @see {@link Component#componentDidMount}
+   */
+  
+  
+  
+  html(strings, ...args) {
+    // @ts-ignore
+    if (
+      // @ts-ignore
+      new Error().stack &&
+       // @ts-ignore
+      new Error().stack.split("\n").length > 0 &&
+       // @ts-ignore
+      new Error().stack.split("\n")[2] &&
+       // @ts-ignore
+      new Error().stack.split("\n")[2].includes("render") &&
+      !this.componentMounted
+    ) {
+      this.componentMounted = true;
+      this.componentDidMount();
     }
 
-    return result;
+     
+    if(this.cfr){
+       
+      worker.postMessage({strings, args, location: window.location.href, name: this.name})
+      let promise = new Promise((resolve, reject)=>{
+        worker.onmessage = (e)=>{
+          if(e.data.error){
+            throw new Error(e.data.error)
+          }
+
+     
+          resolve(new Function("useRef", `return \`${e.data}\``)(useRef))
+           
+          
+         
+        }
+         worker.onerror = (e)=>{
+          reject(e)
+        }
+      }) 
+      // @ts-ignore
+      return promise;
+    }else{
+      let result = "";
+      for (let i = 0; i < strings.length; i++) {
+        result += strings[i];
+        if (i < args.length) {
+          result += args[i];
+        }
+      }
+      result =  new Function("useRef", `return \`${result}\``)(useRef) 
+
+      if (!result.trim().startsWith("<body>")) {
+        console.warn(
+          "You should wrap your html in a body tag, vader may not grab all html!"
+        );
+      }
+     
+       
+   
+      return  this.parseHTML(result);
+    }
+
+  
   }
   // write types to ensure it returns a string
   /**
@@ -1087,12 +1124,91 @@ export const rf = (name, fn) => {
   window[name] = fn;
 };
 let cache = {};
+async function handletemplate(data){
+  let dom = new DOMParser().parseFromString(data, "text/html");
+  let elements = dom.documentElement.querySelectorAll("*");
+  
+  if (elements.length > 0) {
+    for (var i = 0; i < elements.length; i++) {
+    
+      if (elements[i].nodeName === "INCLUDE") {
+        if(!elements[i].getAttribute("src") || elements[i].getAttribute("src") === ""){
+          throw new Error("Include tag must have src attribute")
+        }
+        
+         let componentName = elements[i].getAttribute("src")?.split("/").pop()?.split(".")[0]
+         // @ts-ignore
+          let filedata = await include(elements[i].getAttribute("src"))
+         // replace ` with \`\` to allow for template literals
+          filedata = filedata.replace(/`/g, "\\`")
+          cache[elements[i].getAttribute("src")] = filedata
+          filedata = new Function(`return \`${filedata}\`;`)();
+          let newdom = new DOMParser().parseFromString(filedata, "text/html");
+
+          newdom.querySelectorAll("include").forEach((el)=>{
+            el.remove()
+          })
+          // @ts-ignore
+       
+          let els = dom.querySelectorAll(componentName)
+           
+          els.forEach((el)=>{
+             
+             console.log(el)
+             if(el.attributes.length > 0){
+                for(var i = 0; i < el.attributes.length; i++){
+                  newdom.body.outerHTML = newdom.body.outerHTML.replace(`{{${el.attributes[i].name}}}`, el.attributes[i].value)
+                }
+                
+             }
+             if(el.children.length > 0 && newdom.body.querySelector('slot')){
+                for(var i = 0; i < el.children.length; i++){
+                  let slots = newdom.body.querySelectorAll("slot")
+                  slots.forEach((slot)=>{
+                    let id = slot.getAttribute("id")
+                    if(id === el.nodeName.toLowerCase()){
+                      slot.outerHTML = `<div>${el.innerHTML}</div>`
+                    }
+                  })
+                  
+                  
+                }
+                
+             }
+
+             dom.body.querySelectorAll('include').forEach((el)=>{
+                el.remove()
+             })
+             // replace ` with \`\` to allow for template literals
+             dom.body.outerHTML =  dom.body.outerHTML.replace(/`/g, "\\`")
+             dom.body.outerHTML = dom.body.outerHTML.replace(el.outerHTML, new Function(`return \`${newdom.body.outerHTML}\`;`)())
+          
+           
+          })
+      
+       
+           
+
+      }
+    }
+
+     
+  }
+  
+  // replace ` with \`\` to allow for template literals
+  dom.body.outerHTML = dom.body.outerHTML.replace(/`/g, "\\`")
+  data = new Function(`return \`${dom.body.outerHTML}\`;`)();
+  console.log(data)
+  return  data;
+}
 /**
  * @function include
  * @description Allows you to include html file
  * @returns {Promise}  - modified string with html content
  * @param {string}  path
  */
+
+ 
  
 export const include = async (path) => {
     
@@ -1106,10 +1222,10 @@ export const include = async (path) => {
     path = "/src/" + path;
   }
   if (cache[path]) {
-    return new Function(`return \`${cache[path]}\`;`)();
-  }
-
-  return fetch(`./${path}`)
+    return await handletemplate(new Function(`return \`${cache[path]}\`;`)())
+   
+  }else{
+    return fetch(`./${path}`)
     .then((res) => {
       if (res.status === 404) {
         throw new Error(`No file found at ${path}`);
@@ -1117,39 +1233,14 @@ export const include = async (path) => {
       return res.text();
     })
     .then(async (data) => {
-      // Handle includes
-      let includes = data.match(/<include src="(.*)"\/>/g);
-      if (includes) {
-      
-        const includePromises = includes.map((e) => {
-        
-          // @ts-ignore
-          let includePath = e.match(/<include src="(.*)"\/>/)[1];
-
-          if (
-            includePath.startsWith("/") &&
-            !document.documentElement.outerHTML
-              .trim()
-              .includes("<!-- #vader-disable_relative-paths -->")
-          ) {
-            includePath = "/src" + includePath;
-          }
-          return include(includePath).then((includeData) => {
-            data = data.replace(e, includeData);
-          });
-        });
-
-        // Wait for all includes to be fetched and replaced
-        return Promise.all(includePromises).then(() => {
-          cache[path] = data;
-           
-          return data
-        });
-      } else {
-        cache[path] = data;
-        return data;
-      }
+      cache[path] = data
+   
+      data =  await handletemplate(new Function(`return \`${data}\`;`)())
+    
+      return data
     });
+  }
+ 
 };
 
 export default Vader;

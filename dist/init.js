@@ -5,11 +5,12 @@ import { Docs } from "../src/pages/Docs.js";
  
 const app = new VaderRouter('/');
 
-app.get("/", async (req, res)=>{
+app.get("/", async (/** @type {any} */ req, /** @type {{ send: (arg0: string, arg1: string) => void; }} */ res)=>{
     res.send('#root', await new Home().render())
 })
-app.get('/docs/:page/*', async (req, res)=>{
+app.get('/docs/:page/*', async (/** @type {{ params: any[]; }} */ req, /** @type {{ send: (arg0: string, arg1: string) => void; }} */ res)=>{
     console.log(req)
+    // @ts-ignore
     res.send('#root', await new Docs().render(req.params.page, req.params[0]))
 })
  

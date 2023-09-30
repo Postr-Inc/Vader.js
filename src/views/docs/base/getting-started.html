@@ -1,27 +1,33 @@
  
-
+<include src="/components/nav.vjs"></include>
 <body  >
-  ${
+   <!-- #vader-allow_class -->
+   <!-- #vader-allow_special-characters -->
+   ${
     document.title = "Getting Started | Vader Docs", ""
-  }
-  <include src="/components/nav.html"/>
-  <include src="/components/sidedrawer.html"/>
+   }
+   <nav></nav>
+   
+ 
   <div class="drawer-content lg:z-[1] xl:z-[1] z-[-1] absolute mt-16 w-screen 
   left-1/2 transform -translate-x-1/2 max-w-xl xl:max-w-xl md:max-w-screen lg:max-w-xl justify-center flex flex-col mx-auto p-5 xl:p-5 gap-3">
     <div class="">
-      <markdown
+      <span
       class="xl:text-5xl md:text-5xl lg:text-5xl text-4xl   font-extrabold"
       >
       ## Getting Started
-     </markdown>
+    </span>
+    
+    ---
       
   
   
     </div>
     
-    <markdown class="text-2xl mt-8 font-bold">
-    <span class="hidden hover:visible">#</span>  
-    # What is Vader?</markdown>
+    <span class="text-2xl mt-8 font-bold">
+ 
+    # What is Vader?
+    </span>
     <markdown>
       Vader.js is a reactive framework for single application web apps similar to react.js
     </markdown>
@@ -31,7 +37,11 @@
    </p>
    
     <div class="flex flex-col">
-    <markdown class="text-2xl mt-8 font-bold"><span class="hidden hover:visible">#</span>  # Key Features</markdown>
+    <span class="text-2xl mt-8 font-bold">
+      
+      # Key Features 
+
+    </span>
     
     <ul class="list-disc list-inside mt-6
     justift-items-evenly flex flex-col space-y-[.9rem]
@@ -43,33 +53,30 @@
       Class Based Components: - vader leverages the power of js classes to maintain both structue and state of components
      </p>
     </li>
-      <li>Reactivity: - vader offers several state hooks like signals to add reactivity to your webpage</li>
-      <li>Templating: vader's <span class="badge badge-ghost">
-        html 
-      </span>
-    method extends html's core functionality </li>
-      <li>Routing - vader offers a router that allows you to create single page applications with ease</li>
-      <li>Lightweight - vader is a lightweight framework that is only 3kb gzipped
-    </li>
+      - Reactivity: - vader offers several state hooks like signals to add reactivity to your webpage</li>
+      - Templating: vader's <span class="badge badge-ghost"> Vader.Component.html </span> method extends html's core functionality 
+      - Routing - vader offers a router that allows you to create single page applications with ease 
+      - Lightweight - vader is a lightweight framework that is only 3kb gzipped
+ 
     </ul>
     </div>
   
-    <markdown 
+    <span
     class="text-2xl mt-8 font-bold"
     >
       ##  Try In Your Browser
-    </markdown>
+  </span>
   
     <embed src="https://stackblitz.com/edit/js-ts8bbk?embed=1&file=src%2Fviews%2Fapp.js"
     height="500px"
     ></embed>
    
-    <markdown
+    <span
     class="text-2xl mt-8 font-bold" 
     >
       # Learn Vader
       
-    </markdown>
+    </span>
     <p>
       See examples, best practices, and key concepts to of a Vader app!
     </p>

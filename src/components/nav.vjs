@@ -1,0 +1,69 @@
+ 
+<body>
+  <include src="/components/sidedrawer.vjs"></include>
+ 
+<div className="navbar z-[999] 
+ fixed top-0
+border border-base-200 text-black bg-base-100    ">
+     <div class="flex-1">
+         
+        <a href="/" class="text-2xl font-semibold hero flex gap-2  ">
+            <img src="/icons/logo.png" class="w-12" alt="logo">
+            ${
+              '$CURRENT_URL.includes("docs")'
+                ? "Docs"
+                : "Vader.js"
+            }
+      </a>
+      </div>
+      <div class="flex-none">
+        <ul class="menu menu-horizontal px-1">
+            <li><a  class="
+                xl:flex hidden
+                hover:text-blue-300">About</a></li>
+                 
+                
+            <li><a  href="/docs/base/getting-started" class="hover:text-blue-300">Docs</a></li>
+             <li>
+                <div class="dropdown dropdown-end">
+                    
+                     <label tabindex="0"  >
+                        <p>Resources</p>
+                     </label>
+                     
+                    
+                    <ul tabindex="0" class="mt-32 z-[1] text-black p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52">
+                      <li>
+                        <a class="justify-between">
+                          Profile
+                          <span class="badge">New</span>
+                        </a>
+                      </li>
+                      <li><a>Settings</a></li>
+                      <li><a>Logout</a></li>
+                    </ul>
+                  </div>
+                 
+             </li>
+             ${
+              // @ts-ignore
+               $FULL_URL.includes('docs') ? `<li class=" lg:hidden xl:hidden  flex">
+              <a
+              onclick="document.querySelector('.drawer').classList.toggle('drawer-open')"
+              >
+               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="fill-black w-6 h-6">
+                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+               </svg>
+               
+              </a>
+           </li>` : ""
+             }
+             
+        </ul>
+    </div>
+     
+  </div>
+  ${
+    $FULL_URL.includes('docs') ? `<sidedrawer></sidedrawer>` : ""
+  }
+  </body>
