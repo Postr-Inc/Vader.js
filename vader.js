@@ -1,5 +1,6 @@
 let dom = /**@type {Obect}  **/ {};
 let states = {};
+// @ts-ignore
 let worker =  new Worker(new URL('./worker.js', import.meta.url));
 /**
  * @function markdown
@@ -1007,7 +1008,7 @@ export class Component {
      
     if(this.cfr){
        
-      worker.postMessage({strings, args, location: window.location.href, name: this.name})
+      worker.postMessage({strings, args, location: window.location.origin +  window.location.pathname.replace(/\/[^\/]*$/, '') + '/public/', name: this.name})
       let promise = new Promise((resolve, reject)=>{
         worker.onmessage = (e)=>{
           if(e.data.error){
@@ -1153,8 +1154,7 @@ async function handletemplate(data){
           let els = dom.querySelectorAll(componentName)
            
           els.forEach((el)=>{
-             
-             console.log(el)
+         
              if(el.attributes.length > 0){
                 for(var i = 0; i < el.attributes.length; i++){
                   newdom.body.outerHTML = newdom.body.outerHTML.replace(`{{${el.attributes[i].name}}}`, el.attributes[i].value)
@@ -1198,7 +1198,7 @@ async function handletemplate(data){
   // replace ` with \`\` to allow for template literals
   dom.body.outerHTML = dom.body.outerHTML.replace(/`/g, "\\`")
   data = new Function(`return \`${dom.body.outerHTML}\`;`)();
-  console.log(data)
+  
   return  data;
 }
 /**
