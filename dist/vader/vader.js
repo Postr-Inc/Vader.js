@@ -1,4 +1,4 @@
-let dom = /**@type {Obect}  **/ {};
+let dom = []
 let states = {};
 let worker =  new Worker(new URL('./worker.js', import.meta.url));
 /**
@@ -7,125 +7,65 @@ let worker =  new Worker(new URL('./worker.js', import.meta.url));
  * @description Allows you to convert markdown to html 
  */
 function markdown(content) {
-  const lines = content.split('\n').filter((line) => line !== '').map((line) => line.trim());
-   
-  let result = '';
-
-  lines.forEach((line) => {
-    let heading = line.match(/^#{1,6}\s/);
-    let bold = line.match(/\*\*(.*?)\*\*/g);
-    let italic = line.match(/\*(.*?)\*/g);
- 
-    let link = line.match(/\[(.*?)\]\((.*?)\)/g);
-    let ul = line.match(/^\-\s/);
-    let ol =  line.match(/^\d\.\s/);
   
-    let li = line.match(/^\s/);
-    let hr = line.match(/^\-\-\-\s/);
-    let blockquote = line.match(/^\>\s/);
-    let image = line.match(/\!\[(.*?)\]\((.*?)\)/g);
-    
-    
-    let codeBlock = line.match(/\`\`\`/g);
-    let codeBlockEnd = line.match(/\`\`\`/g);
-    let code = line.match(/\`(.*?)\`/g);
-    
+  let headers = content.match(/(#+)(.*)/g);
+  if (headers) {
+  headers.forEach((header) => {
+     if(header.includes('/') || header.includes('<') || header.includes('>')){
+       return
 
-     
-    if (heading) {
-       // @ts-ignore
-      let headingLevel = heading[0].match(/#/g).length;
-      line = line.replace(heading[0], `<h${headingLevel}>`);
-      line += `</h${headingLevel}>`;
-    }
-    if (bold) {
-      bold.forEach((b) => {
-        line = line.replace(b, `<strong
-        className="$vader_markdown_bold"
-        >${b.replace(/\*\*/g, "")}</strong>`);
-      });
-    }
-    if (italic) {
-      italic.forEach((i) => {
-        line = line.replace(i, `<em
-        className="$vader_markdown_italic"
-        >${i.replace(/\*/g, "")}</em>`);
-      });
-    }
-
-   
-    if(link){
-      link.forEach((l) => {
-         // @ts-ignore
-        let text = l.match(/\[(.*?)\]/g)[0].replace(/\[|\]/g, "");
-         // @ts-ignore
-        let href = l.match(/\((.*?)\)/g)[0].replace(/\(|\)/g, "");
-        line = line.replace(l, `<a 
-        className="$vader_markdown_link"
-        href="${href}">${text}</a>`);
-      });
-    }
-    if (ul) {
-      line = line.replace(ul[0], `<li
-      className="$vader_markdown_ul"
-      style="list-style-type: disc;">`);
-      line += `</li>`;
-    }
-    if (ol) {
-      line = line.replace(ol[0], `<li 
-      className="$vader_markdown_ol"
-      style="list-style-type: decimal;">`);
-      line += `</li>`;
-    }
-    if (hr) {
-      line = line.replace(hr[0], `<hr/>`);
-    }
-    if (blockquote) {
-      line = line.replace(blockquote[0], `<blockquote
-      className="$vader_markdown_blockquote"
-      >`);
-      line += `</blockquote>`;
-    }
-    if (image) {
-      image.forEach((i) => {
-        // @ts-ignore
-        let alt = i.match(/\[(.*?)\]/g)[0].replace(/\[|\]/g, "");
-         // @ts-ignore
-        let src = i.match(/\((.*?)\)/g)[0].replace(/\(|\)/g, "");
-        i.replace(i, `<img src="${src}" alt="${alt}"/>`);
-        line = line.replace(i, `<img 
-        className="$vader_markdown_image"
-        src="${src}" alt="${alt}"/>`).replace('!','')
-      });
-    }
-    if (li) {
-      line = line.replace(li[0], `<li>`);
-      line += `</li>`;
-    }
-    if (codeBlock) {
-      line = line.replace(codeBlock[0], `<pre className="$vader_markdown_code_block" ><code>`);
-    }
-    if (codeBlockEnd) {
-      line = line.replace(codeBlockEnd[0], `</code></pre>`);
-    }
-
-    if (code) {
-      code.forEach((c) => {
-        line = line.replace(c, `<code
-        className="$vader_markdown_code"
-        style="background-color: #f5f5f5; padding: 5px; border-radius: 5px;
-        "
-        >${c.replace(/\`/g, "")}</code>`);
-      });
-    }
-   
-    
-
-
-    result += `${line}\n`;
+     }
+    let level = header.split('#').length;
+    content = content.replace(header, `<h${level} class="markdown_heading">${header.replace(/#/g, '')}</h${level}>`);
   });
+  }
 
-  return result;
+  content = content.replace(/\*\*(.*?)\*\*/g, (match, text) => {
+    return `<b class="markdown_bold">${text}</b>`;
+  });
+  content = content.replace(/\*(.*?)\*/g, (match, text) => {
+    return `<i class="markdown_italic">${text}</i>`;
+  })
+  content = content.replace(/`(.*?)`/g, (match, text) => {
+    return `<code>${text}</code>`;
+  });
+  content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+    return `<a class="markdown_link" href="${url}">${text}</a>`;
+  });
+  content = content.replace(/!\[([^\]]+)\]\(([^)]+)\)/g, (match, alt, src) => {
+    return `<img class="markdown_image" src="${src}" alt="${alt}" />`;
+  });
+  content = content.split('\n').map((line, index, arr) => {
+    if (line.match(/^\s*-\s+(.*?)$/gm)) {
+      if (index === 0 || !arr[index - 1].match(/^\s*-\s+(.*?)$/gm)) {
+        return `<ul class="markdown_unordered" style="list-style-type:disc;list-style:inside"><li>${line.replace(/^\s*-\s+(.*?)$/gm, '$1')}</li>`;
+      } else if (index === arr.length - 1 || !arr[index + 1].match(/^\s*-\s+(.*?)$/gm)) {
+        return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, '$1')}</li></ul>`;
+      } else {
+        return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, '$1')}</li>`;
+      }
+    } else {
+      return line;
+    }
+  }).join('\n');
+
+  content = content.split('\n').map((line, index, arr) => {
+    if (line.match(/^\s*\d+\.\s+(.*?)$/gm)) {
+      if (index === 0 || !arr[index - 1].match(/^\s*\d+\.\s+(.*?)$/gm)) {
+        return `<ol class="markdown_ordered" style="list-style-type:decimal;"><li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, '$1')}</li>`;
+      } else if (index === arr.length - 1 || !arr[index + 1].match(/^\s*\d+\.\s+(.*?)$/gm)) {
+        return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, '$1')}</li></ol>`;
+      } else {
+        return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, '$1')}</li>`;
+      }
+    } else {
+      return line;
+    }
+  }).join('\n');
+
+
+  return content
+   
 }
 
  
@@ -208,6 +148,13 @@ export class Component {
       },
     });
     this.snapshots = [];
+    /**
+     * @property {Object} dom
+     * @description Allows you to get reference to DOM element
+     * @returns {void | HTMLElement}
+     * 
+     */
+    this.dom =  []
     
     /**
      * @property {Boolean} cfr
@@ -562,6 +509,8 @@ export class Component {
       },
     ];
   }
+
+ 
   runEffects() {
     Object.keys(this.effects).forEach((component) => {
       this.effects[component].forEach((effect) => {
@@ -572,6 +521,7 @@ export class Component {
       });
     });
   }
+   
   /**
    * @method useSyncStore
    * @description Allows you to create a store
@@ -660,8 +610,50 @@ export class Component {
       },
     ];
   }
+  /**
+   * @method useRef
+   * @memberof Component
+   * @param {string} ref
+   * @description Allows you to get reference to DOM elements from the dom array
+   * @returns {Object} {current, update}
+   * @example
+   * let ref = this.useRef('ref')
+   * ref.current // returns the DOM element 
+ 
+   */
+
+  useRef(ref) {
+    // get ref from array
+    console.log(this.dom)
+    const element =  this.dom[ref]
+      
+    const getElement = () => element;
+
+    const update = (data) => {
+      const newDom = new DOMParser().parseFromString(data, "text/html");
+      const newElement = newDom.body.firstChild;
+
+      if (element) {
+        // @ts-ignore
+        const isDifferent = !newElement.isEqualNode(element);
+        if (isDifferent) {
+          // @ts-ignore
+          element.parentNode.replaceChild(newElement, element);
+        }
+      }
+    };
+
+    return {
+      /**@type {HTMLElement} */
+      // @ts-ignore
+      current: getElement,
+      /**@type {Function} */
+      update,
+    };
+  }
 
   /**
+   * 
    * @function useEffect
    * @param {*} effectFn
    * @param {*} dependencies
@@ -726,11 +718,12 @@ export class Component {
     const fragment = document.createDocumentFragment();
     Object.keys(components).forEach(async (component) => {
       const { name } = components[component];
-      const componentContainer = document.querySelector(
+       
+    
+      let componentContainer = document.querySelector(
         `[data-component="${name}"]`
       );
-
-      let time = new Date().getTime().toLocaleString();
+      let time = new Date().getTime();
       /**
        * @property {Object} snapshot
        * @description Allows you to keep track of component snapshots
@@ -989,35 +982,69 @@ export class Component {
   
   html(strings, ...args) {
     // @ts-ignore
-    if (
-      // @ts-ignore
-      new Error().stack &&
-       // @ts-ignore
-      new Error().stack.split("\n").length > 0 &&
-       // @ts-ignore
-      new Error().stack.split("\n")[2] &&
-       // @ts-ignore
-      new Error().stack.split("\n")[2].includes("render") &&
-      !this.componentMounted
-    ) {
-      this.componentMounted = true;
-      this.componentDidMount();
-    }
+    let tiemr = setInterval(()=>{
+      if(document.querySelector(`[data-component="${this.name}"]`)){
+        clearInterval(tiemr)
+        this.componentMounted = true;
+         
+        document.querySelector(`[data-component="${this.name}"]`)?.querySelectorAll("*").forEach((element)=>{
+          if(element.hasAttribute("ref")){
+            // @ts-ignore
+            this.dom[element.getAttribute("ref")] = element
+          }
+        })
+        this.componentDidMount();
+      }
+    }, 100)
+    let script = document.createElement("script");
+    script.setAttribute("type", "text/javascript");
+    script.setAttribute(`data-component-script`, this.name);
+    
 
      
+    let dom = this.dom
+   
     if(this.cfr){
        
-      worker.postMessage({strings, args, location: window.location.href, name: this.name})
+      worker.postMessage({strings, args, location: window.location.origin +  window.location.pathname.replace(/\/[^\/]*$/, '') + '/public/', name: this.name})
       let promise = new Promise((resolve, reject)=>{
         worker.onmessage = (e)=>{
           if(e.data.error){
             throw new Error(e.data.error)
           }
-
-     
-          resolve(new Function("useRef", `return \`${e.data}\``)(useRef))
+          const dom = this.dom; // Assuming this.dom is an object
+          console.log(this.dom)
+          let js = e.data.js
+          let template = e.data.template
+           // Bind the component's context
+          
+          const useState = this.useState.bind(this); // Bind the component's context
+          const useEffect = this.useEffect.bind(this); // Bind the component's context
+          const useReducer = this.useReducer.bind(this); // Bind the component's context
+          const useAuth = this.useAuth.bind(this); // Bind the component's context
+          const useSyncStore = this.useSyncStore.bind(this); // Bind the component's context
+          const signal = this.signal.bind(this); // Bind the component's context
+          const rf = this.$Function.bind(this); // Bind the component's context
+          let states = this.states
+          const useRef = this.useRef.bind(this); // Bind the component's context  
+          new Function("useState", "useEffect", "useAuth", "useReducer", "useSyncStore", "signal", "rf", "dom", "render", "states", "useRef", js)(
+            useState,
+            useEffect,
+            useAuth,
+            useReducer,
+            useSyncStore,
+            signal,
+            rf,
+            this.dom,
+            this.render,
+            this.states,
+            useRef
+          )
+          
+          resolve(new Function("useRef", "states", "return" + "`" + template + "`")(useRef, states))
            
           
+           
          
         }
          worker.onerror = (e)=>{
@@ -1153,8 +1180,7 @@ async function handletemplate(data){
           let els = dom.querySelectorAll(componentName)
            
           els.forEach((el)=>{
-             
-             console.log(el)
+         
              if(el.attributes.length > 0){
                 for(var i = 0; i < el.attributes.length; i++){
                   newdom.body.outerHTML = newdom.body.outerHTML.replace(`{{${el.attributes[i].name}}}`, el.attributes[i].value)
@@ -1198,7 +1224,7 @@ async function handletemplate(data){
   // replace ` with \`\` to allow for template literals
   dom.body.outerHTML = dom.body.outerHTML.replace(/`/g, "\\`")
   data = new Function(`return \`${dom.body.outerHTML}\`;`)();
-  console.log(data)
+  
   return  data;
 }
 /**

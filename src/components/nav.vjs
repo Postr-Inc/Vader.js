@@ -10,20 +10,22 @@ border border-base-200 text-black bg-base-100    ">
         <a href="/" class="text-2xl font-semibold hero flex gap-2  ">
             <img src="/icons/logo.png" class="w-12" alt="logo">
             ${
-              $FULL_URL.includes("docs")
+               $FULL_URL.includes("docs") 
                 ? "Docs"
-                : "Vader.js"
+                : "Vader.js  <span class='badge badge-ghost text-blue-500'>v1.3.0</span> "
             }
       </a>
       </div>
       <div class="flex-none">
         <ul class="menu menu-horizontal px-1">
-            <li><a  class="
+            <li><a href="/docs/concept/why"  class="
                 xl:flex hidden
                 hover:text-blue-300">About</a></li>
                  
                 
-            <li><a  href="/docs/base/getting-started" class="hover:text-blue-300">Docs</a></li>
+            ${
+              !$FULL_URL.includes('docs') ? `<li><a  href="/docs/base/getting-started" class="hover:text-blue-300">Docs</a></li>` : ""
+            }
              <li>
                 <div class="dropdown dropdown-end">
                     

@@ -11,58 +11,65 @@ ${
         <h1 class="xl:text-5xl md:text-5xl text-4xl font-extrabold">Project Structure</h1>
         
         <p class="mt-2 break-words">
-            When you create a new project, there are a few things to keep in mind regarding folder structure.
-            Here's how Vader organizes content on your webpage.
+            Here is a quick overview of how a vader project is structured.
         </p>
 
         <h2 class="text-4xl font-bold mt-8">Directories</h2>
         
-        <p class="mt-2 break-words">
-             Below is how every vader project should be structured!
-        </p>
+         
         <p>
-            Every vader root should include these two folders.
-            src is used for finding relative paths for included page views, public is used in vader to finding
-            images and fonts for your webpage.
+           Vaderjs manages asset linking for you relative to your sites url, this makes it easier for devs to link assets without having to make sure they escaped folders properly, or having to use direct absolute paths.
+           Below is a quick overview of the directories vader looks for at the root of your project.
         </p>
-        <markdown class="list-inside">
-            - **src/*** - Your project source code (components, views, styles, etc.)
-            - **public/*** - Your public folder (images, fonts, library files)
-        </markdown>
+       <p>
         
-        <markdown class="  text-2xl  bg-base-200 p-2 w-fit rounded  ">
-           src/
-        </markdown>
+        - <span class="badge badge-ghost p-2 text-blue-500">src/*</span> - Your project source code (components, views, styles, etc.)
+        - <span class="badge badge-ghost p-2 text-blue-500">public/*</span> - Assets that you want to be publicly accessible (images, fonts, etc.)
+   
+       </p>
+        
+        <div class="btn btn-sm  w-fit font-semibold hover:bg-base-200">
+            src/
+        </div>
         <markdown class="">
             The  <span class="badge badge-ghost  ">
                 src/
             </span> folder is where most of your project source code lives. This includes:
         </markdown>
         <markdown class="list-inside">
-            - **components/*** - Your components  
-            - **views/*** - Your views
-            - **styles/*** - Your styles
-            - **markdown/*** - Your markdown files
+            - components/* - Reusable components
+            - views/* - Page views seen by the user
+            - pages/* - Logic for handling page views
 
         </markdown>
-        <markdown class="  text-2xl  bg-base-200 p-2 w-fit rounded  ">
+        <div class="btn btn-sm  w-fit font-semibold hover:bg-base-200">
             public/
-        </markdown>
-        <markdown>
+        </div>
+        <markdown class="mt-2">
             The  <span class="badge badge-ghost  ">
                 public/
-            </span> folder contains all of your static assets. This includes:
+            </span> folder is where most of your project source code lives. This includes:
         </markdown>
-        <markdown class="list-inside">
-            - **images/*** - Your images
-            - **fonts/*** - Your fonts
-            - **js/*** - Your external imported javascript libraries
+        
+        <markdown class="list-inside mt-2">
+            - images/* -  Images for your site
+            - fonts/* - Fonts for your site
+            - js/* - External js libraries you want to import
         </markdown>
+
+        <div class="border-l-blue-500 flex flex-col border-l-4 border bg-base-200 p-5">
+             
+             **Tip:**
+          
+             <p class="prose break-words">
+                You can turn off relative file paths using the <span class="text-blue-500">  <br> vader-disable_relative-paths \n  </span> comment in your views and main index file
+             </p>
+        </div>
         
       
             
             <div class="flex flex-row flex-wrap mt-12 w-full gap-5">
-                <a href="/docs/base/installing"
+                <a href="/docs/concept/why"
                     class="btn  btn-ghost rounded  flex w-full  btn-md  flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
     
     
@@ -72,7 +79,7 @@ ${
                     </svg>
     
     
-                    Installing
+                   Why Vader?
     
     
                 </a>

@@ -1,97 +1,134 @@
 <body>
-    <div
-  ref="drawer"
-  class="drawer fixed top-0 left-0 mt-16 z[-1] lg:drawer-open xl:drawer-open">
-      <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
-     
-      
-      <div class="drawer-side">
-        <label for="my-drawer-2" class="drawer-overlay"></label> 
-        <ul class="menu p-4 w-64 min-h-full bg-base-100 border border-slate-100 text-base-content">
-          <!-- Sidebar content here -->
-          <div tabindex="0" class="collapse 
-          collapse-open
+  <div ref="drawer" class="drawer fixed top-0 left-0 mt-16 z[-1] lg:drawer-open xl:drawer-open">
+    <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+
+
+    <div class="drawer-side">
+      <label for="my-drawer-2" class="drawer-overlay"></label>
+      <ul class="menu p-4 w-64 min-h-full bg-base-100 border border-slate-100 text-base-content">
+        <!-- Sidebar content here -->
+        <div tabindex="0" class="collapse 
+          collapse-open 
           collapse-plus  ">
-              <input type="checkbox"
-              onclick="
+          <input type="checkbox"
+          class=" cursor-pointer"
+          onclick="
               this.parentElement.classList.toggle('collapse-open')
               this.parentElement.classList.toggle('collapse-close')
-              "
-              />
-              <div class="collapse-title  
-              after:collapse-arrow
+              " />
+          <div class="collapse-title  
+              after:collapse-arrow font-semibold 
               ">
-                 Start Here
-              </div>
-              <div class="collapse-content min-h-24 flex gap-5 flex-col"> 
-                 <a href="/docs/base/getting-started" class=" 
-                  
+            Start Here
+          </div>
+          <div class="collapse-content min-h-24  flex gap-5 flex-col">
+            <a href="/docs/base/getting-started" class=" p-2 
+                   
                   ${
                      
-                      $FULL_URL === "/docs/base/getting-started"
-                        ? "text-sky-500"
-                        : "text-base-content"
-                  }
-                  ">Getting Started</a>
+                      $CURRENT_URL ===  "/docs/base/getting-started" ? "font-semibold bg-green-100 text-green-800  rounded" : "text-base-content opacity-60  " } ">Getting Started</a>
                   
                    
                   <a href="/docs/base/installing" class=" 
-                
+                  p-2 
                   ${
                    
-                      $CURRENT_URL === "/docs/base/installing"
-                        ? "text-sky-500"
-                        : "text-base-content"
-   
-                  }
-                  ">Installing</a>
+                      $CURRENT_URL === "/docs/base/installing" ? "font-semibold bg-green-100  text-green-800  rounded" : "text-base-content opacity-60  " } ">Installing</a>
               </div>
               
              
             </div>
-            <div tabindex="0"
-           
-            class="collapse 
+            <div tabindex=" 0" class="collapse 
             cursor-pointer
             collapse-open
              collapse-plus  ">
-              <input
-              onclick="
+              <input  class=" cursor-pointer" onclick="
               this.parentElement.classList.toggle('collapse-open')
               this.parentElement.classList.toggle('collapse-close')
-              "
-              type="checkbox" />
+              " type="checkbox" />
               <div class="collapse-title  
-              after:collapse-arrow
+              after:collapse-arrow font-semibold
               ">
-                Basics
+                Concepts
               </div>
-              <div class="collapse-content min-h-24 flex gap-5 flex-col"> 
-                 <a href="/docs/basics/project-structure" class=" 
+              <div class="collapse-content min-h-24 flex gap-5 flex-col">
+                <a href="/docs/concept/why" class=" p-2
                   
                   ${
                      
-                      $FULL_URL.includes("/project-structure")
-                        ? "text-sky-500"
-                        : "text-base-content"
-                  }
-                  ">Project Structure</a>
-                  <a href="/docs/basics/components" class=" 
+                      $FULL_URL.includes("why") ? "font-semibold bg-green-100 text-green-800  rounded" : "text-base-content opacity-60  " } ">
+                    Why Vader.js? 
+                    </a>
+                  
+                   
+                   
+              </div>
+              
+             
+            </div>
+            <div tabindex=" 0" class="collapse 
+            cursor-pointer
+            collapse-open
+             collapse-plus  ">
+              <input 
+              class=" cursor-pointer"
+              onclick="
+              this.parentElement.classList.toggle('collapse-open')
+              this.parentElement.classList.toggle('collapse-close')
+              " type="checkbox" />
+              <div class="collapse-title  
+              after:collapse-arrow
+              font-semibold">
+              
+                Tutorials
+              </div>
+              <div class="collapse-content min-h-24 flex gap-5 flex-col">
+                 
+              </div>
+              
+             
+            </div>
+            <div tabindex=" 0" class="collapse 
+            cursor-pointer
+            collapse-open
+             collapse-plus  ">
+              <input 
+              class=" cursor-pointer"
+              onclick="
+              this.parentElement.classList.toggle('collapse-open')
+              this.parentElement.classList.toggle('collapse-close')
+              " type="checkbox" />
+              <div class="collapse-title  
+              after:collapse-arrow
+              font-semibold">
+              
+                Basics
+              </div>
+              <div class="collapse-content min-h-24 flex gap-5 flex-col">
+                <a href="/docs/basics/project-structure" class=" 
+                p-2
                   
                   ${
+                     
+                      $FULL_URL.includes("project-structure") ? "font-semibold bg-green-100 text-green-800  rounded" : "text-base-content opacity-60" } ">Project Structure</a>
+                  <a href="/docs/basics/components" class=" 
+                  p-2
+                  ${
               
-                      $FULL_URL.includes("/components")
-                        ? "text-sky-500"
-                        : "text-base-content"
-                  }
-                  ">Components</a>
+                      $FULL_URL.includes("components") ? "font-semibold bg-green-100 text-green-800  rounded" : "text-base-content opacity-60" } ">Components</a>
                    
-                   
+                   <a href="/docs/basics/views"
+                   class="p-2 ${$FULL_URL.includes("views") ? "font-semibold bg-green-100 text-green-800  rounded" : "text-base-content opacity-60" }"
+                   >
+                    Views
+
+                   </a>
               </div>
               
              
             </div>
       
+
         </ul>
       
       </div>

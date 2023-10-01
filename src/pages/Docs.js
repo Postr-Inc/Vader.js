@@ -11,4 +11,7 @@ export class Docs extends Vader.Component{
       
         return  this.html(await include(`/views/docs/${page}.html`))
     }
+    componentDidMount(){
+        
+    }
 }

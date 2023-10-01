@@ -1,0 +1,127 @@
+${
+    document.title = "Why Vader.js? | Vader Docs", ""
+}
+<body>
+    <include src="/components/nav.vjs"></include>
+    <nav></nav>
+
+   
+    <div class="drawer-content lg:z-[1] xl:z-[1] z-[-1] absolute mt-16 w-screen 
+        left-1/2 transform -translate-x-1/2 max-w-xl xl:max-w-xl md:max-w-screen lg:max-w-xl justify-center flex flex-col mx-auto p-5 xl:p-5 gap-3">
+        
+        <h1 class="xl:text-5xl md:text-5xl text-4xl font-extrabold">Why <span class="text-sky-500">Vader?</span></h1>
+        
+        <p class="mt-2 break-words">
+            Vaderjs is a reactive framework aimed to enahance your vanilla workflow - making it to embed your html to your javascript logic.
+        </p>
+
+        <h2 class="text-xl capitalize font-bold mt-8">A look into vader</h2>
+        
+        <p class="mt-2 break-words">
+             Vader is does more than you think. Alot of frameworks are built on preexisting libraries, vader is its own library mimicking the functionality of others but in a more lightweight and simple manner.
+        </p>
+
+        <p >
+            1. <span class="text-rose-500 cursor-pointer"
+            onclick="document.getElementById('reactive').scrollIntoView({behavior: 'smooth'});"
+            >Reactive: </span> no need for multiple files and hundreds of lines of js vader gives a simple and easy method of making dynamic webpages.
+            2. <span class="text-rose-500 cursor-pointer"
+            onclick="document.getElementById('content-focused').scrollIntoView({behavior: 'smooth'});"
+            >Content Focused: </span> vader is focused on content, it is desgined for content rich webpages.
+            3. <span class="text-rose-500 cursor-pointer"
+            onclick="document.getElementById('fast').scrollIntoView({behavior: 'smooth'})"
+            >🔥 Fast: </span> vader is fast by default, it should be hard for your site to be slow!
+            4. <span class="text-rose-500 cursor-pointer"
+            onclick="document.getElementById('easy-to-use').scrollIntoView({behavior: 'smooth'})"
+            >Easy to use: </span> vader is easy to use, it is designed to be simple and easy to use.
+        </p>
+
+        <h2 class="text-xl capitalize font-bold mt-8" id="reactive">Reactive</h2>
+
+        <p class="mt-2 break-words prose">
+            Vader is dynamic allowing you to leverage state management functionalities to add reactivity to your webpage. Hooks in vader are a way to eliminate bulk js
+            that can lower your sites performance at render,
+            hooks keeps code clean and simple.
+            <span class="text-rose-500 underline"> Less code the better!</span>
+        </p>
+        
+       
+
+        <h2 class="text-xl capitalize font-bold mt-8"
+        id="content-focused"
+        >Content Focused</h2>
+        <p>
+            <span class="text-rose-500 underline">Content is king!</span> Vader was also designed to be content focused, such as blogs, documentation, portfolios, etc.
+            Most frameworks are designed for webapps only and lack less in content based features, vader gives you both!
+        </p>
+        <div class=" p-5 bg-base-200  
+        border-l-blue-500 border-l-4 text-md
+        "
+            >
+             <span class="flex gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 text-blue-500 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                  </svg>
+                   **Note** 
+             </span>
+             <br>
+            Vader is not a replacement for react / next.js / vue.js / svelte.js / etc. Vader is client sided and is not meant for server side rendering.
+            If your project requires server side rendering, vader is not for you.
+        </div>
+
+        <h2 class="text-xl capitalize font-bold mt-8"
+        id="fast"
+        >🔥 Fast</h2>
+        <p
+        class="prose break-words"
+        >
+        <p>Performance is our top priority. Many websites suffer from slowness due to excessive JavaScript usage. Why should we have to call the 'document' each time we want to edit an element or split our code into multiple files, each hundreds of lines long?</p>
+        <p>This is where Vader shines. With Vader, you write less and focus on accomplishing more. Vader renders content based on what's in your HTML, and it comes with built-in caching to ensure your site navigates faster.</p>
+        <p>Vader also introduces a new concept called        <span class="badge badge-ghost text-blue-500">CFR</span> - Client Fly Rendering, a novel way to render content on your webpage. It manipulates elements on a worker thread and updates the content according to what the user is viewing. This approach keeps the main thread free, allowing for a smoother user experience.</p>
+   
+           </p>
+
+           <h2 class="text-xl capitalize font-bold mt-8"
+           id="easy-to-use"
+           ref="easy-to-use"
+           >Easy to use</h2>
+           <p class="prose">
+            <p> Vader's primary objective is to provide open accessibility to every developer. It doesn't impose any strict, specific methodology or approach; instead, it empowers you to decide how you want to use it.</p>
+         
+             <p>During the design phase of Vader, the focus was on simplifying the transition for developers coming from the React ecosystem into a new environment that follows similar principles, albeit in a more explicit and verbose manner.</p>
+           
+           <p>  In other words, if you're familiar with React, you'll find that Vader is designed to feel familiar and adhere to the same core principles. However, it also aims to provide more transparency and clarity, making it easier for you to understand and work within this new ecosystem. </p>
+           <p>This approach ensures that developers can leverage their existing knowledge while embracing a slightly different but still intuitive paradigm offered by Vader.</p>
+           </p>
+        
+            
+        
+            <div class="flex flex-row flex-wrap mt-12 w-full gap-5">
+                <a href="/docs/base/installing"
+                    class="btn  btn-ghost rounded  flex w-full  btn-md  flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
+    
+    
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 15.75L3 12m0 0l3.75-3.75M3 12h18" />
+                    </svg>
+    
+    
+                    Installing
+    
+    
+                </a>
+            <a href="/docs/basics/project-structure" class="btn mb-2  w-full btn-ghost rounded flex flex-row text-end hover:bg-transparent hover:text-blue-500 hover:border-slate-200   border-slate-200 hover:border border  ">
+       
+     
+                Project Structure
+           
+             
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
+              </svg>
+            </a>
+      
+    </div>
+</body>
+</html>
