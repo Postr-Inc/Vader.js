@@ -1,7 +1,7 @@
 /**
  * @file index.js
  * @description This is the entry point for the library. This file exports all the necessary classes and functions.
- * @version 1.1.5
+ * @version 1.3.0
  *
  */
 import Vader, { include, useRef } from './vader.js';
