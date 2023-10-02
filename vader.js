@@ -1,23 +1,31 @@
-let dom = []
+let dom = [];
 let states = {};
-let worker =  new Worker(new URL('./worker.js', import.meta.url));
+let worker = new Worker(new URL("./worker.js", import.meta.url));
 /**
  * @function markdown
  * @param {String} content
- * @description Allows you to convert markdown to html 
+ * @description Allows you to convert markdown to html
  */
 function markdown(content) {
-  
   let headers = content.match(/(#+)(.*)/g);
   if (headers) {
-  headers.forEach((header) => {
-     if(header.includes('/') || header.includes('<') || header.includes('>')){
-       return
-
-     }
-    let level = header.split('#').length;
-    content = content.replace(header, `<h${level} class="markdown_heading">${header.replace(/#/g, '')}</h${level}>`);
-  });
+    headers.forEach((header) => {
+      if (
+        header.includes("/") ||
+        header.includes("<") ||
+        header.includes(">")
+      ) {
+        return;
+      }
+      let level = header.split("#").length;
+      content = content.replace(
+        header,
+        `<h${level} class="markdown_heading">${header.replace(
+          /#/g,
+          ""
+        )}</h${level}>`
+      );
+    });
   }
 
   content = content.replace(/\*\*(.*?)\*\*/g, (match, text) => {
@@ -25,7 +33,7 @@ function markdown(content) {
   });
   content = content.replace(/\*(.*?)\*/g, (match, text) => {
     return `<i class="markdown_italic">${text}</i>`;
-  })
+  });
   content = content.replace(/`(.*?)`/g, (match, text) => {
     return `<code>${text}</code>`;
   });
@@ -35,40 +43,54 @@ function markdown(content) {
   content = content.replace(/!\[([^\]]+)\]\(([^)]+)\)/g, (match, alt, src) => {
     return `<img class="markdown_image" src="${src}" alt="${alt}" />`;
   });
-  content = content.split('\n').map((line, index, arr) => {
-    if (line.match(/^\s*-\s+(.*?)$/gm)) {
-      if (index === 0 || !arr[index - 1].match(/^\s*-\s+(.*?)$/gm)) {
-        return `<ul class="markdown_unordered" style="list-style-type:disc;list-style:inside"><li>${line.replace(/^\s*-\s+(.*?)$/gm, '$1')}</li>`;
-      } else if (index === arr.length - 1 || !arr[index + 1].match(/^\s*-\s+(.*?)$/gm)) {
-        return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, '$1')}</li></ul>`;
+  content = content
+    .split("\n")
+    .map((line, index, arr) => {
+      if (line.match(/^\s*-\s+(.*?)$/gm)) {
+        if (index === 0 || !arr[index - 1].match(/^\s*-\s+(.*?)$/gm)) {
+          return `<ul class="markdown_unordered" style="list-style-type:disc;list-style:inside"><li>${line.replace(
+            /^\s*-\s+(.*?)$/gm,
+            "$1"
+          )}</li>`;
+        } else if (
+          index === arr.length - 1 ||
+          !arr[index + 1].match(/^\s*-\s+(.*?)$/gm)
+        ) {
+          return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, "$1")}</li></ul>`;
+        } else {
+          return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, "$1")}</li>`;
+        }
       } else {
-        return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, '$1')}</li>`;
+        return line;
       }
-    } else {
-      return line;
-    }
-  }).join('\n');
+    })
+    .join("\n");
 
-  content = content.split('\n').map((line, index, arr) => {
-    if (line.match(/^\s*\d+\.\s+(.*?)$/gm)) {
-      if (index === 0 || !arr[index - 1].match(/^\s*\d+\.\s+(.*?)$/gm)) {
-        return `<ol class="markdown_ordered" style="list-style-type:decimal;"><li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, '$1')}</li>`;
-      } else if (index === arr.length - 1 || !arr[index + 1].match(/^\s*\d+\.\s+(.*?)$/gm)) {
-        return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, '$1')}</li></ol>`;
+  content = content
+    .split("\n")
+    .map((line, index, arr) => {
+      if (line.match(/^\s*\d+\.\s+(.*?)$/gm)) {
+        if (index === 0 || !arr[index - 1].match(/^\s*\d+\.\s+(.*?)$/gm)) {
+          return `<ol class="markdown_ordered" style="list-style-type:decimal;"><li>${line.replace(
+            /^\s*\d+\.\s+(.*?)$/gm,
+            "$1"
+          )}</li>`;
+        } else if (
+          index === arr.length - 1 ||
+          !arr[index + 1].match(/^\s*\d+\.\s+(.*?)$/gm)
+        ) {
+          return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, "$1")}</li></ol>`;
+        } else {
+          return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, "$1")}</li>`;
+        }
       } else {
-        return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, '$1')}</li>`;
+        return line;
       }
-    } else {
-      return line;
-    }
-  }).join('\n');
+    })
+    .join("\n");
 
-
-  return content
-   
+  return content;
 }
-
- 
 
 /**
  * @function useRef
@@ -76,7 +98,7 @@ function markdown(content) {
  * @param {String} ref
  * @returns {void | Object} {current, update}
  */
- 
+
 export const useRef = (ref) => {
   const element = document.querySelector(`[ref="${ref}"]`);
   const getElement = () => element;
@@ -97,7 +119,7 @@ export const useRef = (ref) => {
 
   return {
     current: getElement(),
-    update,
+    update
   };
 };
 
@@ -144,44 +166,42 @@ export class Component {
     this.$_signal_dispatch_event = new CustomEvent("signalDispatch", {
       detail: {
         hasUpdated: false,
-        state: null,
-      },
+        state: null
+      }
     });
     this.snapshots = [];
     /**
      * @property {Object} dom
      * @description Allows you to get reference to DOM element
      * @returns {void | HTMLElement}
-     * 
+     *
      */
-    this.dom =  []
-    
+    this.dom = [];
+
     /**
      * @property {Boolean} cfr
-     * @description Allows you to compile html code on the fly  - client fly rendering 
-     *  
+     * @description Allows you to compile html code on the fly  - client fly rendering
+     *
      */
-    this.cfr = false
+    this.cfr = false;
     /**
      * @property {Boolean} worker
      * @description Allows you to use a web worker to compile html code on the fly  - client fly rendering
       
      */
-  
   }
 
   /**
    * @method adapter
    * @description Allows you to create an adapter - this is used to create  custom logic
-   *  
-   * 
+   *
+   *
    */
   adapter() {
-    return  
+    return;
   }
   init() {
     this.registerComponent();
-    
   }
 
   registerComponent() {
@@ -303,8 +323,9 @@ export class Component {
     this.$_signal_subscribe = (fn, runonce) => {
       this.$_signal_subscribers.push({
         function: fn,
-        runonce: runonce,
+        runonce: runonce
       });
+      return fn;
     };
     this.$_signal_cleanup = (fn) => {
       this.$_signal_subscribers = this.$_signal_subscribers.filter(
@@ -382,7 +403,7 @@ export class Component {
        * @description Allows you to get the value of a signal
        * @returns {any}
        */
-      get: this.$_signal_get,
+      get: this.$_signal_get
     };
   };
   /**
@@ -466,7 +487,7 @@ export class Component {
         return logicalOperator === "any"
           ? auth.canAnyOf(actions)
           : auth.canAllOf(actions);
-      },
+      }
     };
     return auth;
   }
@@ -506,11 +527,10 @@ export class Component {
       (action) => {
         this.states[key] = reducer(this.states[key], action);
         this.updateComponent();
-      },
+      }
     ];
   }
 
- 
   runEffects() {
     Object.keys(this.effects).forEach((component) => {
       this.effects[component].forEach((effect) => {
@@ -521,7 +541,7 @@ export class Component {
       });
     });
   }
-   
+
   /**
    * @method useSyncStore
    * @description Allows you to create a store
@@ -545,8 +565,7 @@ export class Component {
             subscriber(s);
           });
         }) ||
-        {},
-
+        {}
     );
 
     const getField = (fieldName) => {
@@ -569,7 +588,7 @@ export class Component {
       getField,
       setField,
       subscribe,
-      clear,
+      clear
     };
   }
   /**
@@ -588,12 +607,10 @@ export class Component {
    *   setCount(count + 1)
    */
   useState(key, initialValue, callback = null) {
-    
-   if(!this.states[key]){
-    this.states[key] = initialValue;
-   }
-   
-     
+    if (!this.states[key]) {
+      this.states[key] = initialValue;
+    }
+
     return [
       this.states[key],
       /**
@@ -607,7 +624,7 @@ export class Component {
         this.updateComponent();
         // @ts-ignore
         typeof callback === "function" ? callback() : null;
-      },
+      }
     ];
   }
   /**
@@ -624,9 +641,8 @@ export class Component {
 
   useRef(ref) {
     // get ref from array
-    console.log(this.dom)
-    const element =  this.dom[ref]
-      
+    const element = this.dom[ref];
+
     const getElement = () => element;
 
     const update = (data) => {
@@ -648,12 +664,12 @@ export class Component {
       // @ts-ignore
       current: getElement,
       /**@type {Function} */
-      update,
+      update
     };
   }
 
   /**
-   * 
+   *
    * @function useEffect
    * @param {*} effectFn
    * @param {*} dependencies
@@ -685,7 +701,7 @@ export class Component {
         this.effects[this.name] = this.effects[this.name].filter(
           (effect) => effect !== effectFn
         );
-      },
+      }
     };
   }
   /**
@@ -718,8 +734,7 @@ export class Component {
     const fragment = document.createDocumentFragment();
     Object.keys(components).forEach(async (component) => {
       const { name } = components[component];
-       
-    
+
       let componentContainer = document.querySelector(
         `[data-component="${name}"]`
       );
@@ -736,7 +751,7 @@ export class Component {
         prev_state: this.states,
         prev_props: this.storedProps,
         // @ts-ignore
-        content: componentContainer.innerHTML,
+        content: componentContainer.innerHTML
       };
 
       if (!componentContainer) return;
@@ -796,11 +811,8 @@ export class Component {
     return /^[a-zA-Z0-9-_]+$/.test(className);
   }
 
-
   parseHTML(result) {
-         
     const dom = new DOMParser().parseFromString(result, "text/html");
-    console.log(dom)
     const elements = dom.documentElement.querySelectorAll("*");
 
     elements.forEach((element) => {
@@ -826,19 +838,23 @@ export class Component {
             throw new SyntaxError(
               `Image: ${element.outerHTML} alt attribute cannot be empty`
             );
-            
           } else if (
-            element.hasAttribute("src") &&
-            !element.getAttribute("src")?.includes("http") || !element.getAttribute("src")?.includes("https") &&
-            !document.documentElement.outerHTML
-              .trim()
-              .includes("<!-- #vader-disable_accessibility -->")
+            (element.hasAttribute("src") &&
+              !element.getAttribute("src")?.includes("http")) ||
+            (!element.getAttribute("src")?.includes("https") &&
+              !document.documentElement.outerHTML
+                .trim()
+                .includes("<!-- #vader-disable_accessibility -->"))
           ) {
             let prevurl = element.getAttribute("src");
             element.setAttribute("aria-hidden", "true");
             element.setAttribute("hidden", "true");
-             // if window.lcoation.pathname includes a html file remove it and only use the path
-             let url = window.location.origin +  window.location.pathname.replace(/\/[^\/]*$/, '') + '/public/' + element.getAttribute("src");
+            // if window.lcoation.pathname includes a html file remove it and only use the path
+            let url =
+              window.location.origin +
+              window.location.pathname.replace(/\/[^\/]*$/, "") +
+              "/public/" +
+              element.getAttribute("src");
             let image = new Image();
             image.src = url;
             image.onerror = () => {
@@ -863,15 +879,16 @@ export class Component {
             // @ts-ignore
             dom[element.getAttribute("ref")] = element;
           }
-          if(element.nodeName === "MARKDOWN"){
-            element.innerHTML = markdown(element.innerHTML.replace(/\\n/g, '\n').trim())
+          if (element.nodeName === "MARKDOWN") {
+            element.innerHTML = markdown(
+              element.innerHTML.replace(/\\n/g, "\n").trim()
+            );
           }
 
           if (element.hasAttribute("class")) {
-            const allowClassComments =
-              document.documentElement.outerHTML.includes(
-                "<!-- #vader-allow_class -->"
-              );
+            const allowClassComments = document.documentElement.outerHTML.includes(
+              "<!-- #vader-allow_class -->"
+            );
             if (!allowClassComments) {
               console.warn(
                 "you can disable class errors using, <!-- #vader-allow_class -->"
@@ -902,12 +919,14 @@ export class Component {
           }
 
           if (
-             element.hasAttribute("src") &&
-             // @ts-ignore
-             !element.getAttribute("src").includes("http") &&
-                 // @ts-ignore
-              !element.getAttribute("src").includes("https") &&
-            !document.documentElement.outerHTML.includes(`<!-- #vader-disable_relative-paths -->`)
+            element.hasAttribute("src") &&
+            // @ts-ignore
+            !element.getAttribute("src").includes("http") &&
+            // @ts-ignore
+            !element.getAttribute("src").includes("https") &&
+            !document.documentElement.outerHTML.includes(
+              `<!-- #vader-disable_relative-paths -->`
+            )
           ) {
             element.setAttribute(
               "src",
@@ -917,7 +936,6 @@ export class Component {
           }
           break;
       }
-      
     });
 
     result = dom.body.innerHTML;
@@ -925,12 +943,11 @@ export class Component {
     this.Componentcontent = result;
 
     if (!result.includes("<div data-component")) {
-       result = `<div data-component="${this.name}">${result}</div>`;
+      result = `<div data-component="${this.name}">${result}</div>`;
     }
-    return  markdown(result.replace(/\\n/g, '\n').trim())
-
+    return markdown(result.replace(/\\n/g, "\n").trim());
   }
-  
+
   /**
    * The `html` method generates and processes HTML content for a component, performing various validations and tasks.
    *
@@ -977,47 +994,52 @@ export class Component {
    * @see {@link Component}
    * @see {@link Component#componentDidMount}
    */
-  
-  
-  
+
   html(strings, ...args) {
     // @ts-ignore
-    let tiemr = setInterval(()=>{
-      if(document.querySelector(`[data-component="${this.name}"]`)){
-        clearInterval(tiemr)
+    let tiemr = setInterval(() => {
+      if (document.querySelector(`[data-component="${this.name}"]`)) {
+        clearInterval(tiemr);
         this.componentMounted = true;
-         
-        document.querySelector(`[data-component="${this.name}"]`)?.querySelectorAll("*").forEach((element)=>{
-          if(element.hasAttribute("ref")){
-            // @ts-ignore
-            this.dom[element.getAttribute("ref")] = element
-          }
-        })
+
+        document
+          .querySelector(`[data-component="${this.name}"]`)
+          ?.querySelectorAll("*")
+          .forEach((element) => {
+            if (element.hasAttribute("ref")) {
+              // @ts-ignore
+              this.dom[element.getAttribute("ref")] = element;
+            }
+          });
         this.componentDidMount();
       }
-    }, 100)
+    }, 100);
     let script = document.createElement("script");
     script.setAttribute("type", "text/javascript");
     script.setAttribute(`data-component-script`, this.name);
-    
 
-     
-    let dom = this.dom
-   
-    if(this.cfr){
-       
-      worker.postMessage({strings, args, location: window.location.origin +  window.location.pathname.replace(/\/[^\/]*$/, '') + '/public/', name: this.name})
-      let promise = new Promise((resolve, reject)=>{
-        worker.onmessage = (e)=>{
-          if(e.data.error){
-            throw new Error(e.data.error)
+    let dom = this.dom;
+
+    if (this.cfr) {
+      worker.postMessage({
+        strings,
+        args,
+        location:
+          window.location.origin +
+          window.location.pathname.replace(/\/[^\/]*$/, "") +
+          "/public/",
+        name: this.name
+      });
+      let promise = new Promise((resolve, reject) => {
+        worker.onmessage = (e) => {
+          if (e.data.error) {
+            throw new Error(e.data.error);
           }
           const dom = this.dom; // Assuming this.dom is an object
-          console.log(this.dom)
-          let js = e.data.js
-          let template = e.data.template
-           // Bind the component's context
-          
+          let js = e.data.js;
+          let template = e.data.template;
+          // Bind the component's context
+
           const useState = this.useState.bind(this); // Bind the component's context
           const useEffect = this.useEffect.bind(this); // Bind the component's context
           const useReducer = this.useReducer.bind(this); // Bind the component's context
@@ -1025,9 +1047,22 @@ export class Component {
           const useSyncStore = this.useSyncStore.bind(this); // Bind the component's context
           const signal = this.signal.bind(this); // Bind the component's context
           const rf = this.$Function.bind(this); // Bind the component's context
-          let states = this.states
-          const useRef = this.useRef.bind(this); // Bind the component's context  
-          new Function("useState", "useEffect", "useAuth", "useReducer", "useSyncStore", "signal", "rf", "dom", "render", "states", "useRef", js)(
+          let states = this.states;
+          const useRef = this.useRef.bind(this); // Bind the component's context
+          new Function(
+            "useState",
+            "useEffect",
+            "useAuth",
+            "useReducer",
+            "useSyncStore",
+            "signal",
+            "rf",
+            "dom",
+            "render",
+            "states",
+            "useRef",
+            js
+          )(
             useState,
             useEffect,
             useAuth,
@@ -1039,21 +1074,22 @@ export class Component {
             this.render,
             this.states,
             useRef
-          )
-          
-          resolve(new Function("useRef", "states", "return" + "`" + template + "`")(useRef, states))
-           
-          
-           
-         
-        }
-         worker.onerror = (e)=>{
-          reject(e)
-        }
-      }) 
+          );
+
+          resolve(
+            new Function("useRef", "states", "return" + "`" + template + "`")(
+              useRef,
+              states
+            )
+          );
+        };
+        worker.onerror = (e) => {
+          reject(e);
+        };
+      });
       // @ts-ignore
       return promise;
-    }else{
+    } else {
       let result = "";
       for (let i = 0; i < strings.length; i++) {
         result += strings[i];
@@ -1061,20 +1097,16 @@ export class Component {
           result += args[i];
         }
       }
-      result =  new Function("useRef", `return \`${result}\``)(useRef) 
+      result = new Function("useRef", `return \`${result}\``)(useRef);
 
       if (!result.trim().startsWith("<body>")) {
         console.warn(
           "You should wrap your html in a body tag, vader may not grab all html!"
         );
       }
-     
-       
-   
-      return  this.parseHTML(result);
-    }
 
-  
+      return this.parseHTML(result);
+    }
   }
   // write types to ensure it returns a string
   /**
@@ -1133,7 +1165,7 @@ const Vader = {
    * }
    */
   Component: Component,
-  useRef: useRef,
+  useRef: useRef
 };
 export const component = (name) => {
   return new Component();
@@ -1151,81 +1183,80 @@ export const rf = (name, fn) => {
   window[name] = fn;
 };
 let cache = {};
-async function handletemplate(data){
+async function handletemplate(data) {
   let dom = new DOMParser().parseFromString(data, "text/html");
   let elements = dom.documentElement.querySelectorAll("*");
-  
+
   if (elements.length > 0) {
     for (var i = 0; i < elements.length; i++) {
-    
       if (elements[i].nodeName === "INCLUDE") {
-        if(!elements[i].getAttribute("src") || elements[i].getAttribute("src") === ""){
-          throw new Error("Include tag must have src attribute")
+        if (
+          !elements[i].getAttribute("src") ||
+          elements[i].getAttribute("src") === ""
+        ) {
+          throw new Error("Include tag must have src attribute");
         }
-        
-         let componentName = elements[i].getAttribute("src")?.split("/").pop()?.split(".")[0]
-         // @ts-ignore
-          let filedata = await include(elements[i].getAttribute("src"))
-         // replace ` with \`\` to allow for template literals
-          filedata = filedata.replace(/`/g, "\\`")
-          cache[elements[i].getAttribute("src")] = filedata
-          filedata = new Function(`return \`${filedata}\`;`)();
-          let newdom = new DOMParser().parseFromString(filedata, "text/html");
 
-          newdom.querySelectorAll("include").forEach((el)=>{
-            el.remove()
-          })
-          // @ts-ignore
-       
-          let els = dom.querySelectorAll(componentName)
-           
-          els.forEach((el)=>{
-         
-             if(el.attributes.length > 0){
-                for(var i = 0; i < el.attributes.length; i++){
-                  newdom.body.outerHTML = newdom.body.outerHTML.replace(`{{${el.attributes[i].name}}}`, el.attributes[i].value)
+        let componentName = elements[i]
+          .getAttribute("src")
+          ?.split("/")
+          .pop()
+          ?.split(".")[0];
+        // @ts-ignore
+        let filedata = await include(elements[i].getAttribute("src"));
+        // replace ` with \`\` to allow for template literals
+        filedata = filedata.replace(/`/g, "\\`");
+        cache[elements[i].getAttribute("src")] = filedata;
+        filedata = new Function(`return \`${filedata}\`;`)();
+        let newdom = new DOMParser().parseFromString(filedata, "text/html");
+
+        newdom.querySelectorAll("include").forEach((el) => {
+          el.remove();
+        });
+        // @ts-ignore
+
+        let els = dom.querySelectorAll(componentName);
+
+        els.forEach((el) => {
+          if (el.attributes.length > 0) {
+            for (var i = 0; i < el.attributes.length; i++) {
+              newdom.body.outerHTML = newdom.body.outerHTML.replace(
+                `{{${el.attributes[i].name}}}`,
+                el.attributes[i].value
+              );
+            }
+          }
+          if (el.children.length > 0 && newdom.body.querySelector("slot")) {
+            for (var i = 0; i < el.children.length; i++) {
+              let slots = newdom.body.querySelectorAll("slot");
+              slots.forEach((slot) => {
+                let id = slot.getAttribute("id");
+                if (id === el.nodeName.toLowerCase()) {
+                  slot.outerHTML = `<div>${el.innerHTML}</div>`;
                 }
-                
-             }
-             if(el.children.length > 0 && newdom.body.querySelector('slot')){
-                for(var i = 0; i < el.children.length; i++){
-                  let slots = newdom.body.querySelectorAll("slot")
-                  slots.forEach((slot)=>{
-                    let id = slot.getAttribute("id")
-                    if(id === el.nodeName.toLowerCase()){
-                      slot.outerHTML = `<div>${el.innerHTML}</div>`
-                    }
-                  })
-                  
-                  
-                }
-                
-             }
+              });
+            }
+          }
 
-             dom.body.querySelectorAll('include').forEach((el)=>{
-                el.remove()
-             })
-             // replace ` with \`\` to allow for template literals
-             dom.body.outerHTML =  dom.body.outerHTML.replace(/`/g, "\\`")
-             dom.body.outerHTML = dom.body.outerHTML.replace(el.outerHTML, new Function(`return \`${newdom.body.outerHTML}\`;`)())
-          
-           
-          })
-      
-       
-           
-
+          dom.body.querySelectorAll("include").forEach((el) => {
+            el.remove();
+          });
+          // replace ` with \`\` to allow for template literals
+          dom.body.outerHTML = dom.body.outerHTML.replace(/`/g, "\\`");
+          dom.body.outerHTML = dom.body.outerHTML.replace(
+            el.outerHTML,
+            new Function(`return \`${newdom.body.outerHTML}\`;`)()
+          );
+        });
       }
     }
-
-     
   }
-  
+
   // replace ` with \`\` to allow for template literals
-  dom.body.outerHTML = dom.body.outerHTML.replace(/`/g, "\\`")
+  dom.body.outerHTML = dom.body.outerHTML.replace(/`/g, "\\`");
   data = new Function(`return \`${dom.body.outerHTML}\`;`)();
-  
-  return  data;
+
+  return data;
 }
 /**
  * @function include
@@ -1234,10 +1265,7 @@ async function handletemplate(data){
  * @param {string}  path
  */
 
- 
- 
 export const include = async (path) => {
-    
   if (
     path.startsWith("/") &&
     !path.includes("/src/") &&
@@ -1248,25 +1276,23 @@ export const include = async (path) => {
     path = "/src/" + path;
   }
   if (cache[path]) {
-    return await handletemplate(new Function(`return \`${cache[path]}\`;`)())
-   
-  }else{
+    return await handletemplate(new Function(`return \`${cache[path]}\`;`)());
+  } else {
     return fetch(`./${path}`)
-    .then((res) => {
-      if (res.status === 404) {
-        throw new Error(`No file found at ${path}`);
-      }
-      return res.text();
-    })
-    .then(async (data) => {
-      cache[path] = data
-   
-      data =  await handletemplate(new Function(`return \`${data}\`;`)())
-    
-      return data
-    });
+      .then((res) => {
+        if (res.status === 404) {
+          throw new Error(`No file found at ${path}`);
+        }
+        return res.text();
+      })
+      .then(async (data) => {
+        cache[path] = data;
+
+        data = await handletemplate(new Function(`return \`${data}\`;`)());
+
+        return data;
+      });
   }
- 
 };
 
 export default Vader;
