@@ -1242,7 +1242,7 @@ async function handletemplate(data) {
         filedata = new Function(`return \`${filedata}\`;`)();
         let newdom = new DOMParser().parseFromString(filedata, "text/html");
 
-        console.log(newdom.body.outerHTML);
+    
         newdom.querySelectorAll("include").forEach((el) => {
           el.remove();
         });
@@ -1264,11 +1264,11 @@ async function handletemplate(data) {
             for (var i = 0; i < el.children.length; i++) {
               let slots = newdom.body.querySelectorAll("slot");
               slots.forEach((slot) => {
-                console.log(slot)
+               
                 let id = slot.getAttribute("id");
                 console.log(id)
                 if(el.hasAttribute('key') && el.getAttribute('key') === id || !el.hasAttribute('key') && el.nodeName === id){
-                  console.log('here')
+             
                   slot.outerHTML = `<div>${el.innerHTML}</div>`
                 }
               });
