@@ -17,7 +17,6 @@ onmessage = (e)=>{
   if(comments){
       while(comments.length){
           let comment = comments.pop()
-          console.log(comment)
           // @ts-ignore
           result = result.replace(comment,'')
       }
@@ -27,7 +26,6 @@ onmessage = (e)=>{
   // Convert headings (e.g., #1-6 Heading => <h1-6>Heading</h1-6>)
   // @ts-ignore
     result = result.replace(/(#+)(.*)/g, (match, hashes, text) => {
-      console.log(match)
       if(!match.includes('<') || !match.includes('>')){ 
         let level = hashes.length;
           return `<h ${level} class="markdown_heading">${text}</h${level}>`;
@@ -90,6 +88,7 @@ onmessage = (e)=>{
         }
       }
      });
+     
 
      
      result = result.replace(/^\s*-\s+(.*?)$/gm, (match, text) => {
@@ -142,34 +141,25 @@ onmessage = (e)=>{
     let image = images[i]
     let src = image.match(/src="([^"]*)"/)
     let alt = image.match(/alt="([^"]*)"/)
-    if(src){
-      if(!src[1].includes('http') && !result.includes('<!-- #vader-disable_relative-paths -->')){
-          // @ts-ignore
-          result = result.replace(src[1],`${l}/${src[1]}`)
-      } else if(!src[1].includes('http') && src[1].startsWith('.') && !result.includes('<!-- #vader-disable_relative-paths -->')){
-        throw new Error(`Vader Error: You cannot use absolute paths since relative paths are not disabled in ${e.data.file}. Use relative paths instead. \n\n${src[1]}`)
-    }
-    }
+   
     if(!alt && !result.includes('<!-- #vader-disable_accessibility -->')){
-       throw new Error(`Vader Error: You must include an alt attribute in the image tag  \n\n${image} of class ${e.data.name}. `)
-    }
+      throw new Error(`Vader Error: You must include an alt attribute in the image tag  \n\n${image} of class ${e.data.name}. `)
 
-    // @ts-ignore
-     if(!caches.match(`${l}/${src[1]}`)){
-      caches.open('vader').then((cache)=>{
-          // @ts-ignore
-          cache.add(`${l}/${src[1]}`)
-          // @ts-ignore
-          console.log('cached', `${l}/${src[1]}`)
-         }).catch((err)=>{
-           console.log(err)
-         })
-     }else{
-      // @ts-ignore
-          console.log('already cached', caches.match(`${l}/${src[1]}`))
-     }
+    }
+    if(src){
+      src.forEach((s)=>{
+        if(!s.includes('http') && !result.includes('<!-- #vader-disable_relative-paths -->')){
+           
+          result = result.replace(`src="${s}"`,`src="${l}/${s}"`)
+        }else if(!s.includes('http') && s.startsWith('.') && !result.includes('<!-- #vader-disable_relative-paths -->')){
+          throw new Error(`Vader Error: You cannot use absolute paths since relative paths are not disabled in ${e.data.file}. Use relative paths instead. \n\n${s}`)
+          
+        }
+      })
+    }
   }
-   }
+}
+ 
 
   let href =  result.match(/href="([^"]*)"/g)
   if(href){
@@ -190,7 +180,7 @@ onmessage = (e)=>{
   let hasran = false
   if(l.includes('localhost') || l.includes('127.0.0.1') && !hasran){
       hasran = true
-      result+= `\$\{console.log('%c${e.data.name} component rendered in ${time_taken}ms','color:#fff;background:#000;padding:5px;border-radius:5px;font-size:12px;font-weight:bold'),""\}`
+      result+= `\$\{console.log('%c${e.data.name} component rendered in ${time_taken}ms')\}`
   }
  
  
@@ -217,6 +207,13 @@ onmessage = (e)=>{
           // @ts-ignore
           result = result.replace(jstemplate,`$\{${jstemplate.replace('$(','').replace(')','')}\}`)
       }
+  }
+
+  // @title 'title'
+  let title =  result.match(/@title '([^>]*)'/)
+  if(title){
+     let t = title[1]
+      result = result.replace(title[0],`\$\{document.title = '${t}'\}`)
   }
   postMessage({
     template: `<div data-component=${e.data.name}>${result}</div>`,
