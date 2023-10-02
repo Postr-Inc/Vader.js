@@ -169,6 +169,15 @@ export class Component {
         state: null
       }
     });
+    this.$_signal_dispatch_cleanup_event = new CustomEvent(
+      "signal_Cleanup_Dispatch",
+      {
+        detail: {
+          state: null,
+          lastState: null
+        }
+      }
+    );
     this.snapshots = [];
     /**
      * @property {Object} dom
@@ -331,6 +340,9 @@ export class Component {
       this.$_signal_subscribers = this.$_signal_subscribers.filter(
         (subscriber) => subscriber.function !== fn
       );
+      this.$_signal_dispatch_cleanup_event.detail.state = this.states;
+      this.$_signal_dispatch_cleanup_event.detail.lastState = this.lastState;
+      window.dispatchEvent(this.$_signal_dispatch_event);
     };
     this.$_signal_dispatch = () => {
       for (var i = 0; i < this.$_signal_subscribers.length; i++) {
@@ -360,6 +372,7 @@ export class Component {
      * @param {*} detail
      */
     this.$_signal_set = (detail) => {
+      this.lastState = this.states;
       setState(detail);
     };
 
