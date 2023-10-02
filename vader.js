@@ -839,8 +839,16 @@ export class Component {
   }
 
   parseHTML(result) {
+    let title =  result.match(/@title '([^>]*)'/)
+   
+    if(title){
+       let t = title[1]
+       result = result.replace(/@title '([^>]*)'/, '')
+       document.title = t
+    }
     const dom = new DOMParser().parseFromString(result, "text/html");
     const elements = dom.documentElement.querySelectorAll("*");
+
 
     elements.forEach((element) => {
       switch (element.nodeName) {
@@ -904,7 +912,7 @@ export class Component {
         default:
           if (element.hasAttribute("ref")) {
             // @ts-ignore
-            dom[element.getAttribute("ref")] = element;
+            this.dom[element.getAttribute("ref")] = element;
           }
           if (element.nodeName === "MARKDOWN") {
             element.innerHTML = markdown(
@@ -1254,10 +1262,11 @@ async function handletemplate(data) {
           if (el.attributes.length > 0) {
             for (var i = 0; i < el.attributes.length; i++) {
               // @ts-ignore
-              newdom.body.outerHTML = newdom.body.outerHTML.replaceAll(
-                `{{${el.attributes[i].name}}}`,
-                el.attributes[i].value
-              );
+              let t =   '{{' + el.attributes[i].name + '}}';
+              if(newdom.body.innerHTML.includes(t)){
+                // @ts-ignore
+                newdom.body.innerHTML = newdom.body.innerHTML.replaceAll(t, el.attributes[i].value);
+              }
             }
           }
           if (el.children.length > 0 && newdom.body.querySelector("slot")) {
@@ -1266,10 +1275,11 @@ async function handletemplate(data) {
               slots.forEach((slot) => {
                
                 let id = slot.getAttribute("id");
-                console.log(id)
+               
                 if(el.hasAttribute('key') && el.getAttribute('key') === id || !el.hasAttribute('key') && el.nodeName === id){
-             
-                  slot.outerHTML = `<div>${el.innerHTML}</div>`
+                   if(el.children[i].innerHTML.length > 0){
+                    slot.outerHTML = el.children[i].innerHTML;
+                   }
                 }
               });
             }
