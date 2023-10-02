@@ -163,14 +163,19 @@ export class Component {
     this.$_useStore_subscribers = [];
     this.init();
     this.Componentcontent = null;
-    this.$_signal_dispatch_event = new CustomEvent("signalDispatch", {
+    this.$_signal_dispatch_event = new CustomEvent("SignalDispatch", {
       detail: {
         hasUpdated: false,
         state: null
       }
     });
+    /**
+     * @property {Object} $_signal_dispatch_cleanup_event
+     * @description Allows you to dispatch a signal cleanup event
+     * @private
+     */
     this.$_signal_dispatch_cleanup_event = new CustomEvent(
-      "signal_Cleanup_Dispatch",
+      "Signal_Cleanup_Dispatch",
       {
         detail: {
           state: null,
@@ -178,7 +183,11 @@ export class Component {
         }
       }
     );
-    this.snapshots = [];
+    /**
+     * @property {Array} snapshots
+     * @private
+     */
+     this.snapshots = [];
     /**
      * @property {Object} dom
      * @description Allows you to get reference to DOM element
@@ -206,8 +215,10 @@ export class Component {
    *
    *
    */
-  adapter() {
-    return;
+  adapter(options) {
+    // allow you to override the compoent logic
+     
+     
   }
   init() {
     this.registerComponent();
@@ -337,10 +348,13 @@ export class Component {
       return fn;
     };
     this.$_signal_cleanup = (fn) => {
+      this.lastState = state;
       this.$_signal_subscribers = this.$_signal_subscribers.filter(
         (subscriber) => subscriber.function !== fn
       );
+      // @ts-ignore
       this.$_signal_dispatch_cleanup_event.detail.state = this.states;
+      // @ts-ignore
       this.$_signal_dispatch_cleanup_event.detail.lastState = this.lastState;
       window.dispatchEvent(this.$_signal_dispatch_event);
     };
@@ -372,7 +386,7 @@ export class Component {
      * @param {*} detail
      */
     this.$_signal_set = (detail) => {
-      this.lastState = this.states;
+       
       setState(detail);
     };
 
@@ -1180,8 +1194,13 @@ const Vader = {
   Component: Component,
   useRef: useRef
 };
-export const component = (name) => {
-  return new Component();
+/**
+ * @function component
+ * @description Allows you to create a component
+ * @returns {Component}
+ */
+export const component = () => {
+  return new Component()
 };
 
 /**
@@ -1223,6 +1242,7 @@ async function handletemplate(data) {
         filedata = new Function(`return \`${filedata}\`;`)();
         let newdom = new DOMParser().parseFromString(filedata, "text/html");
 
+        console.log(newdom.body.outerHTML);
         newdom.querySelectorAll("include").forEach((el) => {
           el.remove();
         });
@@ -1233,7 +1253,8 @@ async function handletemplate(data) {
         els.forEach((el) => {
           if (el.attributes.length > 0) {
             for (var i = 0; i < el.attributes.length; i++) {
-              newdom.body.outerHTML = newdom.body.outerHTML.replace(
+              // @ts-ignore
+              newdom.body.outerHTML = newdom.body.outerHTML.replaceAll(
                 `{{${el.attributes[i].name}}}`,
                 el.attributes[i].value
               );
@@ -1243,9 +1264,12 @@ async function handletemplate(data) {
             for (var i = 0; i < el.children.length; i++) {
               let slots = newdom.body.querySelectorAll("slot");
               slots.forEach((slot) => {
+                console.log(slot)
                 let id = slot.getAttribute("id");
-                if (id === el.nodeName.toLowerCase()) {
-                  slot.outerHTML = `<div>${el.innerHTML}</div>`;
+                console.log(id)
+                if(el.hasAttribute('key') && el.getAttribute('key') === id || !el.hasAttribute('key') && el.nodeName === id){
+                  console.log('here')
+                  slot.outerHTML = `<div>${el.innerHTML}</div>`
                 }
               });
             }
