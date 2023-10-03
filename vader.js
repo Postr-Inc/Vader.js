@@ -2,96 +2,6 @@ let dom = [];
 let states = {};
 //@ts-ignore
 let worker = new Worker(new URL("./worker.js", import.meta.url));
-/**
- * @function markdown
- * @param {String} content
- * @description Allows you to convert markdown to html
- */
-function markdown(content) {
-  let headers = content.match(/(#+)(.*)/g);
-  if (headers) {
-    headers.forEach((header) => {
-      if (
-        header.includes("/") ||
-        header.includes("<") ||
-        header.includes(">")
-      ) {
-        return;
-      }
-      let level = header.split("#").length;
-      content = content.replace(
-        header,
-        `<h${level} class="markdown_heading">${header.replace(
-          /#/g,
-          ""
-        )}</h${level}>`
-      );
-    });
-  }
-
-  content = content.replace(/\*\*(.*?)\*\*/g, (match, text) => {
-    return `<b class="markdown_bold">${text}</b>`;
-  });
-  content = content.replace(/\*(.*?)\*/g, (match, text) => {
-    return `<i class="markdown_italic">${text}</i>`;
-  });
-  content = content.replace(/`(.*?)`/g, (match, text) => {
-    return `<code>${text}</code>`;
-  });
-  content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-    return `<a class="markdown_link" href="${url}">${text}</a>`;
-  });
-  content = content.replace(/!\[([^\]]+)\]\(([^)]+)\)/g, (match, alt, src) => {
-    return `<img class="markdown_image" src="${src}" alt="${alt}" />`;
-  });
-  content = content
-    .split("\n")
-    .map((line, index, arr) => {
-      if (line.match(/^\s*-\s+(.*?)$/gm)) {
-        if (index === 0 || !arr[index - 1].match(/^\s*-\s+(.*?)$/gm)) {
-          return `<ul class="markdown_unordered" style="list-style-type:disc;list-style:inside"><li>${line.replace(
-            /^\s*-\s+(.*?)$/gm,
-            "$1"
-          )}</li>`;
-        } else if (
-          index === arr.length - 1 ||
-          !arr[index + 1].match(/^\s*-\s+(.*?)$/gm)
-        ) {
-          return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, "$1")}</li></ul>`;
-        } else {
-          return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, "$1")}</li>`;
-        }
-      } else {
-        return line;
-      }
-    })
-    .join("\n");
-
-  content = content
-    .split("\n")
-    .map((line, index, arr) => {
-      if (line.match(/^\s*\d+\.\s+(.*?)$/gm)) {
-        if (index === 0 || !arr[index - 1].match(/^\s*\d+\.\s+(.*?)$/gm)) {
-          return `<ol class="markdown_ordered" style="list-style-type:decimal;"><li>${line.replace(
-            /^\s*\d+\.\s+(.*?)$/gm,
-            "$1"
-          )}</li>`;
-        } else if (
-          index === arr.length - 1 ||
-          !arr[index + 1].match(/^\s*\d+\.\s+(.*?)$/gm)
-        ) {
-          return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, "$1")}</li></ol>`;
-        } else {
-          return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, "$1")}</li>`;
-        }
-      } else {
-        return line;
-      }
-    })
-    .join("\n");
-
-  return content;
-}
 
 /**
  * @function useRef
@@ -188,7 +98,7 @@ export class Component {
      * @property {Array} snapshots
      * @private
      */
-     this.snapshots = [];
+    this.snapshots = [];
     /**
      * @property {Object} dom
      * @description Allows you to get reference to DOM element
@@ -218,8 +128,6 @@ export class Component {
    */
   adapter(options) {
     // allow you to override the compoent logic
-     
-     
   }
   init() {
     this.registerComponent();
@@ -387,7 +295,6 @@ export class Component {
      * @param {*} detail
      */
     this.$_signal_set = (detail) => {
-       
       setState(detail);
     };
 
@@ -839,8 +746,6 @@ export class Component {
     return /^[a-zA-Z0-9-_]+$/.test(className);
   }
 
-   
-
   /**
    * The `html` method generates and processes HTML content for a component, performing various validations and tasks.
    *
@@ -910,7 +815,7 @@ export class Component {
     let script = document.createElement("script");
     script.setAttribute("type", "text/javascript");
     script.setAttribute(`data-component-script`, this.name);
- 
+
     worker.postMessage({
       strings,
       args,
@@ -936,7 +841,7 @@ export class Component {
         const useAuth = this.useAuth.bind(this); // Bind the component's context
         const useSyncStore = this.useSyncStore.bind(this); // Bind the component's context
         const signal = this.signal.bind(this); // Bind the component's context
-        const rf = this.$Function.bind(this); // Bind the component's context
+        const $Function = this.$Function.bind(this); // Bind the component's context
         let states = this.states;
         const useRef = this.useRef.bind(this); // Bind the component's context
         new Function(
@@ -946,7 +851,7 @@ export class Component {
           "useReducer",
           "useSyncStore",
           "signal",
-          "rf",
+          "$Function",
           "dom",
           "render",
           "states",
@@ -959,7 +864,7 @@ export class Component {
           useReducer,
           useSyncStore,
           signal,
-          rf,
+          $Function,
           this.dom,
           this.render,
           this.states,
@@ -967,9 +872,27 @@ export class Component {
         );
 
         resolve(
-          new Function("useRef", "states", "return" + "`" + template + "`")(
+          new Function(
+            "useRef",
+            "states",
+            "signal",
+            "useState",
+            "useReducer",
+            "useAuth",
+            "useSyncStore",
+            "useRef",
+            "$Function",
+            "return" + "`" + template + "`"
+          )(
             useRef,
-            states
+            states,
+            signal,
+            useState,
+            useReducer,
+            useAuth,
+            useSyncStore,
+            useRef,
+            $Function
           )
         );
       };
@@ -1045,7 +968,7 @@ const Vader = {
  * @returns {Component}
  */
 export const component = () => {
-  return new Component()
+  return new Component();
 };
 
 /**
@@ -1087,7 +1010,6 @@ async function handletemplate(data) {
         filedata = new Function(`return \`${filedata}\`;`)();
         let newdom = new DOMParser().parseFromString(filedata, "text/html");
 
-    
         newdom.querySelectorAll("include").forEach((el) => {
           el.remove();
         });
@@ -1099,10 +1021,13 @@ async function handletemplate(data) {
           if (el.attributes.length > 0) {
             for (var i = 0; i < el.attributes.length; i++) {
               // @ts-ignore
-              let t =   '{{' + el.attributes[i].name + '}}';
-              if(newdom.body.innerHTML.includes(t)){
+              let t = "{{" + el.attributes[i].name + "}}";
+              if (newdom.body.innerHTML.includes(t)) {
                 // @ts-ignore
-                newdom.body.innerHTML = newdom.body.innerHTML.replaceAll(t, el.attributes[i].value);
+                newdom.body.innerHTML = newdom.body.innerHTML.replaceAll(
+                  t,
+                  el.attributes[i].value
+                );
               }
             }
           }
@@ -1110,13 +1035,15 @@ async function handletemplate(data) {
             for (var i = 0; i < el.children.length; i++) {
               let slots = newdom.body.querySelectorAll("slot");
               slots.forEach((slot) => {
-               
                 let id = slot.getAttribute("id");
-               
-                if(el.hasAttribute('key') && el.getAttribute('key') === id || !el.hasAttribute('key') && el.nodeName === id){
-                   if(el.children[i].innerHTML.length > 0){
+
+                if (
+                  (el.hasAttribute("key") && el.getAttribute("key") === id) ||
+                  (!el.hasAttribute("key") && el.nodeName === id)
+                ) {
+                  if (el.children[i].innerHTML.length > 0) {
                     slot.outerHTML = el.children[i].innerHTML;
-                   }
+                  }
                 }
               });
             }
