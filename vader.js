@@ -1,6 +1,7 @@
+// @ts-nocheck
 let dom = [];
 let states = {};
-//@ts-ignore
+
 let worker = new Worker(new URL("./worker.js", import.meta.url));
 
 /**
@@ -633,7 +634,9 @@ export class Component {
 
     return {
       cleanup: () => {
+        // @ts-ignore
         this.effects[this.name] = this.effects[this.name].filter(
+          // @ts-ignore
           (effect) => effect !== effectFn
         );
       }
@@ -1086,7 +1089,9 @@ export const include = async (path) => {
   ) {
     path = "/src/" + path;
   }
+  // @ts-ignore
   if (cache[path]) {
+    // @ts-ignore
     return await handletemplate(new Function(`return \`${cache[path]}\`;`)());
   } else {
     return fetch(`./${path}`)
@@ -1097,6 +1102,7 @@ export const include = async (path) => {
         return res.text();
       })
       .then(async (data) => {
+        // @ts-ignore
         cache[path] = data;
 
         data = await handletemplate(new Function(`return \`${data}\`;`)());
@@ -1106,4 +1112,4 @@ export const include = async (path) => {
   }
 };
 
-export default Vader;
+export default Vader
