@@ -1,97 +1,8 @@
 let dom = [];
 let states = {};
+//@ts-ignore
 let worker = new Worker(new URL("./worker.js", import.meta.url));
-/**
- * @function markdown
- * @param {String} content
- * @description Allows you to convert markdown to html
- */
-function markdown(content) {
-  let headers = content.match(/(#+)(.*)/g);
-  if (headers) {
-    headers.forEach((header) => {
-      if (
-        header.includes("/") ||
-        header.includes("<") ||
-        header.includes(">")
-      ) {
-        return;
-      }
-      let level = header.split("#").length;
-      content = content.replace(
-        header,
-        `<h${level} class="markdown_heading">${header.replace(
-          /#/g,
-          ""
-        )}</h${level}>`
-      );
-    });
-  }
-
-  content = content.replace(/\*\*(.*?)\*\*/g, (match, text) => {
-    return `<b class="markdown_bold">${text}</b>`;
-  });
-  content = content.replace(/\*(.*?)\*/g, (match, text) => {
-    return `<i class="markdown_italic">${text}</i>`;
-  });
-  content = content.replace(/`(.*?)`/g, (match, text) => {
-    return `<code>${text}</code>`;
-  });
-  content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-    return `<a class="markdown_link" href="${url}">${text}</a>`;
-  });
-  content = content.replace(/!\[([^\]]+)\]\(([^)]+)\)/g, (match, alt, src) => {
-    return `<img class="markdown_image" src="${src}" alt="${alt}" />`;
-  });
-  content = content
-    .split("\n")
-    .map((line, index, arr) => {
-      if (line.match(/^\s*-\s+(.*?)$/gm)) {
-        if (index === 0 || !arr[index - 1].match(/^\s*-\s+(.*?)$/gm)) {
-          return `<ul class="markdown_unordered" style="list-style-type:disc;list-style:inside"><li>${line.replace(
-            /^\s*-\s+(.*?)$/gm,
-            "$1"
-          )}</li>`;
-        } else if (
-          index === arr.length - 1 ||
-          !arr[index + 1].match(/^\s*-\s+(.*?)$/gm)
-        ) {
-          return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, "$1")}</li></ul>`;
-        } else {
-          return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, "$1")}</li>`;
-        }
-      } else {
-        return line;
-      }
-    })
-    .join("\n");
-
-  content = content
-    .split("\n")
-    .map((line, index, arr) => {
-      if (line.match(/^\s*\d+\.\s+(.*?)$/gm)) {
-        if (index === 0 || !arr[index - 1].match(/^\s*\d+\.\s+(.*?)$/gm)) {
-          return `<ol class="markdown_ordered" style="list-style-type:decimal;"><li>${line.replace(
-            /^\s*\d+\.\s+(.*?)$/gm,
-            "$1"
-          )}</li>`;
-        } else if (
-          index === arr.length - 1 ||
-          !arr[index + 1].match(/^\s*\d+\.\s+(.*?)$/gm)
-        ) {
-          return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, "$1")}</li></ol>`;
-        } else {
-          return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, "$1")}</li>`;
-        }
-      } else {
-        return line;
-      }
-    })
-    .join("\n");
-
-  return content;
-}
-
+ 
 /**
  * @function useRef
  * @description Allows you to get reference to DOM element
@@ -838,150 +749,7 @@ export class Component {
     return /^[a-zA-Z0-9-_]+$/.test(className);
   }
 
-  parseHTML(result) {
-    let title =  result.match(/@title '([^>]*)'/)
    
-    if(title){
-       let t = title[1]
-       result = result.replace(/@title '([^>]*)'/, '')
-       document.title = t
-    }
-    const dom = new DOMParser().parseFromString(result, "text/html");
-    const elements = dom.documentElement.querySelectorAll("*");
-
-
-    elements.forEach((element) => {
-      switch (element.nodeName) {
-        case "IMG":
-          if (
-            !element.hasAttribute("alt") &&
-            !document.documentElement.outerHTML
-              .trim()
-              .includes("<!-- #vader-disable_accessibility -->")
-          ) {
-            throw new SyntaxError(
-              `Image: ${element.outerHTML} missing alt attribute`
-            );
-          } else if (
-            element.hasAttribute("alt") &&
-            // @ts-ignore
-            element.getAttribute("alt").length < 1 &&
-            !document.documentElement.outerHTML
-              .trim()
-              .includes("<!-- #vader-disable_accessibility -->")
-          ) {
-            throw new SyntaxError(
-              `Image: ${element.outerHTML} alt attribute cannot be empty`
-            );
-          } else if (
-            (element.hasAttribute("src") &&
-              !element.getAttribute("src")?.includes("http")) ||
-            (!element.getAttribute("src")?.includes("https") &&
-              !document.documentElement.outerHTML
-                .trim()
-                .includes("<!-- #vader-disable_accessibility -->"))
-          ) {
-            let prevurl = element.getAttribute("src");
-            element.setAttribute("aria-hidden", "true");
-            element.setAttribute("hidden", "true");
-            // if window.lcoation.pathname includes a html file remove it and only use the path
-            let url =
-              window.location.origin +
-              window.location.pathname.replace(/\/[^\/]*$/, "") +
-              "/public/" +
-              element.getAttribute("src");
-            let image = new Image();
-            image.src = url;
-            image.onerror = () => {
-              // @ts-ignore
-              element.setAttribute("src", prevurl);
-              throw new Error(`Image: ${element.outerHTML} not found`);
-            };
-            element.setAttribute("src", url);
-
-            image.onload = () => {
-              document.querySelectorAll(`img[src="${url}"]`).forEach((img) => {
-                img.setAttribute("src", url);
-                img.removeAttribute("aria-hidden");
-                img.removeAttribute("hidden");
-              });
-            };
-          }
-          break;
-
-        default:
-          if (element.hasAttribute("ref")) {
-            // @ts-ignore
-            this.dom[element.getAttribute("ref")] = element;
-          }
-          if (element.nodeName === "MARKDOWN") {
-            element.innerHTML = markdown(
-              element.innerHTML.replace(/\\n/g, "\n").trim()
-            );
-          }
-
-          if (element.hasAttribute("class")) {
-            const allowClassComments = document.documentElement.outerHTML.includes(
-              "<!-- #vader-allow_class -->"
-            );
-            if (!allowClassComments) {
-              console.warn(
-                "you can disable class errors using, <!-- #vader-allow_class -->"
-              );
-              throw new Error(
-                "class attribute is not allowed, please use className instead"
-              );
-            }
-          } else if (element.hasAttribute("className")) {
-            // @ts-ignore
-            element.setAttribute("class", element.getAttribute("className"));
-            element.removeAttribute("className");
-          }
-
-          if (
-            element.hasAttribute("href") &&
-            // @ts-ignore
-            element.getAttribute("href").startsWith("/") &&
-            !document.documentElement.outerHTML
-              .trim()
-              .includes("<!-- #vader-disable_relative-paths -->")
-          ) {
-            element.setAttribute(
-              "href",
-              // @ts-ignore
-              `#/${element.getAttribute("href").replace("/", "")}`
-            );
-          }
-
-          if (
-            element.hasAttribute("src") &&
-            // @ts-ignore
-            !element.getAttribute("src").includes("http") &&
-            // @ts-ignore
-            !element.getAttribute("src").includes("https") &&
-            !document.documentElement.outerHTML.includes(
-              `<!-- #vader-disable_relative-paths -->`
-            )
-          ) {
-            element.setAttribute(
-              "src",
-              // @ts-ignore
-              `./public/${element.getAttribute("src")}`
-            );
-          }
-          break;
-      }
-    });
-
-    result = dom.body.innerHTML;
-
-    this.Componentcontent = result;
-
-    if (!result.includes("<div data-component")) {
-      result = `<div data-component="${this.name}">${result}</div>`;
-    }
-    return markdown(result.replace(/\\n/g, "\n").trim());
-  }
 
   /**
    * The `html` method generates and processes HTML content for a component, performing various validations and tasks.
@@ -1052,96 +820,75 @@ export class Component {
     let script = document.createElement("script");
     script.setAttribute("type", "text/javascript");
     script.setAttribute(`data-component-script`, this.name);
-
-    let dom = this.dom;
-
-    if (this.cfr) {
-      worker.postMessage({
-        strings,
-        args,
-        location:
-          window.location.origin +
-          window.location.pathname.replace(/\/[^\/]*$/, "") +
-          "/public/",
-        name: this.name
-      });
-      let promise = new Promise((resolve, reject) => {
-        worker.onmessage = (e) => {
-          if (e.data.error) {
-            throw new Error(e.data.error);
-          }
-          const dom = this.dom; // Assuming this.dom is an object
-          let js = e.data.js;
-          let template = e.data.template;
-          // Bind the component's context
-
-          const useState = this.useState.bind(this); // Bind the component's context
-          const useEffect = this.useEffect.bind(this); // Bind the component's context
-          const useReducer = this.useReducer.bind(this); // Bind the component's context
-          const useAuth = this.useAuth.bind(this); // Bind the component's context
-          const useSyncStore = this.useSyncStore.bind(this); // Bind the component's context
-          const signal = this.signal.bind(this); // Bind the component's context
-          const rf = this.$Function.bind(this); // Bind the component's context
-          let states = this.states;
-          const useRef = this.useRef.bind(this); // Bind the component's context
-          new Function(
-            "useState",
-            "useEffect",
-            "useAuth",
-            "useReducer",
-            "useSyncStore",
-            "signal",
-            "rf",
-            "dom",
-            "render",
-            "states",
-            "useRef",
-            js
-          )(
-            useState,
-            useEffect,
-            useAuth,
-            useReducer,
-            useSyncStore,
-            signal,
-            rf,
-            this.dom,
-            this.render,
-            this.states,
-            useRef
-          );
-
-          resolve(
-            new Function("useRef", "states", "return" + "`" + template + "`")(
-              useRef,
-              states
-            )
-          );
-        };
-        worker.onerror = (e) => {
-          reject(e);
-        };
-      });
-      // @ts-ignore
-      return promise;
-    } else {
-      let result = "";
-      for (let i = 0; i < strings.length; i++) {
-        result += strings[i];
-        if (i < args.length) {
-          result += args[i];
+ 
+    worker.postMessage({
+      strings,
+      args,
+      location:
+        window.location.origin +
+        window.location.pathname.replace(/\/[^\/]*$/, "") +
+        "/public/",
+      name: this.name
+    });
+    let promise = new Promise((resolve, reject) => {
+      worker.onmessage = (e) => {
+        if (e.data.error) {
+          throw new Error(e.data.error);
         }
-      }
-      result = new Function("useRef", `return \`${result}\``)(useRef);
+        const dom = this.dom; // Assuming this.dom is an object
+        let js = e.data.js;
+        let template = e.data.template;
+        // Bind the component's context
 
-      if (!result.trim().startsWith("<body>")) {
-        console.warn(
-          "You should wrap your html in a body tag, vader may not grab all html!"
+        const useState = this.useState.bind(this); // Bind the component's context
+        const useEffect = this.useEffect.bind(this); // Bind the component's context
+        const useReducer = this.useReducer.bind(this); // Bind the component's context
+        const useAuth = this.useAuth.bind(this); // Bind the component's context
+        const useSyncStore = this.useSyncStore.bind(this); // Bind the component's context
+        const signal = this.signal.bind(this); // Bind the component's context
+        const rf = this.$Function.bind(this); // Bind the component's context
+        let states = this.states;
+        const useRef = this.useRef.bind(this); // Bind the component's context
+        new Function(
+          "useState",
+          "useEffect",
+          "useAuth",
+          "useReducer",
+          "useSyncStore",
+          "signal",
+          "rf",
+          "dom",
+          "render",
+          "states",
+          "useRef",
+          js
+        )(
+          useState,
+          useEffect,
+          useAuth,
+          useReducer,
+          useSyncStore,
+          signal,
+          rf,
+          this.dom,
+          this.render,
+          this.states,
+          useRef
         );
-      }
 
-      return this.parseHTML(result);
-    }
+        resolve(
+          new Function("useRef", "states", "return" + "`" + template + "`")(
+            useRef,
+            states
+          )
+        );
+      };
+      worker.onerror = (e) => {
+        reject(e);
+      };
+    });
+    // @ts-ignore
+    return promise;
   }
   // write types to ensure it returns a string
   /**
