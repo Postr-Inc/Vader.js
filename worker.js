@@ -251,7 +251,9 @@ onmessage = (e) => {
       let jstemplate = jstemplates.pop();
       // @ts-ignore
       result = result.replace(
+        // @ts-ignore
         jstemplate,
+        // @ts-ignore
         `$\{${jstemplate.replace("$(", "").replace(")", "")}\}`
       );
     }
@@ -263,9 +265,9 @@ onmessage = (e) => {
     let ti = `{document.title = "${t}", ""}`;
     result = result.replace(title[0], "$" + ti);
   }
-
-  let styles = result.match(/@style{([^>]*)};/);
-
+  // @ts-ignore
+  result = result.replaceAll('=""', '')
+  let styles =  result.match(/@style{([^>]*)};/gs);
   if (styles) {
     for (let i = 0; i < styles.length; i++) {
       // make sure its in a tag
@@ -274,12 +276,21 @@ onmessage = (e) => {
         continue;
       }
       let style = styles[i];
-      let s = style.match(/@style{([^>]*)}/);
-      let st = s[1].trim();
-      // format into regular css - fontSize => font-size
-      st = st.replace(/([A-Z])/g, (g) => `-${g[0].toLowerCase()}`);
-      st = st.replace(/,/g, ";");
-      result = result.replace(style, `style="${st.trim()}"`);
+ 
+ 
+      let s = style.match(/@style{([^>]*)};/);
+      
+      // @ts-ignore
+      s.forEach((style) => {
+     
+        let st = style.replace("@style{", "").replace("};", "");
+        // @ts-ignore
+        st = st.replaceAll(',', ';')
+        // @ts-ignore
+        st = st.replaceAll(/'/g, ' ')
+        
+        result = result.replace(style, `style="${st}"`);
+      });
     }
   }
 
