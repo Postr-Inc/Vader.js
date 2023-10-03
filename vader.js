@@ -2,7 +2,97 @@ let dom = [];
 let states = {};
 //@ts-ignore
 let worker = new Worker(new URL("./worker.js", import.meta.url));
- 
+/**
+ * @function markdown
+ * @param {String} content
+ * @description Allows you to convert markdown to html
+ */
+function markdown(content) {
+  let headers = content.match(/(#+)(.*)/g);
+  if (headers) {
+    headers.forEach((header) => {
+      if (
+        header.includes("/") ||
+        header.includes("<") ||
+        header.includes(">")
+      ) {
+        return;
+      }
+      let level = header.split("#").length;
+      content = content.replace(
+        header,
+        `<h${level} class="markdown_heading">${header.replace(
+          /#/g,
+          ""
+        )}</h${level}>`
+      );
+    });
+  }
+
+  content = content.replace(/\*\*(.*?)\*\*/g, (match, text) => {
+    return `<b class="markdown_bold">${text}</b>`;
+  });
+  content = content.replace(/\*(.*?)\*/g, (match, text) => {
+    return `<i class="markdown_italic">${text}</i>`;
+  });
+  content = content.replace(/`(.*?)`/g, (match, text) => {
+    return `<code>${text}</code>`;
+  });
+  content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+    return `<a class="markdown_link" href="${url}">${text}</a>`;
+  });
+  content = content.replace(/!\[([^\]]+)\]\(([^)]+)\)/g, (match, alt, src) => {
+    return `<img class="markdown_image" src="${src}" alt="${alt}" />`;
+  });
+  content = content
+    .split("\n")
+    .map((line, index, arr) => {
+      if (line.match(/^\s*-\s+(.*?)$/gm)) {
+        if (index === 0 || !arr[index - 1].match(/^\s*-\s+(.*?)$/gm)) {
+          return `<ul class="markdown_unordered" style="list-style-type:disc;list-style:inside"><li>${line.replace(
+            /^\s*-\s+(.*?)$/gm,
+            "$1"
+          )}</li>`;
+        } else if (
+          index === arr.length - 1 ||
+          !arr[index + 1].match(/^\s*-\s+(.*?)$/gm)
+        ) {
+          return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, "$1")}</li></ul>`;
+        } else {
+          return `<li>${line.replace(/^\s*-\s+(.*?)$/gm, "$1")}</li>`;
+        }
+      } else {
+        return line;
+      }
+    })
+    .join("\n");
+
+  content = content
+    .split("\n")
+    .map((line, index, arr) => {
+      if (line.match(/^\s*\d+\.\s+(.*?)$/gm)) {
+        if (index === 0 || !arr[index - 1].match(/^\s*\d+\.\s+(.*?)$/gm)) {
+          return `<ol class="markdown_ordered" style="list-style-type:decimal;"><li>${line.replace(
+            /^\s*\d+\.\s+(.*?)$/gm,
+            "$1"
+          )}</li>`;
+        } else if (
+          index === arr.length - 1 ||
+          !arr[index + 1].match(/^\s*\d+\.\s+(.*?)$/gm)
+        ) {
+          return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, "$1")}</li></ol>`;
+        } else {
+          return `<li>${line.replace(/^\s*\d+\.\s+(.*?)$/gm, "$1")}</li>`;
+        }
+      } else {
+        return line;
+      }
+    })
+    .join("\n");
+
+  return content;
+}
+
 /**
  * @function useRef
  * @description Allows you to get reference to DOM element
@@ -800,9 +890,9 @@ export class Component {
 
   html(strings, ...args) {
     // @ts-ignore
-    let tiemr = setInterval(() => {
+    let timer = setInterval(() => {
       if (document.querySelector(`[data-component="${this.name}"]`)) {
-        clearInterval(tiemr);
+        clearInterval(timer);
         this.componentMounted = true;
 
         document
