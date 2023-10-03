@@ -257,13 +257,32 @@ onmessage = (e) => {
     }
   }
 
-  // @title 'title'
   let title = result.match(/@title '([^>]*)'/);
   if (title) {
     let t = title[1];
     let ti = `{document.title = "${t}", ""}`;
     result = result.replace(title[0], "$" + ti);
   }
+
+  let styles = result.match(/@style{([^>]*)};/);
+
+  if (styles) {
+    for (let i = 0; i < styles.length; i++) {
+      // make sure its in a tag
+
+      if (!styles[i].includes("style")) {
+        continue;
+      }
+      let style = styles[i];
+      let s = style.match(/@style{([^>]*)}/);
+      let st = s[1].trim();
+      // format into regular css - fontSize => font-size
+      st = st.replace(/([A-Z])/g, (g) => `-${g[0].toLowerCase()}`);
+      st = st.replace(/,/g, ";");
+      result = result.replace(style, `style="${st.trim()}"`);
+    }
+  }
+
   postMessage({
     template: `<div data-component=${e.data.name}>${result}</div>`,
     js: js ? js : ""
