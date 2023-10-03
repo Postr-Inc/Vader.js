@@ -13,6 +13,11 @@ onmessage = (e) => {
   }
 
   let comments = result.match(/--([^>]*)--/gs);
+  /**
+   * @example
+   * 
+   * -- This is a comment --
+   */
   if (comments) {
     while (comments.length) {
       let comment = comments.pop();
@@ -21,16 +26,11 @@ onmessage = (e) => {
     }
   }
 
-  // Convert headings (e.g., #1-6 Heading => <h1-6>Heading</h1-6>)
-  // @ts-ignore
-  result = result.replace(/(#+)(.*)/g, (match, hashes, text) => {
-    if (!match.includes("<") || !match.includes(">")) {
+  result = result.replace(/(#+)([^<>\n]*)(?![^<]*>)(?![^{]*})/g, (match, hashes, text) => {
       let level = hashes.length;
-      return `<h ${level} class="markdown_heading">${text}</h${level}>`;
-    } else {
-      return match;
-    }
+      return `<h${level} class="markdown_heading">${text}</h${level}>`;
   });
+  
 
   // Convert bold (e.g., **Bold** => <b>Bold</b>)
   result = result.replace(/\*\*(.*?)\*\*/g, (match, text) => {
@@ -259,15 +259,17 @@ onmessage = (e) => {
     }
   }
 
-  let title = result.match(/@title '([^>]*)'/);
+  let title = result.match(/@title '([^>]*)';/);
   if (title) {
     let t = title[1];
     let ti = `{document.title = "${t}", ""}`;
     result = result.replace(title[0], "$" + ti);
   }
   // @ts-ignore
-  result = result.replaceAll('=""', '')
+  
+  
   let styles =  result.match(/@style{([^>]*)};/gs);
+ 
   if (styles) {
     for (let i = 0; i < styles.length; i++) {
       // make sure its in a tag
@@ -276,24 +278,47 @@ onmessage = (e) => {
         continue;
       }
       let style = styles[i];
- 
- 
-      let s = style.match(/@style{([^>]*)};/);
-      
-      // @ts-ignore
-      s.forEach((style) => {
+      console.log(style)
      
-        let st = style.replace("@style{", "").replace("};", "");
-        // @ts-ignore
-        st = st.replaceAll(',', ';')
-        // @ts-ignore
-        st = st.replaceAll(/'/g, ' ')
-        
-        result = result.replace(style, `style="${st}"`);
-      });
+      let css =   style.replace("@style{", "").replace("};", "");
+      // @ts-ignore
+      css = css.replaceAll(",", ";");
+      // @ts-ignore
+      css = css.replaceAll(/[A-Z]/g, (match) => {
+          return `-${match.toLowerCase()}`;
+          }
+      );
+      //@ts-ignore
+      css = css.replaceAll(/'/g, " ");
+      result = result.replace(style, `style="${css}"`);
+  
+       
     }
   }
 
+  let stylsheet = result.match(/@stylesheet{([^>]*)};/);
+  if (stylsheet) {
+    let styles = stylsheet[1];
+    /**
+     * @stylesheet{
+     *  body:{
+     *  backgroundColor: red;
+     * 
+     *  }
+     * }
+     */
+
+    // @ts-ignore
+      let css = styles.replaceAll(" ", "");
+      css = css.replaceAll(",", ";");
+      css = css.replaceAll(/[A-Z]/g, (match) => {
+          return `-${match.toLowerCase()}`;
+          }
+      );
+      css = css.replaceAll(/'/g, " ");
+  
+      result = result.replace(stylsheet[0], `<style>${css}</style>`);
+  }
   postMessage({
     template: `<div data-component=${e.data.name}>${result}</div>`,
     js: js ? js : ""

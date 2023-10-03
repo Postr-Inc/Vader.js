@@ -875,7 +875,7 @@ export class Component {
         );
 
         resolve(
-          new Function(
+          handletemplate( new Function(
             "useRef",
             "states",
             "signal",
@@ -896,7 +896,7 @@ export class Component {
             useSyncStore,
             useRef,
             $Function
-          )
+          ))
         );
       };
       worker.onerror = (e) => {
@@ -1092,7 +1092,7 @@ export const include = async (path) => {
   // @ts-ignore
   if (cache[path]) {
     // @ts-ignore
-    return await handletemplate(new Function(`return \`${cache[path]}\`;`)());
+    return  cache[path];
   } else {
     return fetch(`./${path}`)
       .then((res) => {
@@ -1105,7 +1105,7 @@ export const include = async (path) => {
         // @ts-ignore
         cache[path] = data;
 
-        data = await handletemplate(new Function(`return \`${data}\`;`)());
+        
 
         return data;
       });
