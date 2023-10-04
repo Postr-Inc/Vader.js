@@ -461,7 +461,7 @@ export class Component {
        * @returns {void}
        */
       (action) => {
-        this.states[key] = reducer(this.states[key], action);
+        this.states[key] = reducer(action);
         this.updateComponent();
       }
     ];
@@ -579,7 +579,7 @@ export class Component {
     // get ref from array
     const element = this.dom[ref];
 
-    const getElement = () => element;
+    const getElement =   element;
 
     const update = (data) => {
       const newDom = new DOMParser().parseFromString(data, "text/html");
@@ -693,28 +693,47 @@ export class Component {
       };
 
       if (!componentContainer) return;
-      const newHtml = await new Function(
-        "useState",
-        "useEffect",
-        "useAuth",
-        "useReducer",
-        "useSyncStore",
-        "signal",
-        "rf",
-        "props",
-        "render",
-        "return `" + (await this.render()) + "`;"
-      )(
-        this.useState,
-        this.useEffect,
-        this.useAuth,
-        this.useReducer,
-        this.useSyncStore,
-        this.signal,
-        this.render
-      );
+        const useState = this.useState.bind(this); // Bind the component's context
+        const useEffect = this.useEffect.bind(this); // Bind the component's context
+        const useReducer = this.useReducer.bind(this); // Bind the component's context
+        const useAuth = this.useAuth.bind(this); // Bind the component's context
+        const useSyncStore = this.useSyncStore.bind(this); // Bind the component's context
+        const signal = this.signal.bind(this); // Bind the component's context
+        const $Function = this.$Function.bind(this); // Bind the component's context
+        const useRef = this.useRef.bind(this); // Bind the component's context
+        
 
-      if (newHtml !== componentContainer.innerHTML) {
+        
+               let newHtml =  new Function(
+                    "useState",
+                    "useEffect",
+                    "useAuth",
+                    "useReducer",
+                    "useSyncStore",
+                    "signal",
+                    "$Function",
+                    "dom",
+                    "render",
+                    "state",
+                    "useRef",
+                    "return" + "`" + await this.render() + "`"
+                  )(
+                    useState,
+                    useEffect,
+                    useAuth,
+                    useReducer,
+                    useSyncStore,
+                    signal,
+                    $Function,
+                    dom,
+                    this.render,
+                    this.states,
+                    useRef
+                  );
+         
+      // compare new html with old html
+      let hdom = new DOMParser().parseFromString(newHtml, "text/html");
+      if (hdom.body.innerHTML !== componentContainer.innerHTML) {
         if (this.snapshots.length > 0) {
           let lastSnapshot = this.snapshots[this.snapshots.length - 1];
           if (lastSnapshot !== snapshot) {
@@ -733,7 +752,7 @@ export class Component {
           document.createRange().createContextualFragment(newHtml)
         );
         componentContainer.innerHTML = "";
-        componentContainer.appendChild(fragment);
+        componentContainer.replaceWith(fragment);
         this.runEffects();
       }
     });
@@ -847,37 +866,44 @@ export class Component {
         const $Function = this.$Function.bind(this); // Bind the component's context
         let states = this.states;
         const useRef = this.useRef.bind(this); // Bind the component's context
-        new Function(
-          "useState",
-          "useEffect",
-          "useAuth",
-          "useReducer",
-          "useSyncStore",
-          "signal",
-          "$Function",
-          "dom",
-          "render",
-          "states",
-          "useRef",
-          js
-        )(
-          useState,
-          useEffect,
-          useAuth,
-          useReducer,
-          useSyncStore,
-          signal,
-          $Function,
-          this.dom,
-          this.render,
-          this.states,
-          useRef
-        );
+        
+
+        let interval = setInterval(() => {
+            if(this.componentMounted){
+                clearInterval(interval)
+                new Function(
+                    "useState",
+                    "useEffect",
+                    "useAuth",
+                    "useReducer",
+                    "useSyncStore",
+                    "signal",
+                    "$Function",
+                    "dom",
+                    "render",
+                    "state",
+                    "useRef",
+                    js
+                  )(
+                    useState,
+                    useEffect,
+                    useAuth,
+                    useReducer,
+                    useSyncStore,
+                    signal,
+                    $Function,
+                    dom,
+                    this.render,
+                    this.states,
+                    useRef
+                  );
+            }
+        }, 100);
 
         resolve(
           handletemplate( new Function(
             "useRef",
-            "states",
+            "state",
             "signal",
             "useState",
             "useReducer",
