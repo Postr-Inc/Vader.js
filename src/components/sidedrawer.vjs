@@ -83,7 +83,9 @@
                 Tutorials
               </div>
               <div class="collapse-content min-h-24 flex gap-5 flex-col">
-                 
+                 <ul>
+                   
+                 </ul>
               </div>
               
              
@@ -123,6 +125,40 @@
                     Views
 
                    </a>
+              </div>
+              
+             
+            </div>
+            <div tabindex=" 0" class="collapse 
+            cursor-pointer
+            collapse-open
+             collapse-plus  ">
+              <input 
+              class=" cursor-pointer"
+              onclick="
+              this.parentElement.classList.toggle('collapse-open')
+              this.parentElement.classList.toggle('collapse-close')
+              " type="checkbox" />
+              <div class="collapse-title  
+              after:collapse-arrow
+              font-semibold">
+              
+                Hooks
+              </div>
+              <div class="collapse-content min-h-24 flex gap-5 flex-col">
+                <a href="/docs/hooks/useState" class=" 
+                p-2
+                  
+                  ${
+                     
+                      $FULL_URL.includes("useState") ? "font-semibold bg-green-100 text-green-800  rounded" : "text-base-content opacity-60" } ">
+                      useState 
+                    </a>
+                  <a href="/docs/hooks/useEffect" class=" 
+                  p-2
+                 ${$FULL_URL.includes("useEffect") ? "font-semibold bg-green-100 text-green-800  rounded" : "text-base-content opacity-60" } ">
+                    useEffect
+                   
               </div>
               
              

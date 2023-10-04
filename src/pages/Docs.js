@@ -3,7 +3,7 @@ import Vader,{ include } from "../../dist/vader/vader.js";
 export class Docs extends Vader.Component{
     constructor(){
         super()
-        this.cfr = true
+         
     }
  
     async render(p, asterisk){

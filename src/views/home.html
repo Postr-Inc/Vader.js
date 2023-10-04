@@ -1,3 +1,4 @@
+@title 'Vader.js Build reactive web apps with Vader.js'
 <html>
     <body>
         --
@@ -7,23 +8,47 @@
          <include src="/components/test.vjs"></include>
  
          <nav></nav>
- 
+         <nav 
+         
+         key="title" title="this world">
+                <h1>hello world</h1>
+        </nav>
+
+       
      
-    ${
-        document.title = "Vader.js | Build reactive web apps with Vader.js", ""
-     }
+     
+
     <div
+        
+
         className=" xl:max-w-2xl lg:max-w-2xl md:max-w-xl 
         mt-16  p-5 w-screen
          
          
        break-normal  xl:w-[60vw] lg:p-8 md:p-8   mx-auto flex flex-col xl:p-8  ">
 
-        <div>
+        <div
+
+        
+
+        >
             <a href="https://github.com/Postr-Inc/Vader.js" 
             target="_blank"
+
+            @style{
+                color: 'red',
+                font-Size: '20px',
+                font-weight: '900',
+                text-decoration: 'none',
+                font-family: 'monospace',
+                font-style: 'italic',
+            };
+
+             
+
             className="badge drop-shadow-sm p-3 badge-ghost bg-base-200 flex justify-center mx-auto">
-                View On Github
+               
+            View On Github
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
                     stroke="currentColor" className="mx-2 text-rose-500  cursor-pointer w-4 h-6">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />

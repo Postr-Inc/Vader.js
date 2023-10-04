@@ -12,7 +12,7 @@ border border-base-200 text-black bg-base-100    ">
             ${
                $FULL_URL.includes("docs") 
                 ? "Docs"
-                : "Vader.js  <span class='badge badge-ghost text-blue-500'>v1.3.0</span> "
+                : `Vader.js  <span class='bg-gradient-to-r from-blue-600 badge badge-ghost to-blue-200 text-transparent bg-clip-text'>v1.3.2</span>`
             }
       </a>
       </div>
@@ -38,8 +38,11 @@ border border-base-200 text-black bg-base-100    ">
                       <li>
                         <a class="justify-between">
                           Profile
-                          <span class="badge">New</span>
+                         
+                          
+                           
                         </a>
+                       
                       </li>
                       <li><a>Settings</a></li>
                       <li><a>Logout</a></li>
