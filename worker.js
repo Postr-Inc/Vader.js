@@ -278,7 +278,6 @@ onmessage = (e) => {
         continue;
       }
       let style = styles[i];
-      console.log(style)
      
       let css =   style.replace("@style{", "").replace("};", "");
       // @ts-ignore
@@ -320,7 +319,7 @@ onmessage = (e) => {
       result = result.replace(stylsheet[0], `<style>${css}</style>`);
   }
   postMessage({
-    template: `<div data-component=${e.data.name}>${result}</div>`,
+    template: result.includes('data-component') ? result : `<div data-component="${e.data.name}">${result}</div>`,
     js: js ? js : ""
   });
 };
