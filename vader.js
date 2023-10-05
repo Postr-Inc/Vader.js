@@ -866,7 +866,7 @@ export class Component {
         const $Function = this.$Function.bind(this); // Bind the component's context
         let states = this.states;
         const useRef = this.useRef.bind(this); // Bind the component's context
-        
+        let self = this;
 
         let interval = setInterval(() => {
             if(this.componentMounted){
@@ -883,6 +883,7 @@ export class Component {
                     "render",
                     "state",
                     "useRef",
+                    "self",
                     js
                   )(
                     useState,
@@ -895,7 +896,8 @@ export class Component {
                     dom,
                     this.render,
                     this.states,
-                    useRef
+                    useRef,
+                    self
                   );
             }
         }, 100);
@@ -911,6 +913,7 @@ export class Component {
             "useSyncStore",
             "useRef",
             "$Function",
+            "self",
             "return" + "`" + template + "`"
           )(
             useRef,
@@ -921,7 +924,8 @@ export class Component {
             useAuth,
             useSyncStore,
             useRef,
-            $Function
+            $Function,
+            self
           ))
         );
       };
