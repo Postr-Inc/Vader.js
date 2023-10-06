@@ -866,7 +866,7 @@ export class Component {
         const $Function = this.$Function.bind(this); // Bind the component's context
         let states = this.states;
         const useRef = this.useRef.bind(this); // Bind the component's context
-        let self = this;
+        const self = this;
 
         let interval = setInterval(() => {
             if(this.componentMounted){
@@ -897,7 +897,7 @@ export class Component {
                     this.render,
                     this.states,
                     useRef,
-                    self
+                    self 
                   );
             }
         }, 100);
