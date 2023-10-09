@@ -427,6 +427,25 @@ export class Component {
     };
     return auth;
   }
+
+    /**
+   * @method useArray
+   * @param {Array} array 
+   * @param {class} returnable 
+   * @returns [array]
+   * @description Allows you to easily return multiple instances of a component and derive array values as props
+   */
+ async useArray(array, returnable){
+ 
+    let tr = []
+    for await (var a of array){
+      let t =  new returnable
+      t.name = Math.random(10000)
+      tr.push(await t.render(a))
+    }
+
+     return tr 
+  }
   /**
    * @method useReducer
    * @description Allows you to create a reducer
