@@ -716,7 +716,7 @@ export class Component {
                     "render",
                     "state",
                     "useRef",
-                    "return" + "`" + await this.render() + "`"
+                    "return" + "`" +  this.render() + "`"
                   )(
                     useState,
                     useEffect,
@@ -949,7 +949,7 @@ export class Component {
    * </div>
    * `);
    */
-  async render(props) {}
+   render(props) {}
 }
 
 /**
