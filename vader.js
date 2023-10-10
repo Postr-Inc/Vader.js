@@ -441,6 +441,9 @@ export class Component {
     for await (var a of array){
       let t =  new returnable
       t.name = Math.random(10000)
+      Object.keys(a).forEach((e)=>{
+        t.storedProps[e] = a[e]
+      })
       tr.push(await t.render(a))
     }
 
@@ -687,13 +690,11 @@ export class Component {
 
   // Add other methods like render, useEffect, useReducer, useAuth, etc.
 
-  updateComponent() {
+   async updateComponent() {
     const fragment = document.createDocumentFragment();
-    Object.keys(components).forEach(async (component) => {
-      const { name } = components[component];
-
+     
       let componentContainer = document.querySelector(
-        `[data-component="${name}"]`
+        `[data-component="${this.name}"]`
       );
       let time = new Date().getTime();
       /**
@@ -703,7 +704,7 @@ export class Component {
        * @returns {Object} {name, time, prev_state, prev_props, content}
        */
       let snapshot = {
-        name: name,
+        name:  this.name,
         time: time,
         prev_state: this.states,
         prev_props: this.storedProps,
@@ -735,7 +736,9 @@ export class Component {
                     "render",
                     "state",
                     "useRef",
-                    "return" + "`" +  this.render() + "`"
+                    "return" + "`" +  await this.render(
+                      this.storedProps
+                    ) + "`"
                   )(
                     useState,
                     useEffect,
@@ -774,7 +777,7 @@ export class Component {
         componentContainer.replaceWith(fragment);
         this.runEffects();
       }
-    });
+    
   }
   /**
    * @method validateClassName
