@@ -44,7 +44,8 @@ module.exports = {
     "/": "/pages/index.ts",
   }, 
 };
-
+```
+ 
 
 5. Folder setup
 
@@ -122,56 +123,29 @@ Signals are a way to communicate between components. Signals are similar to even
 
 ```javascript
 
-let count = this.signal('count', 0)
+let count = this.signal(0, 'count')
 
-let increment = this.$Function(function increment(){
-  count.set(count.get() + 1)
+ this.fn(function increment(){
+  count.set(count.value + 1)
 })
 
 count.subscribe( (detail)=>{
    console.log(detail)
-}, true) // true means it will run on once
-
-// call the signal
-count.call()
-
-count.cleanup()  // cleans up the signal
-
-count.get() // returns the signal detail
- 
-
+})  
 
 ```
-- Signals also allow you to share state between scopes
-
-```javascript
-window.addEventListener('signalDispatch', (e)=>{
-  console.log(e.detail)
-})
-````
 
 ### Function Binding
 
 ```javascript
 
-const fn = this.$Function(function fn() {
+this.fn(function fn() {
     console.log("Hello World");
 });
  
-return html(`<button onclick="${fn}">Click Me</button>`)
+return html(`<button  ref="btn" onclick="request('click', 'btn', 'invoke', {fn:'increment', args:{ }})">Click Me</button>`)
 ```
-
-### Authentication & Authorization
-
-```javascript
-const auth = this.useAuth({
-    rulesets: rules,
-    user: currentUser
-});
-if (auth.can('edit')) {
-    // Display edit button
-}
-```
+ 
 
  
 ### Simplified Component Creation
@@ -189,43 +163,7 @@ export class App extends Vader.Component{
 }
 ```
 
-## Include views
-
-As of v1.1.0 - Vader allows you to include html files as templates 
-
-```html
-// views/app.vjs
-<body>
-  <div>Hello World</div>
-  <h1>{{title}}</h1>
-  <slot id="app" />
-</body>
-```
-```html
-// pages/app.html
-<include src="views/app.vjs"/>
-<body>
-<app tittle="this is a component">
-  <div> this is apps children! </div>
-</app>
-
-```
-
-```js
-// home.js
-import Vader from "vaderjs";
-
-class Home extends Vader.Component {
-  constructor() {
-    super();
-  }
-  render() {
-    return this.html(include("pages/app.html"));
-  }
-}
-
  
-```
  
 
 ## License
