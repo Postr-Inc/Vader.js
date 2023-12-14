@@ -119,8 +119,6 @@ class MyApp extends Vader.Component{
 
 Signals are a way to communicate between components. Signals are similar to events in React.js. Signals are useful for global state management and component communication.
 
-- This is new as of v1.1.2
-
 ```javascript
 
 let count = this.signal(0, 'count')
