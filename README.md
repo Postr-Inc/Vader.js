@@ -137,11 +137,11 @@ count.subscribe( (detail)=>{
 
 ```javascript
 
-this.fn(function increment() {
+this.fn(function log() {
     console.log("Hello World");
 });
  
-return html(`<button  ref="btn" onclick="request('click', 'btn', 'invoke', {fn:'increment', args:{ }})">Click Me</button>`)
+return html(`<button  ref="btn" onclick="request('click', 'btn', 'invoke', {fn:'log', args:{ }})">Click Me</button>`)
 ```
  
 
