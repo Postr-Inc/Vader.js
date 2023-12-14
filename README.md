@@ -8,42 +8,51 @@
   </a>
 </p>
 
-# VaderJS: A Reactive Framework for SPAs
+# VaderJS: A Reactive Framework built for speed
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Postr-Inc/Vader.js/blob/main/LICENSE) [![npm version](https://img.shields.io/npm/v/vaderjs.svg?style=flat)](https://www.npmjs.com/package/vaderjs) 
 
-VaderJS is powerful component based reactive library for spa inspired by react.js
+VaderJS is powerful component based  library inspired by react.js and nextjs
 
 
-## Get Started
+## Get Started With SSR
+1. Ensure you have bunjs installed and configured
+   Vader leverages bun's speed for both compiling and websocket hydration ensure you have properly set up bun before continuing.
+   [Quick Start](https://bun.sh/docs/quickstart)
 
-1. Install VaderJS:
+2. Install VaderJS:
 
 ```sh
-  npm install vaderjs
+ bun add vaderjs
  ```
 
-or
+3.  vader.config.ts
+This is used to tell vader routes to pages you want but also configurations to improve dev experience.
 
-```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/vaderjs@latest/index.js" ></script>
-<script type="module" src="https://unpkg.com/vaderjs@latest/index.js">
- ```
+```ts
+module.exports = {
+  dev: true, // log to console
+  persistState:  false, // clear or not to clear
+  noCache: false, // this is recommended to be true, but in case you want to see changes
+ // directly each refresh then you an set it to false.
+  port: {
+    stream: 3000,
+    client: 3001,
+  },
+   // When user visits route the page for that route will be sent if configured here
+  routes: {
+    "/": "/pages/index.ts",
+  }, 
+};
 
-2. Import components and utilities into your project.
 
- - Heres an example import map
+5. Folder setup
 
- ```html
-   <script type="importmap">
-        {
-            "imports":{
-                "vaderjs":"./dist/vader/index.js",
-            }
-        }
-    </script>
- ```
+Ensure your project base dir has both src directory and public directly, these are used to serve files for the client.
 
+ 
+
+ 4. Cl
  - Then you can import like this
 
  ```js
