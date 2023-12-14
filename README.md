@@ -137,7 +137,7 @@ count.subscribe( (detail)=>{
 
 ```javascript
 
-this.fn(function fn() {
+this.fn(function increment() {
     console.log("Hello World");
 });
  
