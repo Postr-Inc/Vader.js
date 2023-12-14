@@ -52,69 +52,40 @@ Ensure your project base dir has both src directory and public directly, these a
 
  
 
- 4. Cl
+ 4. Using Vader.Component
  - Then you can import like this
 
  ```js
-  import Vader, { VaderRouter, include } from 'vaderjs'
+  import Vader from 'vaderjs'
+  class Home extends Vader.Component{
+}
   ```
+ 
 
-3. Use VaderJS features for routing, state management, auth, and more.
+#  Key Features
 
-4. Create dynamic SPAs with enhanced user experiences.
+### SSR Rendering
 
-5. Type checking / testing
-   - Vader has jsdoc annotations built in but also allows ts using the tsconfig
-     
-  ```bash
-   npm run test // validate your code
-  ```
-## Key Features
+Vaderjs is ssr first 
 
-### Client Fly Rendering
-
-Vaderjs allows you to render your components & manipulate worker side vs main thread. This allows for faster page speeds and better user experience. 
-
-```javascript
+```ts
 import Vader from "vaderjs";
 class Home extends Vader.Component {
-  constructor() {
-    super();
-    this.cfr = true; // enable client fly rendering -  this is optionals
+  constructor(ws: Websocket) {
+    super(ws: Websocet);
+     
   }
-  render() {
+  async render() {
+    // this is 
     return this.html(`<div>Hello World</div>`);
   }
+  componentDidMount(){
+   // gets ran when the client has reported a remount or mount
+  }
 }
 ```
 
-### Declarative Routing
-
-```javascript
-import VaderRouter from "../dist/vader/vaderRouter.js";
-import { Mycomponent} from "../src/pages/Home.js";
  
-const app = new VaderRouter('/');
-
-app.get("/", async (req, res)=>{
-    res.send('#root', await new Home().render())
-})
-app.get('/docs/:page/*', async (req, res)=>{
-     // page and asterisk route use req.params for params and req.params[0] to get the asterisk
-     // you can get queries from the url using req.query!
-})
-const middleware = (req, res)=>{
-    req.time = Date.now()
-}
-app.use(middleware) // use middlewares
-
-app.listen(3000, ()=>{
-    console.log('listening on port 3000')
-})
- 
-```
- 
-
 ### State Management
 
 ```javascript
@@ -127,21 +98,16 @@ class MyApp extends Vader.Component{
   }
   
   render(){
-    const [state, setState] = this.useState('state', 0, ()=>{
-     // this is a  callback that is ran on state change!
-    })
+    const [state, setState] = this.useState('state', 0)
     
-    let myfunc = this.$Function(function fn(){
+     this.fn(function increment(){
       setState(state + 1)
     })
 
-    this.useEffect(()=>{
-      // this is a callback that is ran on component mount
-    }, [])
-    
+     
     return this.html(`
      <p>count ${state} </p>
-     <button onclick="${myfunc}">Change State by 1</button>
+     <button ref="btn" onclick="request('click', 'btn', 'invoke', {fn:'increment', args:{ }})">Change State by 1</button>
     `)
     
   }
