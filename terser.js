@@ -1,9 +1,7 @@
-import { Glob } from "bun";
-import { watch } from "fs/promises";
-
- 
 let config = await import(process.cwd() + '/vader.config.js')
 import fs, { watchFile } from 'fs'
+ 
+import { Glob } from 'bun'
 let bundleSize = 0;
 let {cwd, dev, compiler} = config.default
 let startTime = Date.now()
@@ -12,57 +10,18 @@ switch (true){
         throw new Error('dev is not defined in vader.config.js')
     case !compiler:
         throw new Error('compiler dist and start are not defined in vader.config.js')
-}
-function parseExports(code) {
-    let exports = code.split("export"); 
-    let defaulteports = code.split("export default");
-  
-    let parsedExports = {};
-  
-    if (exports) {
-      exports.forEach((exportLine) => {
-        let exportType = exportLine.split(" ")[1];
-        let exportName = exportLine.split(" ")[2];
-        let exportValue = exportLine.split(" ")[3];
-         
-        if (exportType == "default") {
-          exportName = exportLine.split(" ")[3];
-          exportValue = exportLine.split(" ")[4];
-          parsedExports["_Default$" + exportName] = "";
-          return;
-        }
-        if (
-          exportName.includes("useState") ||
-          exportName.includes("useFunction") ||
-          exportName.includes("constant")
-        ) {
-          return;
-        }
-        parsedExports[exportName] = "";
-      });
-    }
-  
-    return parsedExports;
-  }
+} 
+
 function handleFunction(func) {
-     
-    let componentName = func
-      .split("class")[1]
-      .split("extends")[0]
-      .trim()
-      .replaceAll("'", "");
-  
+      
    
-  
     let string = func;
     let comments = string
   
       .match(/\{\s*\/\*.*\*\/\s*}/gs)
       ?.map((comment) => comment.trim());
 
- 
   
-    let savedfuncnames = [];
     let functions = string
       .match(/function.*\(\).*\{.*\};/gs)
       ?.map((func) => func.trim())
@@ -75,11 +34,7 @@ function handleFunction(func) {
       functions.forEach((func) => {
         if (!func.includes("function")) {
           return;
-        }
-        let code =  string;
-   
-   
-    
+        }  
         let name = func
           .split("function")[1]
           .split("(")[0]
@@ -415,23 +370,8 @@ function handleFunction(func) {
       }
     });
   
-    let returnObj = {};
-  
-   
-    let returns = parseExports(string);
-    let returnKeys = Object.keys(returns);
-    let returnString = "";
-  
-    string = string.replaceAll("export", "").replaceAll("default", "");
-    returnKeys.forEach((key) => {
-      if (key.includes("_Default$")) {
-        key = key.split("_Default$")[1];
-        returnString += `default: ${returns[key]}`;
-      }
-      returnString += `${key},`;
-    });
-    returnString = `return {${returnString}}`;
-    string = string += returnString;
+ 
+ 
   
     // create a polyfill for Array.prototype.filter
   
@@ -506,12 +446,7 @@ function handleFunction(func) {
        let data = handleFunction( contents)
        let path = process.cwd() + compiler.dist + '/' + file
        await writer(path, data)
-       watchFile(path, async () => {
-        let contents = await reader(path)
-         
-        let data = handleFunction( contents)
-        await writer(path, data)
-       })
+       
     }
       
   }
