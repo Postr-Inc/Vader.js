@@ -531,20 +531,10 @@ function Compiler(func) {
         }
       });
 
-      props = props
-        .replaceAll("=", ":")
-        .replaceAll('"', "'")
-        .replaceAll(" ", ",")
-        .replaceAll(",,", ',')
-        .replaceAll("className", "class")
-        .replaceAll("classname", "class")
-        .replaceAll("'${", "")
-        .replaceAll("}'", "")
-        .split("$:")
-        .join("")
-        .replaceAll("-", "");
-
-      //remove trailing /
+       
+      // turn props into object
+      props = props.replace(/(\w+)=["']([^"']+)["']/g, '"$1": `$2`,');
+      
       props = props.replace("/", ""); 
       let replace = "";
       replace = isChild
