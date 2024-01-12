@@ -134,11 +134,12 @@ function Compiler(func) {
         if (functionNames.length > 0) {
           functionNames.forEach((name) => {
             string.split("\n").forEach((line) => {
-              if (line.includes(name) && line.includes("function")) {
+              if (line.includes(name) && line.includes("function") || line.includes(name) && line.includes("=>")) {
                 line = line.trim();
                 line = line.replace(/\s+/g, " ");
 
-                let ps = line.split("(").slice(1).join("(").split(")")[0].trim();
+                let ps =  line.split("(")[1].split(")")[0].trim();
+               
 
                 // remove comments
                 ps = ps.match(/\/\*.*\*\//gs)
@@ -159,6 +160,7 @@ function Compiler(func) {
                 let params = hasParams
                   ? line.split("(")[1].split(")")[0].trim()
                   : null;
+                 
 
                 if (
                   functionparams.length > 0 &&
@@ -185,8 +187,9 @@ function Compiler(func) {
                   } ${params || null}${isJSXComponent ? "" : ","} true ${isJSXComponent ? "" : ","
                   } '${ref}')`;
 
+                  console.log(replacement)
                 newvalue = newvalue.replace(
-                  hasParams ? `${name}(${params})` : name,
+                  line,
                   `this.callFunction(\${${replacement}}, ${isJSXComponent ? true : false
                   }, event,${params || null})`
                 );
