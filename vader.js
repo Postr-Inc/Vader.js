@@ -485,7 +485,6 @@ function Compiler(func) {
     let componentMatch = body.match(componentRegex);
     let topComponent = "";
     componentMatch?.forEach(async (component) => {
-      const rewriter = new HTMLRewriter();
       let [, element, attributes] = component;
 
       !isChild ? (topComponent = component) : null;
