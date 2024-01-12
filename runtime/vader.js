@@ -1,7 +1,7 @@
 
 window.params = {};
 window.Vader = {
-  version: "1.3.3", 
+  version: "1.3.2", 
 };
 
 let errors = {
@@ -42,12 +42,6 @@ let invokes = []
 let hasran = [];
 let states = {};
 let mounts = [];
-/**
- * @method strictMount
- * @description  This method allows you to call a function only when a component has been mounted
- * @param {*} key 
- * @param {*} callback 
- */
 export const strictMount = (key, callback) => {
    let interval = setInterval(() => {
     if(mounts.find(mount => mount.key === key)
@@ -61,11 +55,54 @@ export const strictMount = (key, callback) => {
    },0);
 };
 
- 
+window.delegate = (event) => {
+  return event.detail.target
+}
 
 let components = {};
  
- 
+let style = document.createElement("style");
+ document.head.appendChild(style);
+
+const parseStyles = async (styles, className = '') => {
+    let css = await fetch(styles).then((res) => res.text());
+    let classes = css.split("}");
+    let parsedClasses = {};
+    classes.forEach((cls) => {
+     
+      let name = cls.split(".")[1];
+      let value = cls.split("{")[1] 
+      let keys = value.split(";");
+      let newKeys = [];
+      keys.forEach((key) => {
+        if (key.includes(":")) {
+          let newKey = key.split(":")[0].trim();
+          let newValue = key.split(":")[1].trim();
+          newKeys.push(`${newKey}: "${newValue}"`);
+        }
+      });
+      value = `{${newKeys.join(",")}}`;
+     
+      
+      parsedClasses[name] =  JSON.stringify(value);
+    });
+    return parsedClasses;
+};
+
+
+export const stylis = {
+  /**
+   * @method create 
+   * @param {*} styles 
+   * @returns  {Object} classes
+   * @description  This method allows you to create css classes from an object
+   */
+  create: async (/**@type {string} */ styles) => {
+     
+    return  await parseStyles(styles);
+  },
+};
+
 /**
  * @method mem
  * @param {Component} component
@@ -101,7 +138,18 @@ export const mem = (/**@type {Component}**/ component) => {
  
 let functions = {};
  
- 
+export const invoke = (func, params) => {
+   let name = func.name;
+  
+   window[name] = function (params) {
+      return func(params);
+   }
+   window[name] =  window[name].bind(this);
+   
+    
+   return `${name}(${params})`;
+   
+};
 
 /**
  * Represents a component in the Vader framework.
@@ -114,37 +162,15 @@ export class Component {
     this.state = {};
     this.key = null;
     this.components = {};
-    this.mounted = false;
-    /**
-     * @private
-     */
-    this.checkIFMounted();
+    this.mounted = false; 
     this.currenthtml = null;
-    /**
-     * @private
-     */
     window.listeners = [];
-    /**
-     * @private 
-     */
     this.functionMap = new Map();
-    /**
-     * @private
-     */
     this.freeMemoryFromFunctions();
-    /**
-     * @private
-     */
     this.memoizes = []
     this.children = []
-    /**
-     * @property {Object} props - The component props.
-     */
-    this.props = {}
   }
-  /**
-   * @private
-   */
+
   createComponent(/**@type {Component}**/component, props, children) {
      
     if (!component) {
@@ -154,7 +180,20 @@ export class Component {
       throw new Error('new components must have a key')
     } 
     let comp = new component();
-    
+    Object.keys(props).forEach((key) => {
+       // some props are this.bind inside of "" so we need to handle that
+       let newFunc = props[key].match(/this.bind\((.*)\)/gs);
+        if (newFunc) {
+          newFunc = newFunc[0].replace(/this.bind\((.*)\)/gs, "$1");
+          newFunc = newFunc.split('`')[1]
+          props[key] = this.bind(newFunc, { jsx: true, params: props[key], ref: props.ref });
+          return
+        }
+
+        
+       
+        props[key] =  props[key].toString().replace('"', '').replace("'", '').replace('${', '').replace('}', '')
+    });
     comp['props'] = props;
     comp.children = children; 
     comp.props.children = children.join('')
@@ -164,9 +203,6 @@ export class Component {
     this.children.push(comp)
     return this.components[props.key] 
   }
-    /**
-   * @private
-   */
   memoize(/**@type {Component}**/component){  
     if(!component.key){
       throw new Error('Component must have a static key')
@@ -187,9 +223,6 @@ export class Component {
 
     return `<div key="${component.key}">${h}</div>`
   }
-    /**
-   * @private
-   */
   parseStyle(styles){ 
     let css = ''
     Object.keys(styles).forEach((key) => { 
@@ -199,9 +232,6 @@ export class Component {
     })
     return css
   }
-  /**
-   * @private
-   */
   bindMount(){
     mounts.push(this) 
   }
@@ -268,15 +298,13 @@ export class Component {
    * @param {string} p - The parameter.
    * @param {string} ref - The reference.
    * @returns {string} - A valid inline JS function call.
-   * @private
    */
   bind(funcData, d) {
    
     const name = `func_${crypto ? crypto.getRandomValues(new Uint32Array(1))[0] : Math.random()}`;
 
     var dynamicFunction = (params) => {
-      let func = new Function(`return (async (${params}) => {
-        console.log('called') 
+      let func = new Function(`return (async () => {
         ${funcData}
        })()`);
       func = func.bind(this);
@@ -324,7 +352,6 @@ export class Component {
    * Calls a function with the specified parameters. and dispatches an event.
    * @param {string} func - The function name.
    * @param {...*} params - The function parameters.
-   * @private
    */
   callFunction(func,  isInlineJsx, ...params) {
     if(!isInlineJsx && params[0] && params[0].detail){
@@ -342,7 +369,6 @@ export class Component {
    * @param {string} params - The function parameters.
    * @param {boolean} [isInlineJsx=false] - Indicates if the function is an inline JSX.
    * @returns {string} - The function call.
-   * @private
    */
   useFunction(func, params, isInlineJsx = false) {
     const sanitizedFuncName = func.name.trim().replace(/\s+/g, '_');
@@ -513,20 +539,6 @@ export const useState = (initialState) => {
   }
   return [value, (newValue) => {}];
 };
-
-export const useRef = (initialState) => {
-    let value = initialState;
-    return {
-        /**
-         * @property {Bind} bind - Bind the current ref key to the element
-         */
-        bind: key,
-        /**
-         * @property {Function} current - Get the current ref value - or the element with the ref key
-         */
-        current: () => document.querySelector(`[ref="${key}"]`) || value,
-    }
-}
 
 const constants = {};
 let constantCounter = 0;

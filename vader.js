@@ -223,11 +223,9 @@ function Compiler(func) {
             otherdata["ref"] = ref;
  
             newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
-            newvalue =  newvalue.replaceAll('"', "'")
-            otherdata = JSON.stringify(otherdata).replaceAll('"', "'")
-            let newatribute = `${attributeName}="\${this.bind(\`${newvalue}\`${isJSXComponent ? "" : ","}${otherdata} )}"`;
-
-
+            
+            let newatribute = `${attributeName}="\${this.bind(\`${newvalue}\`, {jsx: ${isJSXComponent}, ref: '${ref}'})}"`;
+ 
             attribute[attributeName] = {
               old: old,
               new: newatribute,
@@ -261,7 +259,9 @@ function Compiler(func) {
           otherdata["ref"] = ref; 
           // since js is all in one line split it
           newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
+         
           let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\` ${isJSXComponent ? "" : ","}${JSON.stringify(otherdata)} )}"`;
+          console.log(newattribute)
           newattribute = newattribute.replace(/\s+/g, " ")
           string = string.replace(old, newattribute);
         }
@@ -499,7 +499,28 @@ function Compiler(func) {
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
       let props = component.split(`<${name}`)[1].split(">")[0].trim();
-
+      function parseProps(attributes) {
+        console.log(attributes)
+        let props = {};
+        if (attributes) {
+          let propsMatch;
+           let regex = /([a-zA-Z0-9_-]+)(\s*=\s*("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}|(?:\([^)]*\)|\{[^}]*\}|()=>\s*(?:\{[^}]*\})?)|\[[^\]]*\]))?/gs
+          while ((propsMatch = regex.exec(attributes)) !== null) {
+            let [, attributeName, attributeValue] = propsMatch;
+            console.log(attributeName, attributeValue)
+            attributeValue = attributeValue.replaceAll('="', '').replace("='", '')
+            if(attributeValue.startsWith("'")){
+              attributeValue = attributeValue.replace("'", '')
+            }
+            props[attributeName] = attributeValue || null;
+          }
+           
+        }
+        
+        return props;
+      }
+  
+      
       let savedname = name;
       let children = props
         ? component
@@ -534,20 +555,14 @@ function Compiler(func) {
           myChildrens.push(child.children);
         }
       });
-
+ 
+      props = JSON.stringify(parseProps(props));
        
-      // turn props into object 
-      props = props.replaceAll('=', ':').replaceAll('/', '')
-      
-      // class="text-red-500" => class:"text-red-500", omit quotes if value is a variable
-      props = props.replaceAll(/([a-zA-Z0-9_-]+)\s*:\s*("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)')/gs, (match, p1, p2) => {
-       return match + ','
-    });
       let replace = "";
       replace = isChild
-        ? `this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, {${props}}, [${myChildrens.length > 0 ? myChildrens.join(",") : ""
+        ? `this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, ${props}  , [${myChildrens.length > 0 ? myChildrens.join(",") : ""
         }])),`
-        : `\${this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, {${props}}, [${myChildrens.length > 0 ? myChildrens.join(",") : ""
+        : `\${this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, ${props}  , [${myChildrens.length > 0 ? myChildrens.join(",") : ""
         }]))}`;
 
       body = body.replace(before, replace);
