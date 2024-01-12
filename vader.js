@@ -25,17 +25,18 @@ function Compiler(func) {
   let savedfuncnames = [];
   let functions = string
     .match(
-      /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
+      /(?:const|let|var)?\s*([a-zA-Z0-9_-]+)\s*(?:=|function)\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)|(?:const|let|var)?\s*([a-zA-Z0-9_-]+)\s*=\s*\(([^)]*)\)/gs
     )
     ?.map((match) => match.trim());
 
+ 
   let functionNames = [];
 
   if (functions) {
     functions.forEach((func) => {
       if (
         !func.match(
-          /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
+          /(?:const|let|var)?\s*([a-zA-Z0-9_-]+)\s*(?:=|function)\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)|(?:const|let|var)?\s*([a-zA-Z0-9_-]+)\s*=\s*\(([^)]*)\)/gs
         )
       ) {
         return;
@@ -219,9 +220,9 @@ function Compiler(func) {
             otherdata["ref"] = ref;
  
             newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
-
-            let newatribute = `${attributeName}="\${this.bind(\`${newvalue}\` ${isJSXComponent ? "" : ","
-              }${JSON.stringify(otherdata)} )}"`;
+            newvalue =  newvalue.replaceAll('"', "'")
+            otherdata = JSON.stringify(otherdata).replaceAll('"', "'")
+            let newatribute = `${attributeName}="\${this.bind(\`${newvalue}\`${isJSXComponent ? "" : ","}${otherdata} )}"`;
 
 
             attribute[attributeName] = {
@@ -532,10 +533,13 @@ function Compiler(func) {
       });
 
        
-      // turn props into object
-      props = props.replace(/(\w+)=["']([^"']+)["']/g, '"$1": `$2`,');
+      // turn props into object 
+      props = props.replaceAll('=', ':').replaceAll('/', '')
       
-      props = props.replace("/", ""); 
+      // class="text-red-500" => class:"text-red-500", omit quotes if value is a variable
+      props = props.replaceAll(/([a-zA-Z0-9_-]+)\s*:\s*("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)')/gs, (match, p1, p2) => {
+       return match + ','
+    });
       let replace = "";
       replace = isChild
         ? `this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, {${props}}, [${myChildrens.length > 0 ? myChildrens.join(",") : ""
