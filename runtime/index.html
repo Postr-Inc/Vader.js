@@ -10,8 +10,7 @@
 <body>
     <div id="root"></div>
     <script type="module">
-        import VaderRouter from './router.js'
-         
+        import VaderRouter from './router.js' 
         const router = new VaderRouter('/', 3000)
         window.router = router
         await import('./app.js')
