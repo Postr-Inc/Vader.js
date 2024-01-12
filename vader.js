@@ -725,6 +725,14 @@ Vader.js v1.3.3
           }
         },
       );
+      const watcher2 = watch( process.cwd() + '/src', { recursive: true }, (event, filename) => {
+        if (event == 'change'
+        && !globalThis.isBuilding
+        ) {
+          Build()
+        }
+      });
+      watcher2.on('error', (err) => console.log(err))
       watcher.on('error', (err) => console.log(err))
   
     break;
