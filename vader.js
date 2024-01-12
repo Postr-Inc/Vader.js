@@ -473,6 +473,8 @@ function Compiler(func) {
     return array;
   };
 
+  string = string.replaceAll('vaderjs/client', './vader.js')
+
   // capture <Component />, <Component></Component>, and <Component>content</Component>
 
   // Example usage
