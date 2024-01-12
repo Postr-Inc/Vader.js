@@ -655,6 +655,9 @@ async function Build() {
   }); 
   scannedVaderFiles.forEach(async (file) => { 
     file = file.replace(/\\/g, '/');
+    if(file.includes('index.html') && fs.existsSync(process.cwd() + "/dist/index.html")){
+      return
+    }
      
     let name = file.split( '/node_modules/vaderjs/runtime/')[1]
     let data = await reader(file)
