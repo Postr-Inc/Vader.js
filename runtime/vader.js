@@ -180,20 +180,7 @@ export class Component {
       throw new Error('new components must have a key')
     } 
     let comp = new component();
-    Object.keys(props).forEach((key) => {
-       // some props are this.bind inside of "" so we need to handle that
-       let newFunc = props[key].match(/this.bind\((.*)\)/gs);
-        if (newFunc) {
-          newFunc = newFunc[0].replace(/this.bind\((.*)\)/gs, "$1");
-          newFunc = newFunc.split('`')[1]
-          props[key] = this.bind(newFunc, { jsx: true, params: props[key], ref: props.ref });
-          return
-        }
-
-        
-       
-        props[key] =  props[key].toString().replace('"', '').replace("'", '').replace('${', '').replace('}', '')
-    });
+     
     comp['props'] = props;
     comp.children = children; 
     comp.props.children = children.join('')
@@ -299,8 +286,9 @@ export class Component {
    * @param {string} ref - The reference.
    * @returns {string} - A valid inline JS function call.
    */
-  bind(funcData, d) {
+  bind(funcData,jsx,ref, params) {
    
+    console.log(jsx)
     const name = `func_${crypto ? crypto.getRandomValues(new Uint32Array(1))[0] : Math.random()}`;
 
     var dynamicFunction = (params) => {
@@ -335,15 +323,15 @@ export class Component {
     };
 
     // Return a valid inline js function call
-    return d.jsx ? dynamicFunction : `
+    return jsx ? dynamicFunction : `
     ((event) => { 
-      event.target.setAttribute('data-ref', '${d.ref}');
+      event.target.setAttribute('data-ref', '${ref}}');
       let reference = event.target.getAttribute('data-ref');
       event.target.eventData = event;
       let domquery = queryRef(reference);
       domquery.eventData = event; 
       domquery.eventData.detail.target = domquery;
-      call('${name}', {event:domquery.eventData}, '${d.params}')
+      call('${name}', {event:domquery.eventData}, '${params}')
     })(event)
     `;
   }

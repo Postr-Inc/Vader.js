@@ -25,18 +25,17 @@ function Compiler(func) {
   let savedfuncnames = [];
   let functions = string
     .match(
-      /(?:const|let|var)?\s*([a-zA-Z0-9_-]+)\s*(?:=|function)\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)|(?:const|let|var)?\s*([a-zA-Z0-9_-]+)\s*=\s*\(([^)]*)\)/gs
+      /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
     )
     ?.map((match) => match.trim());
 
- 
   let functionNames = [];
 
   if (functions) {
     functions.forEach((func) => {
       if (
         !func.match(
-          /(?:const|let|var)?\s*([a-zA-Z0-9_-]+)\s*(?:=|function)\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)|(?:const|let|var)?\s*([a-zA-Z0-9_-]+)\s*=\s*\(([^)]*)\)/gs
+          /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
         )
       ) {
         return;
@@ -73,6 +72,7 @@ function Compiler(func) {
   let childs = [];
 
 
+   
   function extractAttributes(code) {
     // Match elements with opening tags
     const elementRegex = /<([a-zA-Z0-9_-]+)([^>]*)>/gs;
@@ -134,12 +134,11 @@ function Compiler(func) {
         if (functionNames.length > 0) {
           functionNames.forEach((name) => {
             string.split("\n").forEach((line) => {
-              if (line.includes(name) && line.includes("function") || line.includes(name) && line.includes("=>")) {
+              if (line.includes(name) && line.includes("function")) {
                 line = line.trim();
                 line = line.replace(/\s+/g, " ");
 
-                let ps =  line.split("(")[1].split(")")[0].trim();
-               
+                let ps = line.split("(").slice(1).join("(").split(")")[0].trim();
 
                 // remove comments
                 ps = ps.match(/\/\*.*\*\//gs)
@@ -160,7 +159,6 @@ function Compiler(func) {
                 let params = hasParams
                   ? line.split("(")[1].split(")")[0].trim()
                   : null;
-                 
 
                 if (
                   functionparams.length > 0 &&
@@ -187,9 +185,8 @@ function Compiler(func) {
                   } ${params || null}${isJSXComponent ? "" : ","} true ${isJSXComponent ? "" : ","
                   } '${ref}')`;
 
-                  console.log(replacement)
                 newvalue = newvalue.replace(
-                  line,
+                  hasParams ? `${name}(${params})` : name,
                   `this.callFunction(\${${replacement}}, ${isJSXComponent ? true : false
                   }, event,${params || null})`
                 );
@@ -224,8 +221,10 @@ function Compiler(func) {
  
             newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
             
-            let newatribute = `${attributeName}="\${this.bind(\`${newvalue}\`, {jsx: ${isJSXComponent}, ref: '${ref}'})}"`;
- 
+
+            let newatribute =  `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', ${params || null})}"`
+
+            
             attribute[attributeName] = {
               old: old,
               new: newatribute,
@@ -259,9 +258,7 @@ function Compiler(func) {
           otherdata["ref"] = ref; 
           // since js is all in one line split it
           newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
-         
-          let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\` ${isJSXComponent ? "" : ","}${JSON.stringify(otherdata)} )}"`;
-          console.log(newattribute)
+          let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', ${params || null})}"`
           newattribute = newattribute.replace(/\s+/g, " ")
           string = string.replace(old, newattribute);
         }
@@ -330,18 +327,19 @@ function Compiler(func) {
             value == "undefined" ? (value = '"') : (value = value);
             key == 'style' ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
 
-            value = `="\$${value}"`;
-            string = string.replace(oldvalue, value);
+             
+            value = `="\$${value}",`;
+            string = string.replaceAll(oldvalue, value);
 
           } else if (value && value.includes("`")) {
             value = value.replace("=", "");
 
-            value = `"\$${value}"`;
+            value = `"\$${value}",`;
             string = string.replace(oldvalue, value);
 
           }
         } else if (value && value.new) {
-          let newvalue = value.new;
+          let newvalue = value.new + ",";
           let old = value.old;
           string = string.replace(old, newvalue);
         }
@@ -477,8 +475,6 @@ function Compiler(func) {
     return array;
   };
 
-  string = string.replaceAll('vaderjs/client', './vader.js')
-
   // capture <Component />, <Component></Component>, and <Component>content</Component>
 
   // Example usage
@@ -498,29 +494,9 @@ function Compiler(func) {
       let myChildrens = [];
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
-      let props = component.split(`<${name}`)[1].split(">")[0].trim();
-      function parseProps(attributes) {
-        console.log(attributes)
-        let props = {};
-        if (attributes) {
-          let propsMatch;
-           let regex = /([a-zA-Z0-9_-]+)(\s*=\s*("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}|(?:\([^)]*\)|\{[^}]*\}|()=>\s*(?:\{[^}]*\})?)|\[[^\]]*\]))?/gs
-          while ((propsMatch = regex.exec(attributes)) !== null) {
-            let [, attributeName, attributeValue] = propsMatch;
-            console.log(attributeName, attributeValue)
-            attributeValue = attributeValue.replaceAll('="', '').replace("='", '')
-            if(attributeValue.startsWith("'")){
-              attributeValue = attributeValue.replace("'", '')
-            }
-            props[attributeName] = attributeValue || null;
-          }
-           
-        }
-        
-        return props;
-      }
-  
-      
+      let props = component.split(`<${name}`)[1].split(">")[0].trim() 
+      console.log(props)
+     
       let savedname = name;
       let children = props
         ? component
@@ -555,14 +531,35 @@ function Compiler(func) {
           myChildrens.push(child.children);
         }
       });
+      
  
-      props = JSON.stringify(parseProps(props));
-       
+
+  
+      props = props
+      .replaceAll("=", ":")
+      .replaceAll('"', "'")
+      //fix key:'value' to key:'value', only if value ="value"
+      
+      .replaceAll(",,", ',')
+      .replaceAll("className", "class")
+      .replaceAll("classname", "class")
+      .replaceAll("'${", "")
+      .replaceAll("}'", "")
+      .split("$:")
+      .join("") 
+      .replace('/', '')
+      // remove trailing ,
+      .replace(/,\s*$/, "")
+      props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,');
+     
+ 
+     
+ 
       let replace = "";
       replace = isChild
-        ? `this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, ${props}  , [${myChildrens.length > 0 ? myChildrens.join(",") : ""
+        ? `this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, ${props}, [${myChildrens.length > 0 ? myChildrens.join(",") : ""
         }])),`
-        : `\${this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, ${props}  , [${myChildrens.length > 0 ? myChildrens.join(",") : ""
+        : `\${this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, {${props}}, [${myChildrens.length > 0 ? myChildrens.join(",") : ""
         }]))}`;
 
       body = body.replace(before, replace);
@@ -573,6 +570,7 @@ function Compiler(func) {
 
 
 
+  string = string.replaceAll('vaderjs/client', './vader.js')
   string = string.replaceAll("<>", "`").replaceAll("</>", "`");
   string = parseComponents(string);
  
@@ -633,10 +631,8 @@ async function Build() {
   
     // Read and compile file content
     let data = await fs.readFileSync(origin, "utf8");
-    data = Compiler(data);
-  
-    // Write compiled content to the 'dist/pages' directory
-    console.log(`Compiling ${fileName} to ${obj.url}`)
+    data = Compiler(data); 
+   
     await writer(process.cwd() + "/dist/pages/" + fileName, data);
   
     // Generate routing logic
@@ -666,12 +662,13 @@ async function Build() {
     absolute: true,
   }); 
   scannedVaderFiles.forEach(async (file) => { 
-    file = file.replace(/\\/g, '/');
-    if(file.includes('index.html') && fs.existsSync(process.cwd() + "/dist/index.html")){
-      return
-    }
-     
+     file = file.replace(/\\/g, '/');
+   
+    
     let name = file.split( '/node_modules/vaderjs/runtime/')[1]
+    if(file.includes('index.html') && fs.existsSync(process.cwd() + "/dist/" + name)){
+        return
+   }
     let data = await reader(file)
     bundleSize += fs.statSync(file).size;
     await writer(process.cwd() + "/dist/" + name, data);
@@ -709,11 +706,17 @@ async function Build() {
   }) 
 
   if (!fs.existsSync(process.cwd() + "/dist/index.html")) {
+     
     scannedFiles.forEach(async (file) => {
       file = file.split(process.cwd() + '/runtime/')[1]
 
       if (file === "app.js") {
         return
+      }
+      console.log(`Compiling ${file} to /dist/${file}`)
+      if(file.includes('index.html') && fs.existsSync(process.cwd() + "/runtime/" + file)){
+        console.log(`Compiling ${file} to /dist/${file}`)
+          return
       }
       bundleSize += fs.statSync(process.cwd() +  "/runtime/" + file).size;
       let data = await reader(process.cwd() + "/runtime/" + file)
@@ -747,13 +750,17 @@ Vader.js v1.3.3
           }
         },
       );
-      const watcher2 = watch( process.cwd() + '/src', { recursive: true }, (event, filename) => {
-        if (event == 'change'
-        && !globalThis.isBuilding
-        ) {
-          Build()
-        }
-      });
+      const watcher2 = watch(
+        process.cwd() + '/src',
+        { recursive: true },
+        (event, filename) => {
+          if (event == 'change'
+          && !globalThis.isBuilding
+          ) {
+            Build()
+          }
+        },
+      );
       watcher2.on('error', (err) => console.log(err))
       watcher.on('error', (err) => console.log(err))
   
