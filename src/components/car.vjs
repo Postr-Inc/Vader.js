@@ -1,3 +1,0 @@
-<body>
-    <slot id="car" />
-</body>
