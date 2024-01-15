@@ -94,9 +94,10 @@ return {default:Home}
  
 
 ### State Management
+Vaderjs uses partial hydration which is much better than react vdom,  simply pass the ref key to state and only that element will update - no vdom required!!
 
 ```jsx
-let {Component, useState} = await import('vaderjs/client') 
+let {Component, useState, useRef} = await import('vaderjs/client') 
 
 class MyApp extends Component{
   contructor(){
@@ -106,12 +107,16 @@ class MyApp extends Component{
   
   render(){
     let [count, setCount] = useState(0)
-    function increment(){
-        setCount(count()+ 1)
-    }
+    let ref = useRef('')
+   
     return  <>
-     <p>Count is ${count}</p>
-     <button onclick={()=>increment()}>Increment</button>
+     <p ref={ref.bind}>Count is ${count}</p>
+     ${/**
+       pass anything used from the toplevel render to the lowerlevel function params to be able to invoke!
+      **/}
+     <button onclick={(setCount, count, ref)=>{
+      setCount(count + 1, ref.bind)
+     }}>Increment</button>
     </>
     
   }
@@ -124,6 +129,7 @@ return {default:MyApp}
 ### Function Binding
 
 Vaderjs allows you to bind functions directly to html elements just like react
+there are two ways - top level invokes like below
 
 ```javascript
 // vader uses params[0] as the event target object and other parameters resolve after
@@ -141,8 +147,18 @@ return <>
 </>
 ```
  
- 
- 
+and lower level invokes - these operate the same just allow you to pass items from top level to lower level: ex - I have a variable named car and i want the button to log it i can pass it as a parameter to allow it to be added to the buttons function scope
+
+```jsx
+let car = {
+  model: 'tesla',
+  price: 'toomiuch'
+}
+return <>
+<button onclick={(car)=>{
+ console.log(car.model)
+}}>Log</button>
+```
 
  
 

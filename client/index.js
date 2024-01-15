@@ -1,7 +1,7 @@
 
 window.params = {};
 window.Vader = {
-  version: "1.3.2", 
+  version: "1.3.3", 
 };
 
 let errors = {
@@ -43,16 +43,13 @@ let hasran = [];
 let states = {};
 let mounts = [];
 export const strictMount = (key, callback) => {
-   let interval = setInterval(() => {
-    if(mounts.find(mount => mount.key === key)
-    && !hasran.includes(callback.toString())
-    ){
+  let timer = setInterval(() => {
+    if (document.querySelector('[key="' + key + '"]')) {
+      console.log('mounted')
+      clearInterval(timer);
       callback();
-      clearInterval(interval)
-      
-    hasran.push(callback.toString());
-    } 
-   },0);
+    }
+  }, 120);
 };
 
 window.delegate = (event) => {
@@ -167,9 +164,93 @@ export class Component {
     window.listeners = [];
     this.functionMap = new Map();
     this.freeMemoryFromFunctions();
+    this.checkIFMounted();
     this.memoizes = []
+    
+    this.vdom =  []
+    
     this.children = []
+    let dom = new DOMParser().parseFromString(this.render(), 'text/html').body.firstChild;
+    dom.querySelectorAll('*').forEach((el) => {
+       let obj = {
+          el: el,
+          tag: el.tagName,
+          html: el.innerHTML,
+          content: el.textContent,
+          value: el.value,
+          attributes: el.attributes,
+          children: el.childNodes,
+       } 
+       this.vdom.push(obj)
+    });
+     
+    /**
+     * Parent of the current component.
+     * @type {Component}
+     */
+    this.parentNode =  {}
+    
+      /**
+       * Request object.
+       */
+      this.request =  {
+        /**
+         * @type {string}
+         * @description The headers for the current route
+         */
+        headers:{},
+        /**
+         * @type {string}
+         * @description The method for the current route
+         */
+        method: "GET",
+        /**
+         * @type {string}
+         * @description params for the given route /:id/:name etc
+         */
+        params: {},
+        /**
+         * @type {string}
+         * @description path: current route path
+         */
+        path: "",
+        /**
+         * @type {string}
+         * @description query: query  object for the current route ?name=hello -> {name: 'hello'}
+         */
+        query: {},
+      },
+      /**
+       * @type {string}
+       * @description The response object for the current route
+       */
+      this.response = {
+        /**
+         * @method json
+         * @description  This method allows you to send json data to the client
+         * @param {*} data 
+         */
+        json: (data) => {},
+        /**
+         * @method send
+         * @description  This method allows you to send text data to the client
+         * @param {*} data 
+         */
+        send: (data) => {},
+        /**
+         * @method redirect
+         * @description  This method allows you to redirect the client to a new route
+         * @param {*} path 
+         */
+        redirect: (path) => {},
+        /**
+         * @method render
+         * @description  render a new component to the client
+         *  @param {*} Component
+         */
+        render: async (Component) => {},
   }
+}
 
   createComponent(/**@type {Component}**/component, props, children) {
      
@@ -179,26 +260,16 @@ export class Component {
     if(!props.key){
       throw new Error('new components must have a key')
     } 
-    let comp = new component();
-    Object.keys(props).forEach((key) => {
-       // some props are this.bind inside of "" so we need to handle that
-       let newFunc = props[key].match(/this.bind\((.*)\)/gs);
-        if (newFunc) {
-          newFunc = newFunc[0].replace(/this.bind\((.*)\)/gs, "$1");
-          newFunc = newFunc.split('`')[1]
-          props[key] = this.bind(newFunc, { jsx: true, params: props[key], ref: props.ref });
-          return
-        }
-
-        
-       
-        props[key] =  props[key].toString().replace('"', '').replace("'", '').replace('${', '').replace('}', '')
-    });
+    let comp = new component(props);
+    if(this.components[props.key]){
+      return this.components[props.key]
+    }
     comp['props'] = props;
     comp.children = children; 
     comp.props.children = children.join('')
     comp.parentNode  = this;
     comp.key = props.key || null;
+     
     this.components[props.key] = comp
     this.children.push(comp)
     return this.components[props.key] 
@@ -215,6 +286,7 @@ export class Component {
     }
  
     let comp = this.components[component.key];
+    
     let h = comp.render() 
     
     if(h && h.split('>,').length > 1){
@@ -240,28 +312,75 @@ export class Component {
    * Hydrates the component by updating the HTML content if it has changed.
    * @private
    */
-  hydrate() {
+
+ domDifference(oldDom, newDom) {
+    let diff = [];
+  
+    for (let i = 0; i < oldDom.length; i++) {
+      let oldEl = oldDom[i];
+      let newEl = newDom[i];
+  
+      if (oldEl && newEl && !oldEl.isEqualNode(newEl)) {
+        diff.push({
+          type: 'replace',
+          old: oldEl,
+          new: newEl.cloneNode(true),
+        });
+      }
+    }
+  
+    return diff;
+  }
+  
+   updateChangedElements(diff) {
+    diff.forEach((change) => {
+      switch (change.type) {
+        case 'replace':
+          change.old.parentNode.replaceChild(change.new, change.old);
+          break;
+        case 'remove':
+          change.old.remove();
+          break;
+        case 'add':
+          change.old.appendChild(change.new.cloneNode(true));
+          break;
+        default:
+          break;
+      }
+    });
+  }
+  
+   hydrate(hook) {
     if (this.key) {
- 
-      const el = document.querySelector(`[key="${this.key}"]`);
-
-    
-      if (el) {
-        
- 
-        // Render the new HTML content
-        const newHtml = this.render();
-        // Compare the new HTML with the cached content
-        if (newHtml !== this.currentHtml) {
-          // Update the HTML only if it has changed
-          el.innerHTML = newHtml;
-
-          // Update the cached HTML content
-          this.currentHtml = newHtml;
+      if (hook) {
+        let newDom = new DOMParser().parseFromString(this.render(), 'text/html').body.firstChild;
+  
+        let oldElements = document.body.querySelectorAll(`[ref="${hook}"]`);
+        let newElements = newDom.querySelectorAll(`[ref="${hook}"]`);
+        let diff = this.domDifference(oldElements, newElements);
+        this.updateChangedElements(diff);
+      } else {
+        const targetElement = document.querySelector(`[key="${this.key}"]`);
+        if (targetElement) {
+          targetElement.innerHTML = this.render();
+        } else {
+          console.error('Target element not found.');
         }
       }
     }
   }
+  
+ 
+  
+  patch(oldElements, newElements) {
+    const diff = this.domDifference(oldElements, newElements);
+  
+    this.updateChangedElements(diff);
+  }
+  
+  
+  
+  
 
   /**
    * Handles an object by parsing it as JSON and evaluating it.
@@ -279,7 +398,7 @@ export class Component {
   }
 
   /**
-   * Frees memory from functions that have not been used for a certain period of time.
+   * Frees memory from functions that have not been used for a certain period of time.c
    * @private
    */
   freeMemoryFromFunctions() {
@@ -299,23 +418,47 @@ export class Component {
    * @param {string} ref - The reference.
    * @returns {string} - A valid inline JS function call.
    */
-  bind(funcData, d) {
+  bind(funcData,jsx,ref, paramNames, ...params) {
+   
    
     const name = `func_${crypto ? crypto.getRandomValues(new Uint32Array(1))[0] : Math.random()}`;
 
-    var dynamicFunction = (params) => {
-      let func = new Function(`return (async () => {
-        ${funcData}
-       })()`);
-      func = func.bind(this);
-      func(params);
+    var dynamicFunction = async (...params) => {
+      
+      // Replace double commas with a single comma
+      
+    
+      // Turn params into a destructured object
+      let paramObject = {};
+      params = params[0] 
+   
+      paramNames = paramNames.replace(/,,/g, ',');
+    let newparamnames = paramNames.replaceAll(',,', ',')
+      // Remove trailing commas
+      paramNames.endsWith(',') ? paramNames = paramNames.slice(0, -1) : null;
+      console.log(paramNames)
+
+      params.forEach((param, index) => {
+        paramObject[newparamnames.split(',')[index]] = param;
+      });
+      
+      paramNames = paramNames.replace(',,', ',');
+      let func = new Function(`${paramNames}`, `
+        return (async (${paramNames}) => {
+           ${funcData}
+        })(${Object.keys(paramObject).join(',')})
+      `);
+    
+      // Bind and execute the function with the provided parameters
+      await func.bind(this)(...Object.values(paramObject));
     };
+     
 
     dynamicFunction = dynamicFunction.bind(this);
     if (!this.functionMap.has(name)) {
       document.addEventListener(`call_${name}`, (e) => {
         
-        dynamicFunction();
+        dynamicFunction(params);
         this.functionMap.set(e.detail.name, {
           lastUsed: Date.now(),
         });
@@ -335,15 +478,17 @@ export class Component {
     };
 
     // Return a valid inline js function call
-    return d.jsx ? dynamicFunction : `
+    return jsx ? dynamicFunction : `
     ((event) => { 
-      event.target.setAttribute('data-ref', '${d.ref}');
+      event.target.setAttribute('data-ref', '${ref}');
       let reference = event.target.getAttribute('data-ref');
       event.target.eventData = event;
+       
       let domquery = queryRef(reference);
-      domquery.eventData = event; 
-      domquery.eventData.detail.target = domquery;
-      call('${name}', {event:domquery.eventData}, '${d.params}')
+       
+      domquery.eventData = event;
+      domquery.eventData.target = domquery;
+      call('${name}', {event:domquery.eventData}, '${paramNames}')
     })(event)
     `;
   }
@@ -412,11 +557,14 @@ export class Component {
     if (!this.state[key]) {
       this.state[key] = initialState;
     }
-    const getValue = () => this.state[key];
-    const set = (newValue) => { 
+    let updatedValue = () => this.state[key];
+    const getValue = updatedValue()
+    const set = (newValue, hook) => { 
       this.state[key] = newValue;
-      this.hydrate();
+      this.hydrate(hook);
     };
+    this[`set${key}`] = set;
+    this[`get${key}`] = getValue;
     return [getValue, set];
   }
 
@@ -429,9 +577,11 @@ export class Component {
       this.state[key] = newValue;
       this.hydrate();
     };
+   
+    
     return  {
-       bind: key,
-       current: () => document.querySelector(`[ref="${key}"]`) || this.state[key],
+       bind: key + this.key,
+       current:   document.querySelector(`[ref="${key + this.key}"]`) ||  initialState
     }
   }
 
@@ -455,7 +605,7 @@ export class Component {
    * @private
    */
   checkIFMounted() {
-    if (this.mounted) return;
+    if (this.mounted || !this.key) return;
     let timer = setInterval(() => {
       if (document.querySelector('[key="' + this.key + '"]')) {
         clearInterval(timer);
@@ -533,11 +683,22 @@ window.require = require;
  * @description Allows you to use state to dynamically update your component
  */
 export const useState = (initialState) => {
+  let key = ''
   let value = initialState;
   if (key && !states[key]) {
     this.states[key] = initialState;
   }
   return [value, (newValue) => {}];
+};
+
+/**
+ * @method useReducer
+ * @param {*} initialState 
+ * @param {*} reducer 
+ * @returns  {Array} [value, set]
+ */
+export const useReducer = (/**@type {*}**/initialState, /**@type {function}**/reducer) => {
+  return [initialState, (newValue) => {}];
 };
 
 const constants = {};
@@ -551,12 +712,20 @@ export const constant = (value) => {
   return constants[key];
 };
 
+export const useRef = (initialState) => {
+  return {
+    current: initialState,
+    bind: '',
+  };
+};
 export default {
   Component,
   require,
   invoke,
   mem,
   constant,
+  useRef,
+  useReducer,
   useState,
   strictMount,
   stylis,

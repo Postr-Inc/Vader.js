@@ -39,8 +39,7 @@ function Compiler(func) {
         )
       ) {
         return;
-      }
-      let code = string;
+      } 
 
       let name = func.split(" ")[1].split("(")[0].trim();
 
@@ -159,7 +158,7 @@ function Compiler(func) {
                 let params = hasParams
                   ? line.split("(")[1].split(")")[0].trim()
                   : null;
-
+ 
                 if (
                   functionparams.length > 0 &&
                   functionparams.find((p) => p.name == name)
@@ -188,7 +187,7 @@ function Compiler(func) {
                 newvalue = newvalue.replace(
                   hasParams ? `${name}(${params})` : name,
                   `this.callFunction(\${${replacement}}, ${isJSXComponent ? true : false
-                  }, event,${params || null})`
+                  }, event, \${JSON.stringify(${params || null})})`
                 );
               }
             }
@@ -215,14 +214,19 @@ function Compiler(func) {
 
 
             let otherdata = {};
+           
             params ? (otherdata["params"] = params) : null;
             otherdata["jsx"] = isJSXComponent;
             otherdata["ref"] = ref;
  
             newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
             
+            // turn params into param1, param2, param3
 
-            let newatribute =  `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', ${params || null})}"`
+            
+            let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
+ 
+            let newatribute =  `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}"`
 
             
             attribute[attributeName] = {
@@ -258,7 +262,10 @@ function Compiler(func) {
           otherdata["ref"] = ref; 
           // since js is all in one line split it
           newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
-          let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', ${params || null})}"`
+          // param1, param2, param3
+          let length = params ? params.split(' ').length : 0;
+          let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
+          let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}"`
           newattribute = newattribute.replace(/\s+/g, " ")
           string = string.replace(old, newattribute);
         }
@@ -295,6 +302,7 @@ function Compiler(func) {
   let contents = "";
   let updatedContents = "";
   outerReturn.forEach((returnStatement) => {
+    
     let lines = returnStatement.split("\n");
 
     for (let i = 0; i < lines.length; i++) {
@@ -303,7 +311,7 @@ function Compiler(func) {
         continue;
       }
       contents += line + "\n";
-    }
+    } 
 
     // Remove trailing ']'
     contents = contents.trim().replace(/\]$/, "");
@@ -321,19 +329,19 @@ function Compiler(func) {
 
         let value = attributes[key];
         let oldvalue = value;
-        if (value && !value.new) {
-          if (value && value.includes("{")) {
+        if (value && !value.new) { 
+          if (value && value.includes("={")) {
             value = value.replace("=", "");
             value == "undefined" ? (value = '"') : (value = value);
             key == 'style' ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
 
              
             value = `="\$${value}",`;
-            string = string.replaceAll(oldvalue, value);
+            string = string.replace(oldvalue, value);
 
-          } else if (value && value.includes("`")) {
+          } else if (value && value.includes("={`")) {
             value = value.replace("=", "");
-
+ 
             value = `"\$${value}",`;
             string = string.replace(oldvalue, value);
 
@@ -405,16 +413,15 @@ function Compiler(func) {
         let setKey = line.split("=")[0].split(",")[1].trim().replace("]", "");
 
         key = key.replace("[", "").replace(",", "");
-        let value = line
-          .split("=")[1]
-          .split("useState")[1]
-          .split("(")[1]
-          .split(")")[0]
-          .trim();
-        let newState = `${type} [${key}, ${setKey}] = this.useState('${key}', ${value}) 
-          this.${key} = ${key}
-          this.${setKey} = ${setKey}
+        let value = line.split("=")[1].split("useState(")[1] 
+        let regex = /useState\((.*)\)/gs
+        value = value.match(regex) ? value.match(regex)[0].split("useState(")[1].split(")")[0].trim() : value
+          
+          
+        let newState = `${type} [${key}, ${setKey}] = this.useState('${key}', ${value}
+         
           `;
+       
 
         // get setkey calls and replace with this.setKey
         string.split("\n").forEach((line) => {
@@ -429,18 +436,28 @@ function Compiler(func) {
           }
         });
         string = string.replace(line, newState);
-      } else if (line.includes("useRef")) {
+      } else if (line.includes("useRef") && !line.includes("import")) {
         line = line.trim();
         // let ref = useRef(null)
         let type = line.split(" ")[0];
         let key = line.split("=")[0].split(" ")[1].trim();
-        let value = line
-          .split("=")[1]
-          .split("useRef")[1]
-          .split("(")[1]
-          .split(")")[0]
-          .trim();
-        let newState = `${type} ${key} = this.useRef('${key}', ${value})`;
+        let value = line.split("=")[1].split("useRef(")[1] 
+         
+        let regex = /useState\((.*)\)/gs
+        value = value.match(regex) ? value.match(regex)[0].split("useRef(")[1].split(")")[0].trim() : value
+        let newState = `${type} ${key} = this.useRef('${key}', ${value}`;
+
+        string = string.replace(line, newState);
+      }else if (line.includes("useReducer") && !line.includes("import")){
+        line = line.trim();
+        // let ref = useRef(null)
+        let type = line.split(" ")[0];
+        let key = line.split("=")[0].split(" ")[1].trim();
+        let value = line.split("=")[1].split("useReducer(")[1] 
+         
+        let regex = /useReducer\((.*)\)/gs
+        value = value.match(regex) ? value.match(regex)[0].split("useReducer(")[1].split(")")[0].trim() : value
+        let newState = `${type} ${key} = this.useReducer('${key}', ${value}`;
 
         string = string.replace(line, newState);
       }
@@ -475,6 +492,12 @@ function Compiler(func) {
     return array;
   };
 
+  // replaceall comments ${/* */} with ''
+  string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
+
+  string = string.replaceAll('../src', './src')
+ 
+
   // capture <Component />, <Component></Component>, and <Component>content</Component>
 
   // Example usage
@@ -495,7 +518,7 @@ function Compiler(func) {
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
       let props = component.split(`<${name}`)[1].split(">")[0].trim() 
-      console.log(props)
+      
      
       let savedname = name;
       let children = props
@@ -551,6 +574,7 @@ function Compiler(func) {
       // remove trailing ,
       .replace(/,\s*$/, "")
       props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,');
+      props = props.replaceAll(',,', ',')
      
  
      
@@ -724,9 +748,7 @@ async function Build() {
     });
     
   }
-
  
-  console.log(`Compilation completed`)
   globalThis.isBuilding = false
 }
 import { watch } from "fs"; 
