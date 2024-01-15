@@ -94,7 +94,9 @@ return {default:Home}
  
 
 ### State Management
-Vaderjs uses partial hydration which is much better than react vdom,  simply pass the ref key to state and only that element will update - no vdom required!!
+Vaderjs uses partial hydration & full reflection
+
+You can pass a reference to the dom target like an id for the element u want to change - or you can just swap the value and the entire component will rerender
 
 ```jsx
 let {Component, useState, useRef} = await import('vaderjs/client') 
