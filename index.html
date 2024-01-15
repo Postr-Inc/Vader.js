@@ -1,36 +1,26 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
-<!-- #vader-allow_class -->
-
+<html lang="en"  >
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vader.js</title>
-    <meta name="description" content="A reactive framework for single application web apps similar to react.js">
-    <link rel="stylesheet" href="./dist/styles/main.css">
-    <link rel="shortcut icon" href="./public/icons/logo.png" type="image/x-icon">
-    <style>
-        .keyword{
-            color: #ff00ff;
-        }
-        .class{
-            color: #00ffff;
-        }
-    </style>
+    <title>Vaderjs v1.3.3</title>
+    <meta name="description" content="Vader.js is a modern web framework for building web applications.">
+    <link rel="shortcut icon" href="https://raw.githubusercontent.com/Postr-Inc/Vader.js/vader1.3.3-beta/logo.png" type="image/x-icon">
+    <link rel="stylesheet" href="./public/styles.css"> 
+     
 </head>
-
 <body>
     <div id="root"></div>
-    <script type="importmap">
-        {
-            "imports":{
-                "vader":"./dist/vader/vader.js",
-                "vader-router":"./dist/vader/vaderRouter.js"
-            }
-        }
-    </script>
-    <script src="dist/init.js" type="module"></script>
-
+    <script type="module" defer>
+        import VaderRouter from './router.js' 
+        const router = new VaderRouter('/', 3000)
+        window.router = router
+        await import('./app.js')
+        router.listen(3000)
+    </script> 
+  
+   
+    
+    
 </body>
-
 </html>
