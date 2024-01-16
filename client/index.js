@@ -170,19 +170,7 @@ export class Component {
     this.vdom =  []
     
     this.children = []
-    let dom = new DOMParser().parseFromString(this.render(), 'text/html').body.firstChild;
-    dom.querySelectorAll('*').forEach((el) => {
-       let obj = {
-          el: el,
-          tag: el.tagName,
-          html: el.innerHTML,
-          content: el.textContent,
-          value: el.value,
-          attributes: el.attributes,
-          children: el.childNodes,
-       } 
-       this.vdom.push(obj)
-    });
+   
      
     /**
      * Parent of the current component.
@@ -261,13 +249,13 @@ export class Component {
       throw new Error('new components must have a key')
     } 
     let comp = new component(props);
-    if(this.components[props.key]){
-      return this.components[props.key]
-    }
+    
     comp['props'] = props;
     comp.children = children; 
     comp.props.children = children.join('')
     comp.parentNode  = this;
+    comp.request = this.request;
+    comp.response = this.response;
     comp.key = props.key || null;
      
     this.components[props.key] = comp
@@ -286,7 +274,8 @@ export class Component {
     }
  
     let comp = this.components[component.key];
-    
+    console.log(component.props)
+    comp.props = component.props;
     let h = comp.render() 
     
     if(h && h.split('>,').length > 1){
@@ -420,7 +409,7 @@ export class Component {
    */
   bind(funcData,jsx,ref, paramNames, ...params) {
    
-   
+    
     const name = `func_${crypto ? crypto.getRandomValues(new Uint32Array(1))[0] : Math.random()}`;
 
     var dynamicFunction = async (...params) => {
@@ -434,29 +423,22 @@ export class Component {
    
       paramNames = paramNames.replace(/,,/g, ',');
     let newparamnames = paramNames.replaceAll(',,', ',')
-     params.forEach((param, index) => {
-       if(param && Object.keys(param).includes('detail')){ 
-         param = param['detail']['target']['event']
-         params[index] = param
-       }
-     });
-      // Remove trailing commas
-      paramNames.endsWith(',') ? paramNames = paramNames.slice(0, -1) : null;
-      console.log(paramNames)
+      
 
-      params.forEach((param, index) => {
-        paramObject[newparamnames.split(',')[index]] = param;
-      });
+      for(var i in params){
+        paramObject[newparamnames.split(',')[i]] = params[i]
+      }
+       
+    
       
       paramNames = paramNames.replace(',,', ',');
       let func = new Function(`${paramNames}`, `
         return (async (${paramNames}) => {
-           ${funcData}
+           ${funcData}  
         })(${Object.keys(paramObject).join(',')})
-      `);
-    
-      // Bind and execute the function with the provided parameters
-      await func.bind(this)(...Object.values(paramObject));
+      `); 
+       await func.bind(this)(...Object.values(paramObject));
+      
     };
      
 
@@ -464,7 +446,7 @@ export class Component {
     if (!this.functionMap.has(name)) {
       document.addEventListener(`call_${name}`, (e) => {
         
-        dynamicFunction(params);
+        dynamicFunction(params)
         this.functionMap.set(e.detail.name, {
           lastUsed: Date.now(),
         });
@@ -489,12 +471,8 @@ export class Component {
       event.target.setAttribute('data-ref', '${ref}');
       let reference = event.target.getAttribute('data-ref');
       event.target.eventData = event;
-       
-      let domquery = queryRef(reference);
-       
-      domquery.eventData = event;
-      domquery.eventData.target = domquery;
-      call('${name}', {event:domquery.eventData}, '${paramNames}')
+      event.target.data = event 
+      call('${name}', {event:event.target.data}, '${paramNames}')
     })(event)
     `;
   }
@@ -552,27 +530,44 @@ export class Component {
   }
 
   /**
-   * Uses state to dynamically update the component.
-   * @method useState
-   * @param {string} [key=null] - The auto-generated key.
-   * @param {*} initialState - The initial state.
-   * @param {Component.render} [func=null] - The render function.
-   * @returns {Array} - An array containing the state value and the setter function.
-   */
-  useState(key = null, initialState) {
-    if (!this.state[key]) {
-      this.state[key] = initialState;
-    }
-    let updatedValue = () => this.state[key];
-    const getValue = updatedValue()
-    const set = (newValue, hook) => { 
-      this.state[key] = newValue;
-      this.hydrate(hook);
-    };
-    this[`set${key}`] = set;
-    this[`get${key}`] = getValue;
-    return [getValue, set];
+ * useState hook.
+ *
+ * @template T
+ * @param {string} key - The key for the state property.
+ * @param {T} initialState - The initial state value.
+ * @returns {[() => T, (newValue: T, hook: Function) => void]} - A tuple with getter and setter functions.
+ */
+ useState(key, initialState) {
+  if (!this.state[key]) {
+    this.state[key] = initialState;
   }
+
+  /**
+   * Get the current state value.
+   *
+   * @returns {T} The current state value.
+   */
+  let updatedValue = () => this.state[key];
+
+  const getValue = updatedValue();
+
+  /**
+   * Set a new value for the state.
+   *
+   * @param {T} newValue - The new value to set.
+   * @param {Function} hook - The hook to hydrate after setting the value.
+   */
+  const set = (newValue, hook) => {
+    this.state[key] = newValue;
+    this.hydrate(hook);
+  };
+
+ 
+
+  return  [this.state[key], set];
+}
+
+  
 
   useRef(key = null, initialState) {
     if (!this.state[key]) {
@@ -681,21 +676,40 @@ export const require = async (path, noresolve = false) => {
 
 
 window.require = require;
-
 /**
- * @method useState - type
- * @param {*} initialState
- * @returns  {Array} [value, set]
- * @description Allows you to use state to dynamically update your component
+ *  useState hook.
+ *
+ * @param {string} key - The key for the state property.
+ * @param {*} initialState - The initial state value.
+ * @returns {[*]} - A tuple with the current state value and a setter function.
  */
-export const useState = (initialState) => {
-  let key = ''
-  let value = initialState;
-  if (key && !states[key]) {
-    this.states[key] = initialState;
+export const useState = (key, initialState) => {
+  if (!states[key]) {
+    states[key] = initialState;
   }
-  return [value, (newValue) => {}];
+
+  /**
+   * Get the current state value.
+   *
+   * @returns {*} The current state value.
+   */
+  let updatedValue = () => states[key];
+
+  /**
+   * Set a new value for the state.
+   *
+   * @param {*} newValue - The new value to set.
+   * @param {Function} hook - The hook to hydrate after setting the value.
+   */
+  const set = (newValue, hook) => {
+    states[key] = newValue;
+    this.hydrate(hook);
+  };
+
+  return [states[key], set];
 };
+
+ 
 
 /**
  * @method useReducer
@@ -717,19 +731,27 @@ export const constant = (value) => {
   }
   return constants[key];
 };
-/**
- * @method useRef
- * @description  Allows you to use a reference to a DOM element
- * @param {*} initialState 
- * @returns 
- */
 
+ /**
+ *  useRef hook.
+ *
+ * @param {*} initialState - The initial state value for the ref.
+ * @returns {{ current: *, bind: string }} - An object containing the current value and a bind string.
+ */
 export const useRef = (initialState) => {
   return {
+    /**
+     * @description The current value of the ref.
+     
+     */
     current: initialState,
+    /**
+     * @description A unique string that can be used to bind the ref to an element.
+     */
     bind: '',
   };
 };
+
 export default {
   Component,
   require,

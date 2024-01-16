@@ -226,9 +226,8 @@ function Compiler(func) {
             
             let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
  
-            let newatribute =  `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}"`
+            let newatribute =  `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}",`
 
-            
             attribute[attributeName] = {
               old: old,
               new: newatribute,
@@ -261,11 +260,9 @@ function Compiler(func) {
           otherdata["jsx"] = isJSXComponent;
           otherdata["ref"] = ref; 
           // since js is all in one line split it
-          newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
-          // param1, param2, param3
-          let length = params ? params.split(' ').length : 0;
+          newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n'); 
           let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
-          let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}"`
+          let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}",`
           newattribute = newattribute.replace(/\s+/g, " ")
           string = string.replace(old, newattribute);
         }
@@ -324,6 +321,7 @@ function Compiler(func) {
       const { element, attributes } = attribute;
       if (Object.keys(attributes).length === 0) return;
 
+       
       newAttributes.push(attribute);
       for (let key in attributes) {
 
@@ -333,6 +331,7 @@ function Compiler(func) {
           if (value && value.includes("={")) {
             value = value.replace("=", "");
             value == "undefined" ? (value = '"') : (value = value);
+            console.log(value)
             key == 'style' ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
 
              
@@ -347,9 +346,7 @@ function Compiler(func) {
 
           }
         } else if (value && value.new) {
-          let newvalue = value.new + ",";
-          let old = value.old;
-          string = string.replace(old, newvalue);
+          string = string.replace(value.old, value.new);
         }
       }
     });
@@ -545,11 +542,13 @@ function Compiler(func) {
       
  
 
-  
-      props = props
-      .replaceAll("=", ":")
+      /**
+       * @prop {string} props
+       * @description replace any given possible value in props and parse the string to a valid JSON object
+       */
+      props = props 
       .replaceAll('"', "'")
-      //fix key:'value' to key:'value', only if value ="value"
+     
       
       .replaceAll(",,", ',')
       .replaceAll("className", "class")
@@ -558,14 +557,27 @@ function Compiler(func) {
       .replaceAll("}'", "")
       .split("$:")
       .join("") 
-      .replace('/', '')
-      // remove trailing ,
+      // replace / with '' at the end of the string
+      .replace(/\/\s*$/, "")
+     
       .replace(/,\s*$/, "")
+      .replaceAll('="', ':"')
+      .replaceAll("='", ":'")
+      .replaceAll('=`', ':`')
+      .replaceAll(`={\``, ':`')
+      .replaceAll('`}', '`')
+      
+      .replaceAll(/=([A-z])/g, ":$1")
+      props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,'); 
       props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,');
+      // ANY VALUE NUMBER BOOLEAN OR STRING
+      props = props.replace(/=(\d+)/g, ':$1,');
       props = props.replaceAll(',,', ',')
      
  
-     
+     /**
+      * @memoize - memoize a component to be remembered on each render and replace the old jsx
+      */
  
       let replace = "";
       replace = isChild

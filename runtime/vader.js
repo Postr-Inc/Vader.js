@@ -45,7 +45,6 @@ let mounts = [];
 export const strictMount = (key, callback) => {
   let timer = setInterval(() => {
     if (document.querySelector('[key="' + key + '"]')) {
-      console.log('mounted')
       clearInterval(timer);
       callback();
     }
@@ -167,7 +166,7 @@ export class Component {
     this.checkIFMounted();
     this.memoizes = []
     
-    
+    this.vdom =  []
     
     this.children = []
    
@@ -249,13 +248,13 @@ export class Component {
       throw new Error('new components must have a key')
     } 
     let comp = new component(props);
-    if(this.components[props.key]){
-      return this.components[props.key]
-    }
+    
     comp['props'] = props;
     comp.children = children; 
     comp.props.children = children.join('')
     comp.parentNode  = this;
+    comp.request = this.request;
+    comp.response = this.response;
     comp.key = props.key || null;
      
     this.components[props.key] = comp
@@ -274,7 +273,7 @@ export class Component {
     }
  
     let comp = this.components[component.key];
-    
+    comp.props = component.props;
     let h = comp.render() 
     
     if(h && h.split('>,').length > 1){
@@ -408,7 +407,7 @@ export class Component {
    */
   bind(funcData,jsx,ref, paramNames, ...params) {
    
-   
+    
     const name = `func_${crypto ? crypto.getRandomValues(new Uint32Array(1))[0] : Math.random()}`;
 
     var dynamicFunction = async (...params) => {
@@ -422,29 +421,22 @@ export class Component {
    
       paramNames = paramNames.replace(/,,/g, ',');
     let newparamnames = paramNames.replaceAll(',,', ',')
-     params.forEach((param, index) => {
-       if(param && Object.keys(param).includes('detail')){ 
-         param = param['detail']['target']['event']
-         params[index] = param
-       }
-     });
-      // Remove trailing commas
-      paramNames.endsWith(',') ? paramNames = paramNames.slice(0, -1) : null;
-      console.log(paramNames)
+      
 
-      params.forEach((param, index) => {
-        paramObject[newparamnames.split(',')[index]] = param;
-      });
+      for(var i in params){
+        paramObject[newparamnames.split(',')[i]] = params[i]
+      }
+       
+    
       
       paramNames = paramNames.replace(',,', ',');
       let func = new Function(`${paramNames}`, `
         return (async (${paramNames}) => {
-           ${funcData}
+           ${funcData}  
         })(${Object.keys(paramObject).join(',')})
-      `);
-    
-      // Bind and execute the function with the provided parameters
-      await func.bind(this)(...Object.values(paramObject));
+      `); 
+       await func.bind(this)(...Object.values(paramObject));
+      
     };
      
 
@@ -452,7 +444,7 @@ export class Component {
     if (!this.functionMap.has(name)) {
       document.addEventListener(`call_${name}`, (e) => {
         
-        dynamicFunction(params);
+        dynamicFunction(params)
         this.functionMap.set(e.detail.name, {
           lastUsed: Date.now(),
         });
@@ -472,17 +464,20 @@ export class Component {
     };
 
     // Return a valid inline js function call
-    return jsx ? dynamicFunction : `
+    function jsxCall(){
+      document.dispatchEvent(
+        new CustomEvent(`call_${name}`, {
+          detail: { name: `call_${name}` },
+        })
+      );
+    }
+    return jsx ? jsxCall: `
     ((event) => { 
       event.target.setAttribute('data-ref', '${ref}');
       let reference = event.target.getAttribute('data-ref');
       event.target.eventData = event;
-       
-      let domquery = queryRef(reference);
-       
-      domquery.eventData = event;
-      domquery.eventData.target = domquery;
-      call('${name}', {event:domquery.eventData}, '${paramNames}')
+      event.target.data = event 
+      call('${name}', {event:event.target.data}, '${paramNames}')
     })(event)
     `;
   }
