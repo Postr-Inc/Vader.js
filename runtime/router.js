@@ -225,6 +225,9 @@ class VaderRouter{
             if(!document.querySelector('#root')){
               throw new Error('Root element not found, please add an element with id root');
             }
+            Component.state = {}
+            Component.reset();
+            Component.components = {}
             Component.request = req;
             Component.response = res;
             document.querySelector('#root').innerHTML =   Component.render() 

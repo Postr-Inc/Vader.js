@@ -257,9 +257,20 @@ export class Component {
     comp.response = this.response;
     comp.key = props.key || null;
      
+    if(!this.components[props.key]){
+      states[props.key] =  {}
+    }
     this.components[props.key] = comp
     this.children.push(comp)
     return this.components[props.key] 
+  }
+  reset(){
+    Object.keys(this.components).forEach((key) => {
+      states[key] =  {}
+    })
+    states[this.key] =  {}
+    this.components = {}
+    this.children = []
   }
   memoize(/**@type {Component}**/component){  
     if(!component.key){
@@ -273,7 +284,7 @@ export class Component {
     }
  
     let comp = this.components[component.key];
-    comp.props = component.props;
+    comp.props = component.props; 
     let h = comp.render() 
     
     if(h && h.split('>,').length > 1){
@@ -542,9 +553,9 @@ export class Component {
  * @param {T} initialState - The initial state value.
  * @returns {[() => T, (newValue: T, hook: Function) => void]} - A tuple with getter and setter functions.
  */
- useState(key, initialState) {
-  if (!this.state[key]) {
-    this.state[key] = initialState;
+ useState(key, initialState) { 
+  if (!states[this.key][key]) {
+    states[this.key][key] = initialState;
   }
 
   /**
@@ -552,7 +563,7 @@ export class Component {
    *
    * @returns {T} The current state value.
    */
-  let updatedValue = () => this.state[key];
+  let updatedValue = () => states[this.key][key];
 
   const getValue = updatedValue();
 
@@ -563,13 +574,13 @@ export class Component {
    * @param {Function} hook - The hook to hydrate after setting the value.
    */
   const set = (newValue, hook) => {
-    this.state[key] = newValue;
+    states[this.key][key] = newValue;
     this.hydrate(hook);
   };
 
  
 
-  return  [this.state[key], set];
+  return  [getValue, set];
 }
 
   
