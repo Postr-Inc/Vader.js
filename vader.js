@@ -226,11 +226,13 @@ function Compiler(func) {
             
             let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
  
+            paramString = paramString.replaceAll(',,', ',')
+            let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}},`
             let newatribute =  `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}",`
 
             attribute[attributeName] = {
               old: old,
-              new: newatribute,
+              new: isJSXComponent ? jsxAttribute : newatribute,
               attribute: attributeName,
             };
             attributesList.push({
@@ -262,9 +264,11 @@ function Compiler(func) {
           // since js is all in one line split it
           newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n'); 
           let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
+          paramString = paramString.replaceAll(',,', ',')
+          let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}},`
           let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}",`
           newattribute = newattribute.replace(/\s+/g, " ")
-          string = string.replace(old, newattribute);
+          string = string.replace(old,  isJSXComponent ? jsxAttribute : newattribute);
         }
       }
     }
@@ -566,10 +570,10 @@ function Compiler(func) {
       .replaceAll('=`', ':`')
       .replaceAll(`={\``, ':`')
       .replaceAll('`}', '`')
+      .replaceAll(",,", ',')
       
       .replaceAll(/=([A-z])/g, ":$1")
-      props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,'); 
-      props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,');
+      props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,');  
       // ANY VALUE NUMBER BOOLEAN OR STRING
       props = props.replace(/=(\d+)/g, ':$1,');
       props = props.replaceAll(',,', ',')
