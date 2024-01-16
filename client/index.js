@@ -434,6 +434,12 @@ export class Component {
    
       paramNames = paramNames.replace(/,,/g, ',');
     let newparamnames = paramNames.replaceAll(',,', ',')
+     params.forEach((param, index) => {
+       if(param && Object.keys(param).includes('detail')){ 
+         param = param['detail']['target']['event']
+         params[index] = param
+       }
+     });
       // Remove trailing commas
       paramNames.endsWith(',') ? paramNames = paramNames.slice(0, -1) : null;
       console.log(paramNames)
@@ -711,6 +717,12 @@ export const constant = (value) => {
   }
   return constants[key];
 };
+/**
+ * @method useRef
+ * @description  Allows you to use a reference to a DOM element
+ * @param {*} initialState 
+ * @returns 
+ */
 
 export const useRef = (initialState) => {
   return {

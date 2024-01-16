@@ -198,8 +198,9 @@ class VaderRouter{
             });
           }
         },
-        redirect: (path) => {
-          window.location.hash = path;
+        redirect: (path) => { 
+          !path.startsWith('/') ? path = `/${path}` : null;
+          window.location.hash = `#${path}`;
         },
         render: async (/**@type {Component} */ Component, req, res) => {
           

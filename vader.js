@@ -448,18 +448,6 @@ function Compiler(func) {
         let newState = `${type} ${key} = this.useRef('${key}', ${value}`;
 
         string = string.replace(line, newState);
-      }else if (line.includes("useReducer") && !line.includes("import")){
-        line = line.trim();
-        // let ref = useRef(null)
-        let type = line.split(" ")[0];
-        let key = line.split("=")[0].split(" ")[1].trim();
-        let value = line.split("=")[1].split("useReducer(")[1] 
-         
-        let regex = /useReducer\((.*)\)/gs
-        value = value.match(regex) ? value.match(regex)[0].split("useReducer(")[1].split(")")[0].trim() : value
-        let newState = `${type} ${key} = this.useReducer('${key}', ${value}`;
-
-        string = string.replace(line, newState);
       }
     }
   });
@@ -757,7 +745,9 @@ switch (true) {
   case process.argv.includes('--watch'):
 
     console.log(`
-Vader.js v1.3.3  
+Vader.js v1.3.3
+- Watching for changes in ./pages
+- Watching for changes in ./src
 `)
     Build()
  

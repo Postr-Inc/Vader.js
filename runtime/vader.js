@@ -167,22 +167,10 @@ export class Component {
     this.checkIFMounted();
     this.memoizes = []
     
-    this.vdom =  []
+    
     
     this.children = []
-    let dom = new DOMParser().parseFromString(this.render(), 'text/html').body.firstChild;
-    dom.querySelectorAll('*').forEach((el) => {
-       let obj = {
-          el: el,
-          tag: el.tagName,
-          html: el.innerHTML,
-          content: el.textContent,
-          value: el.value,
-          attributes: el.attributes,
-          children: el.childNodes,
-       } 
-       this.vdom.push(obj)
-    });
+   
      
     /**
      * Parent of the current component.
@@ -434,6 +422,12 @@ export class Component {
    
       paramNames = paramNames.replace(/,,/g, ',');
     let newparamnames = paramNames.replaceAll(',,', ',')
+     params.forEach((param, index) => {
+       if(param && Object.keys(param).includes('detail')){ 
+         param = param['detail']['target']['event']
+         params[index] = param
+       }
+     });
       // Remove trailing commas
       paramNames.endsWith(',') ? paramNames = paramNames.slice(0, -1) : null;
       console.log(paramNames)
@@ -546,27 +540,44 @@ export class Component {
   }
 
   /**
-   * Uses state to dynamically update the component.
-   * @method useState
-   * @param {string} [key=null] - The auto-generated key.
-   * @param {*} initialState - The initial state.
-   * @param {Component.render} [func=null] - The render function.
-   * @returns {Array} - An array containing the state value and the setter function.
-   */
-  useState(key = null, initialState) {
-    if (!this.state[key]) {
-      this.state[key] = initialState;
-    }
-    let updatedValue = () => this.state[key];
-    const getValue = updatedValue()
-    const set = (newValue, hook) => { 
-      this.state[key] = newValue;
-      this.hydrate(hook);
-    };
-    this[`set${key}`] = set;
-    this[`get${key}`] = getValue;
-    return [getValue, set];
+ * useState hook.
+ *
+ * @template T
+ * @param {string} key - The key for the state property.
+ * @param {T} initialState - The initial state value.
+ * @returns {[() => T, (newValue: T, hook: Function) => void]} - A tuple with getter and setter functions.
+ */
+ useState(key, initialState) {
+  if (!this.state[key]) {
+    this.state[key] = initialState;
   }
+
+  /**
+   * Get the current state value.
+   *
+   * @returns {T} The current state value.
+   */
+  let updatedValue = () => this.state[key];
+
+  const getValue = updatedValue();
+
+  /**
+   * Set a new value for the state.
+   *
+   * @param {T} newValue - The new value to set.
+   * @param {Function} hook - The hook to hydrate after setting the value.
+   */
+  const set = (newValue, hook) => {
+    this.state[key] = newValue;
+    this.hydrate(hook);
+  };
+
+ 
+
+  return  [this.state[key], set];
+}
+
+  
 
   useRef(key = null, initialState) {
     if (!this.state[key]) {
@@ -675,21 +686,40 @@ export const require = async (path, noresolve = false) => {
 
 
 window.require = require;
-
 /**
- * @method useState - type
- * @param {*} initialState
- * @returns  {Array} [value, set]
- * @description Allows you to use state to dynamically update your component
+ *  useState hook.
+ *
+ * @param {string} key - The key for the state property.
+ * @param {*} initialState - The initial state value.
+ * @returns {[*]} - A tuple with the current state value and a setter function.
  */
-export const useState = (initialState) => {
-  let key = ''
-  let value = initialState;
-  if (key && !states[key]) {
-    this.states[key] = initialState;
+export const useState = (key, initialState) => {
+  if (!states[key]) {
+    states[key] = initialState;
   }
-  return [value, (newValue) => {}];
+
+  /**
+   * Get the current state value.
+   *
+   * @returns {*} The current state value.
+   */
+  let updatedValue = () => states[key];
+
+  /**
+   * Set a new value for the state.
+   *
+   * @param {*} newValue - The new value to set.
+   * @param {Function} hook - The hook to hydrate after setting the value.
+   */
+  const set = (newValue, hook) => {
+    states[key] = newValue;
+    this.hydrate(hook);
+  };
+
+  return [states[key], set];
 };
+
+ 
 
 /**
  * @method useReducer
@@ -712,12 +742,26 @@ export const constant = (value) => {
   return constants[key];
 };
 
+ /**
+ *  useRef hook.
+ *
+ * @param {*} initialState - The initial state value for the ref.
+ * @returns {{ current: *, bind: string }} - An object containing the current value and a bind string.
+ */
 export const useRef = (initialState) => {
   return {
+    /**
+     * @description The current value of the ref.
+     
+     */
     current: initialState,
+    /**
+     * @description A unique string that can be used to bind the ref to an element.
+     */
     bind: '',
   };
 };
+
 export default {
   Component,
   require,
