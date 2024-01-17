@@ -36,6 +36,8 @@ Tip: Each folder can be deep nested up to 4 levels!
 /pages/index.jsx = /
 /pages/home/[page].jsx  = /home/:page
 /pages/path/index.jsx = /path/file
+/pages/test/[...]/index.jsx = /path/test/*
+/pages/route/[param1]/[param2].jsx = /path/route/:param1/:param2
 ```
 Keyword folders - all files are passed from these folders to the `dist` folder
 
