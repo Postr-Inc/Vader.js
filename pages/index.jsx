@@ -2,7 +2,7 @@ const { strictMount } = await import("./vader.js");
 
 let { Component, require, useState } = await import("./vader.js");
 let { Button } = await require("./src/button.jsx");
-let { Nav } = await require("./src/Nav.jsx");
+let { Nav } = await require("./src/nav.jsx");
 let { ComponentExample } = await require("./src/examples/component.jsx");
 let { CodeBlock } = await require("./src/codeblock.jsx");
 class Index extends Component {
