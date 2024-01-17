@@ -180,7 +180,10 @@ function Compiler(func) {
                   }
                 });
 
-                let replacement = `this.useFunction(${name} ${isJSXComponent ? "" : ","
+                if(isJSXComponent){
+                   continue
+                }
+                let replacement = `this.useFunction(${name},
                   } ${params || null}${isJSXComponent ? "" : ","} true ${isJSXComponent ? "" : ","
                   } '${ref}')`;
 
@@ -227,7 +230,7 @@ function Compiler(func) {
             let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
  
             paramString = paramString.replaceAll(',,', ',')
-            let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}},`
+            let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}}.bind(this),`
             let newatribute =  `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}",`
 
             attribute[attributeName] = {
@@ -265,7 +268,7 @@ function Compiler(func) {
           newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n'); 
           let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
           paramString = paramString.replaceAll(',,', ',')
-          let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}},`
+          let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}}.bind(this),`
           let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}",`
           newattribute = newattribute.replace(/\s+/g, " ")
           string = string.replace(old,  isJSXComponent ? jsxAttribute : newattribute);
