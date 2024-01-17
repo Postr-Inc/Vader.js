@@ -576,8 +576,8 @@ function Compiler(func) {
       .replaceAll(`={\``, ':`')
       .replaceAll('`}', '`')
       .replaceAll(",,", ',')
-      
-      .replaceAll(/=([A-z])/g, ":$1")
+      .replaceAll(/=(?=(?:(?:[^"']*["'][^"']*['"])*[^"']*$))/g, ':');
+ 
       props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,');  
       // ANY VALUE NUMBER BOOLEAN OR STRING
       props = props.replace(/=(\d+)/g, ':$1,');
@@ -646,29 +646,42 @@ async function Build() {
   });
   
   // Process files in the 'pages' directory
+  let appjs = '';
+  let hasWritten = []
+  const writejs = () =>{
+    writer(process.cwd() + '/dist/app.js', appjs)
+  }
   for await (let file of glb) {
     // Normalize file paths
     let origin = file.replace(/\\/g, '/');
     let fileName =  origin.split('/pages/')[1].split('.jsx')[0].replace('.jsx', '') + '.jsx';
     let isBasePath = fileName === 'index.jsx';
   
-    // Extract URL-related information from the file path
-    let aburl = origin.split('pages')[1].split('.jsx')[0].replace('.jsx', '').replace('/index', '').replace('/_', '/:').replace('/[', '/:').replace(']', '');
-    aburl.includes('[') ? aburl = '/' + aburl.split('[')[0].replace('/', '') : null;
+    // Extract all dynamic parameters from the file path [param1]/[param2]/[param3
+    let aburl =  origin.split('/pages')[1].split('.jsx')[0].replace('.jsx', '').split('[').join(':').split(']').join('');
+     
+    if(aburl.includes('...')){
+      // this is a catch all route
+      // it should be /pages/[...]/index.jsx or /pages/[...].jsx  
+      aburl = aburl.split('...').join('*').split(':*').join('*')
+      aburl = aburl.replaceAll('./index', '')  
+      
+    }
   
     // Create an object with URL and pathname properties
     let obj = {
-      url: isBasePath ? '/' : aburl,
+      url: isBasePath ? '/' : aburl.replaceAll('index', ''),
       pathname: `/pages/${origin.split('pages/')[1].split('.jsx')[0].replace('.jsx', '')}.jsx`,
       fullpath: origin,
     };
   
+   
     // Read and compile file content
     let data = await fs.readFileSync(origin, "utf8");
     data = Compiler(data) 
    
     await writer(process.cwd() + "/dist/pages/" + fileName, data);
-  
+   
     // Generate routing logic
     let js = `
       router.get('${obj.url}', async (req, res) => {
@@ -676,13 +689,11 @@ async function Build() {
       }) 
       //@desc ${obj.pathname}
     ` + '\n';
-  
-    // Update 'app.js' file with routing logic
-    let before = fs.existsSync(process.cwd() + "/dist/app.js") ? await reader(process.cwd() + "/dist/app.js") : '';
-    let newfile = before + '\n' + js;
-    if (!before.includes(`//@desc ${obj.pathname}`)) {
-      await writer(process.cwd() + "/dist/app.js", newfile);
-    }
+    appjs += js
+ 
+    writejs()
+
+     
 
     let beforeHTML = fs.existsSync(process.cwd() + "/dist/index.html") ? await reader(process.cwd() + "/dist/index.html") : '';
     if(!beforeHTML.includes(`<link rel="prefetch" href="/pages/${origin.split('pages/')[1] }" as="fetch">`)){
@@ -690,6 +701,7 @@ async function Build() {
       await writer(process.cwd() + "/dist/index.html", newHTML);
     }
   }
+  
    
  
   const scannedSourceFiles = await glob("**/**.{jsx,js}", {
