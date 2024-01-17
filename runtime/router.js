@@ -138,6 +138,10 @@ class VaderRouter{
         if (route.path === hash) {
           return true;
         }
+
+        if(hash === '' && route.path === '/'){
+          return true
+        }
     
         if (route.path.includes('*') || route.path.includes(':')) {
           const routeParts = route.path.split('/');
