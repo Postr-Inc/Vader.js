@@ -98,8 +98,10 @@ function Compiler(func) {
         let ref = Math.random().toString(36).substring(2);
         let old = `${attributeName}${attributeValue}`;
 
-        let newvalue =
-          attributeValue.split("=>")[1] || attributeValue.split("=>")[1].trim();
+        //ex: (params)=>{console.log(params)} => console.log(params
+        // do not split all =>
+        let newvalue =  attributeValue.split("=>").slice(1).join("=>").trim();
+       
 
         newvalue = newvalue.trim();
 
