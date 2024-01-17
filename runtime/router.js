@@ -170,13 +170,14 @@ class VaderRouter{
       });
     
       
-      if (!route) {
+      if (!route) { 
         route = this.routes.find((errorRoute) => {
-          if (errorRoute.path === '/404') {
+          console.log(errorRoute)
+          if (errorRoute.path.includes('/404')){ 
             this.error = true;
             return true;
-          } else if (!this.error && errorRoute.path !== '/404') {
-           
+          } else if (!this.error && errorRoute.path.includes('/404')){
+            window.location.hash = this.basePath
           }
         });
     
