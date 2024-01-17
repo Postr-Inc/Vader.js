@@ -181,9 +181,9 @@ function Compiler(func) {
                 });
 
                 if(isJSXComponent){
-                   continue
+                  return
                 }
-                let replacement = `this.useFunction(${name},
+                let replacement = `this.useFunction(${name} ${isJSXComponent ? "" : ","
                   } ${params || null}${isJSXComponent ? "" : ","} true ${isJSXComponent ? "" : ","
                   } '${ref}')`;
 
