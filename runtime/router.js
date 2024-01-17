@@ -102,7 +102,10 @@ class VaderRouter{
           const paramName = part.slice(1);
           params[paramName] = hashParts[index];
         }else if(part.startsWith('*')){ 
-          params[0] = hashParts.slice(index)
+          let array = hashParts.slice(index)
+          array.forEach((i, index)=>{
+            params[index] = i
+          })
         }
       });
       return params;
