@@ -360,7 +360,7 @@ export class Component {
       } else {
         const targetElement = document.querySelector(`[key="${this.key}"]`);
         if (targetElement) {
-          targetElement.innerHTML = this.render();
+          targetElement.outerHTML = this.render();
         } else {
           console.error('Target element not found.');
         }
@@ -659,6 +659,7 @@ export const require = async (path, noresolve = false) => {
   let file = ''
   try {
     file = await fetch(path).then((res) => res.text());
+    cache
   } catch (error) {
      console.error(error)
   }
@@ -683,9 +684,11 @@ export const require = async (path, noresolve = false) => {
         file = file.replaceAll(exports, "");
       }
       
-      return new Function(`return (async () => { ${file} })()`)();
+      cache[path] = new Function(`return (async () => { ${file} })()`)();
+      return cache[path]
     case filetype === "jsx": 
-    return new Function(`return (async () => { ${file} })()`)()
+    cache[path] = new Function(`return (async () => { ${file} })()`)();
+    return  cache[path]
        
   } 
 };
