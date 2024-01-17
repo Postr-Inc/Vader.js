@@ -10,7 +10,7 @@ class Button extends Component{
          
         return  `
            <button class="${this.props?.class}",
-            onClick="${this.bind(`this.parentNode.response.redirect(this.props?.redirect); `, false, 'nz450qw707g', "", null)}"
+            onClick="${this.bind(`console.log(this); this.parentNode.response.redirect(this.props?.redirect); `, false, '116gq9t9fu0l', "", null)}",
            >${this.props?.children}</button>
 
         `

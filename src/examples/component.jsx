@@ -2,8 +2,7 @@ let {Component, useState, strictMount, useRef} = await import('./vader.js')
 class Video extends Component{
     constructor(props){
         super(props)
-        this.key = this.props?.key
-        this.ref = crypto.getRandomValues(new Uint32Array(1))[0]
+        this.key = this.props?.key 
     }
     render(){ 
          
@@ -11,7 +10,7 @@ class Video extends Component{
          
           
         
-        let likedRef = this.useRef('likedRef', this.ref)
+        let likedRef = this.useRef('likedRef', null)
         
         return  `
             <div class="card card-side    bg-base-100 border border-slate-200">
@@ -27,7 +26,7 @@ class Video extends Component{
                         ref="${likedRef.bind}",
                         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="${1.5}", stroke="currentColor" 
                         class="${`w-6 h-6 cursor-pointer ${liked ? 'fill-error stroke-error' : ''}`}",
-                        onClick="${this.bind(`setLiked(!liked, likedRef.bind);`, false, 'bj1bf8rl4fu', "setLiked,,,liked,,likedRef,,event,", setLiked,  liked, likedRef, event)}",
+                        onClick="${this.bind(`setLiked(!liked, likedRef.bind);`, false, 'z7xt3szh14m', "setLiked,,liked,likedRef,event,", setLiked,  liked, likedRef, event)}",
                         >
                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                         </svg>
@@ -91,7 +90,7 @@ class ComponentExample extends Component{
         }
         
         strictMount(this.key, ()=>{
-            console.log(searchInput)
+            console.log(this.components)
         })
           
         return `
@@ -107,7 +106,7 @@ class ComponentExample extends Component{
                    
                 
                     <input  
-                    onInput="${this.bind(`this.callFunction(${this.useFunction(filterVideos , videos, true , '2om5t2gms6k')}, false, event, ${JSON.stringify(videos)});`, false, '2om5t2gms6k', "", null)}",      
+                    onInput="${this.bind(`this.callFunction(${this.useFunction(filterVideos , videos, true , 'umap35ipm9')}, false, event, ${JSON.stringify(videos)});`, false, 'umap35ipm9', "", null)}",      
                     type="text" class="input input-bordered rounded-full" placeholder="Search..." />
                 </div>
                 <h1   class='font-bold text-xl  mx-5 p-2' ref="${searchHook.bind}", >${videos.length} Videos</h1>

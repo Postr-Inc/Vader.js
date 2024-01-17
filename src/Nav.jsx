@@ -2,28 +2,53 @@ let { Component } = await import('./vader.js')
 
 class Nav extends Component {
     constructor(props) {
-        super(props) 
+        super(props)
     }
     render() {
         return `
-            <div class="navbar bg-base-100 ">
-                <div class="flex-1  ">
-                    <img src="https://raw.githubusercontent.com/Postr-Inc/Vader.js/main/logo.png" class="w-12 h-12" />
+            <div class="navbar  sticky top-0 z-[9999]    bg-white ">
+                <div class="navbar-start"
+                    onClick="${this.bind(`this.response.redirect('/'); `, false, 'jvcfy71qxmj', "", null)}",
+                >
+
+                    <img
+                    alt='vader-logo'
+                    src="https://raw.githubusercontent.com/Postr-Inc/Vader.js/main/logo.png" class="w-12 cursor-pointer h-12" />
                     <a class="  text-2xl mx-2  font-bold ">Vader.js</a>
-                     
                 </div>
-                <div class="flex-none">
-                    <button class="btn btn-square btn-ghost">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path></svg>
-                    </button>
+                 
+                <div class="navbar-end">
+                    <a href='https://github.com/Postr-Inc/Vader.js' target='_blank'>
+                        <img 
+                        alt='github-logo'
+                        src='https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png' class='w-8 h-8' />
+                    </a>
+                </div>
+                <div class="dropdown dropdown-left z-[9999]">
+                    <div tabIndex="${0}", role="button" class="btn btn-ghost lg:hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" /></svg>
+                    </div>
+                    <ul tabIndex="${0}", class="menu menu-sm  z-[9999]   dropdown-content mt-3   bg-white p-2 shadow  rounded-box w-52">
+                        <li><a>Item 1</a></li>
+                        <li>
+                            <a>Parent</a>
+                            <ul class="p-2">
+                                <li><a>Submenu 1</a></li>
+                                <li><a>Submenu 2</a></li>
+                            </ul>
+                        </li>
+                        <li><a>Item 3</a></li>
+                    </ul>
                 </div>
             </div>
+
         `
     }
 }
 
+
 return { Nav }
 
-//wascompiled
+
 
  //wascompiled

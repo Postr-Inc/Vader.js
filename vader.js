@@ -45,7 +45,6 @@ let mounts = [];
 export const strictMount = (key, callback) => {
   let timer = setInterval(() => {
     if (document.querySelector('[key="' + key + '"]')) {
-      console.log('mounted')
       clearInterval(timer);
       callback();
     }
@@ -170,19 +169,7 @@ export class Component {
     this.vdom =  []
     
     this.children = []
-    let dom = new DOMParser().parseFromString(this.render(), 'text/html').body.firstChild;
-    dom.querySelectorAll('*').forEach((el) => {
-       let obj = {
-          el: el,
-          tag: el.tagName,
-          html: el.innerHTML,
-          content: el.textContent,
-          value: el.value,
-          attributes: el.attributes,
-          children: el.childNodes,
-       } 
-       this.vdom.push(obj)
-    });
+   
      
     /**
      * Parent of the current component.
@@ -249,7 +236,33 @@ export class Component {
          *  @param {*} Component
          */
         render: async (Component) => {},
+        /**
+         * @method log
+         * @description  This method is used to log the request and response
+         * @param {String} type
+         */
+        log: (type) => {},
+        /**
+         * @method setQuery
+         * @description  This method is used to set the query object for the current route
+         */
+        setQuery: (query) => {},
+        
   }
+  /**
+   * @method router
+   * @description use router methods directly from the parent component
+   */
+
+   this.router = {
+      /**
+       * @method use
+       * @description add a middleware to the current route
+       * @param {Function} middleware
+       * @returns {void}
+       */
+      use: (/**@type {Function} */ middleware) => {},
+   }
 }
 
   createComponent(/**@type {Component}**/component, props, children) {
@@ -261,18 +274,29 @@ export class Component {
       throw new Error('new components must have a key')
     } 
     let comp = new component(props);
-    if(this.components[props.key]){
-      return this.components[props.key]
-    }
+    
     comp['props'] = props;
     comp.children = children; 
     comp.props.children = children.join('')
     comp.parentNode  = this;
+    comp.request = this.request;
+    comp.response = this.response;
     comp.key = props.key || null;
      
+    if(!this.components[props.key]){
+      states[props.key] =  {}
+    }
     this.components[props.key] = comp
     this.children.push(comp)
     return this.components[props.key] 
+  }
+  reset(){
+    Object.keys(this.components).forEach((key) => {
+      states[key] =  {}
+    })
+    states[this.key] =  {}
+    this.components = {}
+    this.children = []
   }
   memoize(/**@type {Component}**/component){  
     if(!component.key){
@@ -286,7 +310,7 @@ export class Component {
     }
  
     let comp = this.components[component.key];
-    
+    comp.props = component.props; 
     let h = comp.render() 
     
     if(h && h.split('>,').length > 1){
@@ -362,7 +386,7 @@ export class Component {
       } else {
         const targetElement = document.querySelector(`[key="${this.key}"]`);
         if (targetElement) {
-          targetElement.innerHTML = this.render();
+          targetElement.outerHTML = this.render();
         } else {
           console.error('Target element not found.');
         }
@@ -420,7 +444,7 @@ export class Component {
    */
   bind(funcData,jsx,ref, paramNames, ...params) {
    
-   
+    
     const name = `func_${crypto ? crypto.getRandomValues(new Uint32Array(1))[0] : Math.random()}`;
 
     var dynamicFunction = async (...params) => {
@@ -434,29 +458,22 @@ export class Component {
    
       paramNames = paramNames.replace(/,,/g, ',');
     let newparamnames = paramNames.replaceAll(',,', ',')
-     params.forEach((param, index) => {
-       if(param && Object.keys(param).includes('detail')){ 
-         param = param['detail']['target']['event']
-         params[index] = param
-       }
-     });
-      // Remove trailing commas
-      paramNames.endsWith(',') ? paramNames = paramNames.slice(0, -1) : null;
-      console.log(paramNames)
+      
 
-      params.forEach((param, index) => {
-        paramObject[newparamnames.split(',')[index]] = param;
-      });
+      for(var i in params){
+        paramObject[newparamnames.split(',')[i]] = params[i]
+      }
+       
+    
       
       paramNames = paramNames.replace(',,', ',');
       let func = new Function(`${paramNames}`, `
         return (async (${paramNames}) => {
-           ${funcData}
+           ${funcData}  
         })(${Object.keys(paramObject).join(',')})
-      `);
-    
-      // Bind and execute the function with the provided parameters
-      await func.bind(this)(...Object.values(paramObject));
+      `); 
+       await func.bind(this)(...Object.values(paramObject));
+      
     };
      
 
@@ -464,7 +481,7 @@ export class Component {
     if (!this.functionMap.has(name)) {
       document.addEventListener(`call_${name}`, (e) => {
         
-        dynamicFunction(params);
+        dynamicFunction(params)
         this.functionMap.set(e.detail.name, {
           lastUsed: Date.now(),
         });
@@ -484,17 +501,20 @@ export class Component {
     };
 
     // Return a valid inline js function call
-    return jsx ? dynamicFunction : `
+    function jsxCall(){
+      document.dispatchEvent(
+        new CustomEvent(`call_${name}`, {
+          detail: { name: `call_${name}` },
+        })
+      );
+    }
+    return jsx ? jsxCall: `
     ((event) => { 
       event.target.setAttribute('data-ref', '${ref}');
       let reference = event.target.getAttribute('data-ref');
       event.target.eventData = event;
-       
-      let domquery = queryRef(reference);
-       
-      domquery.eventData = event;
-      domquery.eventData.target = domquery;
-      call('${name}', {event:domquery.eventData}, '${paramNames}')
+      event.target.data = event 
+      call('${name}', {event:event.target.data}, '${paramNames}')
     })(event)
     `;
   }
@@ -559,9 +579,9 @@ export class Component {
  * @param {T} initialState - The initial state value.
  * @returns {[() => T, (newValue: T, hook: Function) => void]} - A tuple with getter and setter functions.
  */
- useState(key, initialState) {
-  if (!this.state[key]) {
-    this.state[key] = initialState;
+ useState(key, initialState) { 
+  if (!states[this.key][key]) {
+    states[this.key][key] = initialState;
   }
 
   /**
@@ -569,7 +589,7 @@ export class Component {
    *
    * @returns {T} The current state value.
    */
-  let updatedValue = () => this.state[key];
+  let updatedValue = () => states[this.key][key];
 
   const getValue = updatedValue();
 
@@ -580,13 +600,13 @@ export class Component {
    * @param {Function} hook - The hook to hydrate after setting the value.
    */
   const set = (newValue, hook) => {
-    this.state[key] = newValue;
+    states[this.key][key] = newValue;
     this.hydrate(hook);
   };
 
  
 
-  return  [this.state[key], set];
+  return  [getValue, set];
 }
 
   
@@ -665,6 +685,7 @@ export const require = async (path, noresolve = false) => {
   let file = ''
   try {
     file = await fetch(path).then((res) => res.text());
+    cache
   } catch (error) {
      console.error(error)
   }
@@ -689,9 +710,11 @@ export const require = async (path, noresolve = false) => {
         file = file.replaceAll(exports, "");
       }
       
-      return new Function(`return (async () => { ${file} })()`)();
+      cache[path] = new Function(`return (async () => { ${file} })()`)();
+      return cache[path]
     case filetype === "jsx": 
-    return new Function(`return (async () => { ${file} })()`)()
+    cache[path] = new Function(`return (async () => { ${file} })()`)();
+    return  cache[path]
        
   } 
 };

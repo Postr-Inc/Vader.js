@@ -101,9 +101,11 @@ class VaderRouter{
         if (part.startsWith(':')) {
           const paramName = part.slice(1);
           params[paramName] = hashParts[index];
-        }else if(part.startsWith('*')){
-          // remove queries from this par
-          params[0] = hashParts.slice(index).join('/').split('?')[0];
+        }else if(part.startsWith('*')){ 
+          let array = hashParts.slice(index)
+          array.forEach((i, index)=>{
+            params[index] = i
+          })
         }
       });
       return params;
@@ -131,38 +133,57 @@ class VaderRouter{
     handleRoute(hash) {
       hash = hash.slice(1);
       let status = 200;
+      let paramsCatchall = {}
       let route = this.routes.find((route) => {
-       
         if (route.path === hash) {
           return true;
         }
-        const routePathParts = route.path.split('/');
-        const hashParts = hash.split('/');
-        if (routePathParts.length !== hashParts.length) {
-          return false;
-        }else if(routePathParts[routePathParts.length-1].startsWith('*')){
+    
+        if (route.path.includes('*') || route.path.includes(':')) {
+          const routeParts = route.path.split('/');
+          const hashParts = hash.split('/');
+    
+          if (routeParts.length !== hashParts.length && !route.path.endsWith('*')) { 
+            return false;
+          }
+    
+          for (let index = 0; index < routeParts.length; index++) {
+            const routePart = routeParts[index];
+            const hashPart = hashParts[index];
+    
+            if (routePart.startsWith(':') || routePart.startsWith('*')) {
+               
+              continue;
+            }
+    
+            if (routePart !== hashPart) {
+              
+              return false;
+            }
+          }
+    
           return true;
         }
-        const params = this.extractParams( route.path, hash);
+    
+        const params = this.extractParams(route.path, hash);
         return Object.keys(params).length > 0;
       });
     
-      if (!route) {
-        route = this.routes.find((route) => {
-           
-           if(route.path === '/404'){
-            return  true;
-           }else{
-             window.location.hash = this.basePath  
-           }
+      
+      if (!route) { 
+        route = this.routes.find((errorRoute) => {
+          console.log(errorRoute)
+          if (errorRoute.path.includes('/404')){ 
+            this.error = true;
+            return true;
+          } else if (!this.error && errorRoute.path.includes('/404')){
+            window.location.hash = this.basePath
+          }
         });
-  
-        route ? status = 200 :
-  
-        status = 404;
+    
+        status = route ? 200 : 404;
       }
-  
-       
+     
       const queryParams = this.extractQueryParams(hash);
       const params =  route && route.path ? this.extractParams(route.path, hash) : {};
       const req = {
@@ -198,13 +219,14 @@ class VaderRouter{
             });
           }
         },
-        redirect: (path) => {
-          window.location.hash = path;
+        redirect: (path) => { 
+          !path.startsWith('/') ? path = `/${path}` : null;
+          window.location.hash = `#${path}`;
         },
         render: async (/**@type {Component} */ Component, req, res) => {
           
-            if(!Component.default || !Component.constructor){
-              let message = !Component.default ? 'default' : 'constructor';
+            if(!Component || !Component.default || !Component.constructor){
+              let message = !Component || !Component.default ? 'default' : 'constructor';
               switch(message){
                 case 'default':
                   throw new Error(`Component must have a default export ex: return {default: Component}`);
@@ -224,12 +246,26 @@ class VaderRouter{
             if(!document.querySelector('#root')){
               throw new Error('Root element not found, please add an element with id root');
             }
+            Component.router.use = this.use.bind(this)
+            Component.state = {}
+            Component.reset();
+            Component.components = {}
             Component.request = req;
             Component.response = res;
             document.querySelector('#root').innerHTML =   Component.render() 
             Component.bindMount();
             Component.onMount()
            
+           
+        },
+        setQuery: (query) => {
+          let queryString = '';
+          Object.keys(query).forEach((key, index) => {
+            queryString += `${index === 0 ? '?' : '&'}${key}=${query[key]}`;
+          }); 
+          let route = window.location.hash.split('?')[0];
+          queryString = queryString.replace('/', '-').replaceAll('/', '-')
+          window.location.hash = `${route}${queryString}`;
         },
         send: (data) => {
           document.querySelector('#root').innerHTML = data;
@@ -246,15 +282,15 @@ class VaderRouter{
           }else{
             throw new Error('Selector must be a string');
           }
-        },
+        } 
       };
       this.middlewares.forEach((middleware) => {
         middleware(req, res);
       });
     
       route ? route.handler(req, res) : null;
-       
     }
+    
     
   }
 
