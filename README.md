@@ -35,7 +35,7 @@ Tip: Each folder can be deep nested up to 4 levels!
 ```bash
 /pages/index.jsx = /
 /pages/home/[page].jsx  = /home/:page
-/pages/path/index.jsx = /path/file
+/pages/path/index.jsx = /path/
 /pages/test/[...]/index.jsx = /path/test/*
 /pages/route/[param1]/[param2].jsx = /path/route/:param1/:param2
 ```
@@ -62,8 +62,8 @@ vader's compiler automatically handles routing so you wont need to! - it uses a 
 ```bash
 /pages/index.jsx = /
 /pages/home/[page].jsx  = /home/:page
-/pages/path/index.jsx = /path/file
-
+/pages/path/index.jsx = /path/
+/pages/path/[...].jsx = /path/*
  
 ```
 For pages that have [params] you can derive it using this.request
