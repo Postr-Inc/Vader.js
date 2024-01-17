@@ -335,7 +335,7 @@ function Compiler(func) {
           if (value && value.includes("={")) {
             value = value.replace("=", "");
             value == "undefined" ? (value = '"') : (value = value);
-            console.log(value)
+            
             key == 'style' ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
 
              
@@ -655,11 +655,12 @@ async function Build() {
     let obj = {
       url: isBasePath ? '/' : aburl,
       pathname: `/pages/${origin.split('pages/')[1].split('.jsx')[0].replace('.jsx', '')}.jsx`,
+      fullpath: origin,
     };
   
     // Read and compile file content
     let data = await fs.readFileSync(origin, "utf8");
-    data = Compiler(data); 
+    data = Compiler(data) 
    
     await writer(process.cwd() + "/dist/pages/" + fileName, data);
   
@@ -676,6 +677,12 @@ async function Build() {
     let newfile = before + '\n' + js;
     if (!before.includes(`//@desc ${obj.pathname}`)) {
       await writer(process.cwd() + "/dist/app.js", newfile);
+    }
+
+    let beforeHTML = fs.existsSync(process.cwd() + "/dist/index.html") ? await reader(process.cwd() + "/dist/index.html") : '';
+    if(!beforeHTML.includes(`<link rel="prefetch" href="/pages/${origin.split('pages/')[1] }" as="fetch">`)){
+      let newHTML = beforeHTML + `\n<link rel="prefetch" href="/pages/${origin.split('pages/')[1] }" as="fetch">`
+      await writer(process.cwd() + "/dist/index.html", newHTML);
     }
   }
    
@@ -709,7 +716,7 @@ async function Build() {
    
     let data = await reader(process.cwd() + "/src/" + name)
     if (name.includes('.jsx')) {
-      data = Compiler(data); 
+      data = Compiler(data)  
     }
     bundleSize += fs.statSync(process.cwd() + "/src/" + name).size;
     await writer(process.cwd() + "/dist/src/" + name, data);
