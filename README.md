@@ -73,8 +73,9 @@ For pages that have [params] you can derive it using this.request
 
 ```jsx
 // pages/home.jsx
-let {Component, useState} = await import('vaderjs/client') // this will be automatically handled by vader in compile time
-let Mycomponent = await require('./pages/mycomponent')
+import  {Component, useState, useRef} = from 'vaderjs/client'
+import Mycomponent from './src/mycomponent.jsx' 
+
 class Home extends Vader {
   constructor() {
     super();
@@ -90,7 +91,7 @@ class Home extends Vader {
   }
 }
 
-return {default:Home}
+export default Home
 ```
 
  
