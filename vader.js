@@ -409,7 +409,8 @@ function Compiler(func) {
       if (line.includes("useState") && !line.includes("import")) {
         line = line.trim();
         // derive [key, value] from line
-        let type = line.split(" ")[0];
+        let varType = line.split(" ")[0];
+        let type = ''
         let key = line
           .split("=")[0]
           .split(" ")[1]
@@ -420,11 +421,55 @@ function Compiler(func) {
 
         key = key.replace("[", "").replace(",", "");
         let value = line.split("=")[1].split("useState(")[1] 
+         
         let regex = /useState\((.*)\)/gs
         value = value.match(regex) ? value.match(regex)[0].split("useState(")[1].split(")")[0].trim() : value
+        switch(true){
+          case value.startsWith("'"):
+            type = "String"
+            break;
+          case value.startsWith('"'):
+            type = "String"
+            break;
+          case value.startsWith("`"):
+            type = "String"
+            break;
+          case value.startsWith("{"):
+            type = "Object"
+            break;
+          case value.startsWith("["):
+            type = "Array"
+            break;
+          case value.includes("function"):
+            type = "Function"
+            break;
+          case value.includes("=>"):
+            type = "Function"
+            break;
+          case value.includes("true"):
+            type = "Boolean"
+            break;
+          case value.includes("false"):
+            type = "Boolean"
+            break;  
+          case value.includes("null"):
+            type = "Null"
+            break;
+          case value.includes("undefined"):
+            type = "Undefined"
+            break;
+          case value.includes("?") && value.includes(":"):
+            type = "Any"
+            break; 
+          default:
+            type = "*"
+            break;
+        }
+       
+        let typejsdoc = `/** @type {${type}} */`;
+
           
-          
-        let newState = `${type} [${key}, ${setKey}] = this.useState('${key}', ${value}
+        let newState = `${varType} [${typejsdoc}${key}, ${setKey}] = this.useState('${key}', ${value}
          
           `;
        
@@ -614,7 +659,113 @@ function Compiler(func) {
   string += `\n\n //wascompiled`;
 
   string = string.replaceAll("undefined", "");
+  string.split('\n').forEach(line => {
+    if(line.includes('import')){
+      let asyncimportMatch = line.match(/import\((.*)\)/gs) 
+      // handle other imports like import { useState } from 'vaderjs/client' or import vader from 'vaderjs/client'
+      let regularimportMatch = line.match(/import\s*(.*)\s*from\s*(.*)/gs)
+      if(asyncimportMatch){
+        asyncimportMatch.forEach(async (match) => {
+          let beforeimport = match
+          let path = match.split('(')[1].split(')')[0].trim()
+          let newImport = ''
+          switch(true){
+            case path && path.includes('json'):
+              // return default json
+            newImport = `import(${path}, {assert:{type:'json'}}).then((data) => data.default)`
+            let htmlPrefetch = `<link rel="prefetch" href="${path}" as="fetch">`
+            let beforeHTML = fs.existsSync(process.cwd() + "/dist/index.html") ? fs.readFileSync(process.cwd() + "/dist/index.html", "utf8") : '';
+            if(!beforeHTML.includes(htmlPrefetch)){
+              let newHTML = beforeHTML + `\n${htmlPrefetch}`
+              fs.writeFileSync(process.cwd() + "/dist/index.html", newHTML);
+            }
+            break;
+  
+          }
+          if(newImport){
+            string = string.replace(beforeimport, newImport)
+          }
+        })
+      }
+      
+      if(regularimportMatch){
+        regularimportMatch.forEach(async (match) => {
+          let beforeimport = match
+          let path = match.split('from')[1].trim()
+          let newImport = ''
+          let name = match.split('import')[1].split('from')[0].trim()
+          switch(true){
+            case path && path.includes('json'):
+              // return default json
+            newImport = `let ${name} = await import(${path}, {assert:{type:'json'}}).then((data) => data.default)`
+            let htmlPrefetch = `<link rel="prefetch" href="${path.replace(/'/g, '')}" as="fetch">`
+            let beforeHTML = fs.existsSync(process.cwd() + "/dist/index.html") ? fs.readFileSync(process.cwd() + "/dist/index.html", "utf8") : '';
+            if(!beforeHTML.includes(htmlPrefetch)){
+              let newHTML = beforeHTML + `\n${htmlPrefetch}`
+              fs.writeFileSync(process.cwd() + "/dist/index.html", newHTML);
+            }
+            break;
+           case path && path.includes('.jsx'):
+            newImport = `let ${name} = await require(${path})`
+            break;
+            default: 
+              newImport = `let ${name} = await import(${path})`
+              break;
+          }
+          if(newImport){
+            string = string.replace(beforeimport, newImport)
+          }
+        })
+      }
+    }else  if (line.includes('export')) {
+      let b4line = line;
+      let exports = line.split('export')[1].trim();
+      let isDefault = exports.includes('default');  
+      let newExport = '';
+      let name = ''
+      switch (true) {
+        case exports &&  isDefault: 
+          let expt = exports.split('default')[1].trim();
+          // Check if it's a class definition
+          if (expt.includes('class')) {
+            // also capture extends
+            let match =  expt.match(/class\s*([a-zA-Z0-9_-]+)\s*extends\s*([a-zA-Z0-9_-]+)/gs)
+            let className =  match ? match[0].split('class')[1].split('extends')[0].trim() : expt.split('class')[1].split('{')[0].trim();
+             name = className
 
+            newExport =  isDefault ? `return {default: ${className}}` : `return ${className}`;
+          } else if (expt.includes('function')) {
+            let funcName = expt.split('function')[1].split('(')[0].trim();
+            name = funcName
+            newExport =  isDefault ? `return {default: ${funcName}}` : `return ${funcName}`;
+          }else{
+            name = expt
+            newExport = isDefault ? `return {default: ${expt}}` : `return ${expt}`;
+          }
+          break;
+    
+        default:
+          let expt2 =  exports
+          if(expt2.includes('function')){
+            let funcName = expt2.split('function')[1].split('(')[0].trim();
+            newExport = `return ${funcName}`;
+          }else if(expt2.includes('class')){
+            let match =  expt2.match(/class\s*([a-zA-Z0-9_-]+)\s*extends\s*([a-zA-Z0-9_-]+)/gs)
+            let className =  match ? match[0].split('class')[1].split('extends')[0].trim() : expt2.split('class')[1].split('{')[0].trim();
+            name = className
+            newExport = `return ${className}`;
+          }
+          break;
+      }
+    
+      if (newExport) { 
+        string = string.replace(b4line, b4line.replaceAll(/\s+/g, " ").trim().split('export').join('').split('default').join('').trim());
+        string = `${string}\n${newExport}`;
+      }
+    }
+    
+  })
+   
   return string;
 }
 let bindings = []
@@ -666,15 +817,13 @@ async function Build() {
       aburl = aburl.split('...').join('*').split(':*').join('*')
       aburl = aburl.replaceAll('./index', '')  
       
-    }
-  
+    } 
     // Create an object with URL and pathname properties
     let obj = {
-      url: isBasePath ? '/' : aburl.replaceAll('index', ''),
+      url: isBasePath ? '/' : aburl.replaceAll('/index', ''),
       pathname: `/pages/${origin.split('pages/')[1].split('.jsx')[0].replace('.jsx', '')}.jsx`,
       fullpath: origin,
-    };
-  
+    }; 
    
     // Read and compile file content
     let data = await fs.readFileSync(origin, "utf8");
@@ -704,7 +853,7 @@ async function Build() {
   
    
  
-  const scannedSourceFiles = await glob("**/**.{jsx,js}", {
+  const scannedSourceFiles = await glob("**/**.{jsx,js,json}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
     cwd: process.cwd() + '/src/',
     absolute: true,
@@ -727,8 +876,7 @@ async function Build() {
   })
   scannedSourceFiles.forEach(async (file) => { 
      file = file.replace(/\\/g, '/');
-    let name = file.split('/src/')[1]
-    console.log(`Compiling ${name} to /src/${name}`)
+    let name = file.split('/src/')[1] 
     //parse jsx 
    
     let data = await reader(process.cwd() + "/src/" + name)
@@ -764,10 +912,9 @@ async function Build() {
 
       if (file === "app.js") {
         return
-      }
-      console.log(`Compiling ${file} to /dist/${file}`)
+      } 
       if(file.includes('index.html') && fs.existsSync(process.cwd() + "/runtime/" + file)){
-        console.log(`Compiling ${file} to /dist/${file}`)
+       
           return
       }
       bundleSize += fs.statSync(process.cwd() +  "/runtime/" + file).size;

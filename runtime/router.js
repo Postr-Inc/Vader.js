@@ -134,6 +134,7 @@ class VaderRouter{
       hash = hash.slice(1);
       let status = 200;
       let paramsCatchall = {}
+      let hashBefore = hash;
       let route = this.routes.find((route) => {
         if (route.path === hash) {
           return true;
@@ -143,6 +144,9 @@ class VaderRouter{
           return true
         }
     
+        if(hash.includes('?')){
+           hash = hash.split('?')[0]
+        } 
         if (route.path.includes('*') || route.path.includes(':')) {
           const routeParts = route.path.split('/');
           const hashParts = hash.split('/');
@@ -168,15 +172,14 @@ class VaderRouter{
     
           return true;
         }
-    
-        const params = this.extractParams(route.path, hash);
+     
+        const params = this.extractParams(route.path, hashBefore);
         return Object.keys(params).length > 0;
-      });
+      }); 
     
       
       if (!route) { 
         route = this.routes.find((errorRoute) => {
-          console.log(errorRoute)
           if (errorRoute.path.includes('/404')){ 
             this.error = true;
             return true;
@@ -188,8 +191,8 @@ class VaderRouter{
         status = route ? 200 : 404;
       }
      
-      const queryParams = this.extractQueryParams(hash);
-      const params =  route && route.path ? this.extractParams(route.path, hash) : {};
+      const queryParams = this.extractQueryParams(hashBefore);
+      const params =  route && route.path ? this.extractParams(route.path,  hashBefore) : {};
       const req = {
         headers: {},
         params: params,

@@ -236,7 +236,33 @@ export class Component {
          *  @param {*} Component
          */
         render: async (Component) => {},
+        /**
+         * @method log
+         * @description  This method is used to log the request and response
+         * @param {String} type
+         */
+        log: (type) => {},
+        /**
+         * @method setQuery
+         * @description  This method is used to set the query object for the current route
+         */
+        setQuery: (query) => {},
+        
   }
+  /**
+   * @method router
+   * @description use router methods directly from the parent component
+   */
+
+   this.router = {
+      /**
+       * @method use
+       * @description add a middleware to the current route
+       * @param {Function} middleware
+       * @returns {void}
+       */
+      use: (/**@type {Function} */ middleware) => {},
+   }
 }
 
   createComponent(/**@type {Component}**/component, props, children) {

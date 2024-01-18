@@ -35,7 +35,9 @@ Tip: Each folder can be deep nested up to 4 levels!
 ```bash
 /pages/index.jsx = /
 /pages/home/[page].jsx  = /home/:page
-/pages/path/index.jsx = /path/file
+/pages/path/index.jsx = /path/
+/pages/test/[...]/index.jsx = /path/test/*
+/pages/route/[param1]/[param2].jsx = /path/route/:param1/:param2
 ```
 Keyword folders - all files are passed from these folders to the `dist` folder
 
@@ -60,8 +62,8 @@ vader's compiler automatically handles routing so you wont need to! - it uses a 
 ```bash
 /pages/index.jsx = /
 /pages/home/[page].jsx  = /home/:page
-/pages/path/index.jsx = /path/file
-
+/pages/path/index.jsx = /path/
+/pages/path/[...].jsx = /path/*
  
 ```
 For pages that have [params] you can derive it using this.request
@@ -99,9 +101,9 @@ Vaderjs uses partial hydration & full reflection
 You can pass a reference to the dom target like an id for the element u want to change - or you can just swap the value and the entire component will rerender
 
 ```jsx
-let {Component, useState, useRef} = await import('vaderjs/client') 
-
-class MyApp extends Component{
+import  {Component, useState, useRef} = from 'vaderjs/client'
+ 
+export default class MyApp extends Component{
   contructor(){
    super()
    this.key = 'static key for state changes'
@@ -122,9 +124,7 @@ class MyApp extends Component{
     </>
     
   }
-}
-
-return {default:MyApp}
+} 
 ```
 
 
