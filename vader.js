@@ -768,7 +768,7 @@ function Compiler(func) {
      
   })
   if(exportss){
-    string = string + `\n return ${Object.keys(exportss).length > 0 ? `{${Object.keys(exportss).map(key => key + ':' + exportss[key]).join(',')}}` : Object.keys(exportss)[0]}`
+    string = string + `\n return ${Object.keys(exportss).length > 1 ? `{${Object.keys(exportss).map(key => key + ':' + exportss[key]).join(',')}}` : Object.keys(exportss)[0]}`
   }
    
   return string;
