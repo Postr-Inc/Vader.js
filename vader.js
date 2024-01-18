@@ -659,6 +659,7 @@ function Compiler(func) {
   string += `\n\n //wascompiled`;
 
   string = string.replaceAll("undefined", "");
+  let exportss = {}
   string.split('\n').forEach(line => {
     if(line.includes('import')){
       let asyncimportMatch = line.match(/import\((.*)\)/gs) 
@@ -721,10 +722,12 @@ function Compiler(func) {
       let b4line = line;
       let exports = line.split('export')[1].trim();
       let isDefault = exports.includes('default');  
-      let newExport = '';
+       
       let name = ''
       switch (true) {
-        case exports &&  isDefault: 
+        case exports &&  isDefault:
+          console.log('default')
+
           let expt = exports.split('default')[1].trim();
           // Check if it's a class definition
           if (expt.includes('class')) {
@@ -733,14 +736,15 @@ function Compiler(func) {
             let className =  match ? match[0].split('class')[1].split('extends')[0].trim() : expt.split('class')[1].split('{')[0].trim();
              name = className
 
-            newExport =  isDefault ? `return {default: ${className}}` : `return ${className}`;
+            exportss['default'] = className
           } else if (expt.includes('function')) {
             let funcName = expt.split('function')[1].split('(')[0].trim();
             name = funcName
-            newExport =  isDefault ? `return {default: ${funcName}}` : `return ${funcName}`;
+              exportss[isDefault ? 'default' : funcName] = funcName
           }else{
             name = expt
-            newExport = isDefault ? `return {default: ${expt}}` : `return ${expt}`;
+            exportss[isDefault ? 'default' : expt] = expt
+            
           }
           break;
     
@@ -748,23 +752,24 @@ function Compiler(func) {
           let expt2 =  exports
           if(expt2.includes('function')){
             let funcName = expt2.split('function')[1].split('(')[0].trim();
-            newExport = `return ${funcName}`;
+            exportss[funcName] = funcName
           }else if(expt2.includes('class')){
             let match =  expt2.match(/class\s*([a-zA-Z0-9_-]+)\s*extends\s*([a-zA-Z0-9_-]+)/gs)
             let className =  match ? match[0].split('class')[1].split('extends')[0].trim() : expt2.split('class')[1].split('{')[0].trim();
             name = className
-            newExport = `return ${className}`;
+            exportss[className] = className
           }
           break;
       }
     
-      if (newExport) { 
-        string = string.replace(b4line, b4line.replaceAll(/\s+/g, " ").trim().split('export').join('').split('default').join('').trim());
-        string = `${string}\n${newExport}`;
-      }
+      string = string.replace(b4line, b4line.replaceAll(/\s+/g, " ").trim().split('export').join('').split('default').join('').trim());
     }
     
+     
   })
+  if(exportss){
+    string = string + `\n return ${Object.keys(exportss).length > 0 ? `{${Object.keys(exportss).map(key => key + ':' + exportss[key]).join(',')}}` : Object.keys(exportss)[0]}`
+  }
    
   return string;
 }
