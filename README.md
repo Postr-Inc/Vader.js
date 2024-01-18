@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 <p align="center">
   <a href="https://vader-js.pages.dev">
     <picture>
