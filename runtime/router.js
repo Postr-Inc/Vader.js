@@ -269,40 +269,23 @@ class VaderRouter{
                   // Allow pausing the route and run code before rendering
                   await new Promise(async (resolve) => {
                       await Component.router.use(req, res)
-                      if(!req.pause){
-                        resolve();
-                      }
+                      if(req.pause){
+                      let timer = setInterval(() => {
+                        if(!req.pause){
+                          resolve();
+                          clearInterval(timer);
+                        }
+                      }, 1000);
+                     }
                   });
               } else if (Component.router.use && Component.isChild) {
                   console.warn('Router.use() is not supported in child components');
-              }
-      
-              // Check if the request is not paused
-              if (!req.pause) {
-                  // Assuming Component.render() is an asynchronous function
+              } 
                   const renderedContent = await Component.render();
                   document.querySelector('#root').innerHTML = renderedContent;
                   Component.bindMount();
                   Component.onMount();
-              } else {
-                  console.log(`Request paused for ${req.path}`);
-                  
-                  // Continue rendering after a delay if the request is paused
-                  await new Promise((resolve) => {
-                      let i = setInterval(() => {
-                          if (!req.pause) {
-                              clearInterval(i);
-                              resolve();
-                          }
-                      }, 1000);
-                  });
-      
-                  // Assuming Component.render() is an asynchronous function
-                  const renderedContent = await Component.render();
-                  document.querySelector('#root').innerHTML = renderedContent;
-                  Component.bindMount();
-                  Component.onMount();
-              }
+             
           } catch (error) {
               console.error(error);
           }
