@@ -1,6 +1,6 @@
 import { Component } from "./vader.js";
 
- 
+let middlewares = [];
 
  
 
@@ -55,6 +55,7 @@ class VaderRouter{
      */
   
     use(/* path, */ middleware) {
+      console.log(middleware)
       this.middlewares.push(middleware);
     }
   
@@ -226,45 +227,86 @@ class VaderRouter{
             });
           }
         },
+        refresh: () => {
+           this.handleRoute(window.location.hash);
+        },
         redirect: (path) => { 
           !path.startsWith('/') ? path = `/${path}` : null;
           window.location.hash = `#${path}`;
         },
         render: async (/**@type {Component} */ Component, req, res) => {
-          
-            if(!Component || !Component.default || !Component.constructor){
-              let message = !Component || !Component.default ? 'default' : 'constructor';
-              switch(message){
-                case 'default':
-                  throw new Error(`Component must have a default export ex: return {default: Component}`);
-                  
-                case 'constructor':
-                  throw new Error(`Component is invalid, please check the constructor`);
-                  
+          try {
+              // Check if the component is valid
+              if (!Component || !Component.default || !Component.constructor) {
+                  let message = !Component || !Component.default ? 'default' : 'constructor';
+                  switch (message) {
+                      case 'default':
+                          throw new Error(`Component must have a default export ex: return {default: Component}`);
+                      case 'constructor':
+                          throw new Error(`Component is invalid, please check the constructor`);
+                  }
               }
-             
-            }
-        
-            Component = Component.default ? new Component.default() :  Component.constructor ? new Component() : Component;
-            
-         
-            Component.mounted = true;
-            
-            if(!document.querySelector('#root')){
-              throw new Error('Root element not found, please add an element with id root');
-            }
-            Component.router.use = this.use.bind(this)
-            Component.state = {}
-            Component.reset();
-            Component.components = {}
-            Component.request = req;
-            Component.response = res;
-            document.querySelector('#root').innerHTML =   Component.render() 
-            Component.bindMount();
-            Component.onMount()
-           
-           
-        },
+      
+              // Create an instance of the component
+              Component = Component.default ? new Component.default() : Component.constructor ? new Component() : Component;
+      
+              // Set the 'mounted' flag to true
+              Component.mounted = true;
+      
+              // Check if the root element exists
+              if (!document.querySelector('#root')) {
+                  throw new Error('Root element not found, please add an element with id root');
+              }
+      
+              // Reset component state
+              Component.reset();
+              Component.components = {};
+              Component.request = req;
+              Component.response = res;
+      
+              // Check if the component has a router and is not a child component
+              if (Component.router.use && !Component.isChild) {
+                  // Allow pausing the route and run code before rendering
+                  await new Promise(async (resolve) => {
+                      await Component.router.use(req, res)
+                      if(!req.pause){
+                        resolve();
+                      }
+                  });
+              } else if (Component.router.use && Component.isChild) {
+                  console.warn('Router.use() is not supported in child components');
+              }
+      
+              // Check if the request is not paused
+              if (!req.pause) {
+                  // Assuming Component.render() is an asynchronous function
+                  const renderedContent = await Component.render();
+                  document.querySelector('#root').innerHTML = renderedContent;
+                  Component.bindMount();
+                  Component.onMount();
+              } else {
+                  console.log(`Request paused for ${req.path}`);
+                  
+                  // Continue rendering after a delay if the request is paused
+                  await new Promise((resolve) => {
+                      let i = setInterval(() => {
+                          if (!req.pause) {
+                              clearInterval(i);
+                              resolve();
+                          }
+                      }, 1000);
+                  });
+      
+                  // Assuming Component.render() is an asynchronous function
+                  const renderedContent = await Component.render();
+                  document.querySelector('#root').innerHTML = renderedContent;
+                  Component.bindMount();
+                  Component.onMount();
+              }
+          } catch (error) {
+              console.error(error);
+          }
+      },
         setQuery: (query) => {
           let queryString = '';
           Object.keys(query).forEach((key, index) => {
@@ -290,8 +332,8 @@ class VaderRouter{
             throw new Error('Selector must be a string');
           }
         } 
-      };
-      this.middlewares.forEach((middleware) => {
+      }; 
+      middlewares.forEach((middleware) => { 
         middleware(req, res);
       });
     
@@ -300,7 +342,7 @@ class VaderRouter{
     
     
   }
-
+ 
   window.VaderRouter = VaderRouter;
   
   export default VaderRouter;

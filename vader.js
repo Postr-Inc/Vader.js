@@ -662,9 +662,12 @@ function Compiler(func) {
   let exportss = {}
   string.split('\n').forEach(line => {
     if(line.includes('import')){
-      let asyncimportMatch = line.match(/import\((.*)\)/gs) 
-      // handle other imports like import { useState } from 'vaderjs/client' or import vader from 'vaderjs/client'
-      let regularimportMatch = line.match(/import\s*(.*)\s*from\s*(.*)/gs)
+       // Regular expression for matching import() statements
+let  asyncimportMatch = line.match(/import\s*\((.*)\)/gs);
+
+// Regular expression for matching regular import statements excluding lines with HTML elements
+let  regularimportMatch = line.match(/import\s+([\w\s{},]*)\s*from\s*(['"][^'"]+['"])(?![^<]*>)/gs);
+
       if(asyncimportMatch){
         asyncimportMatch.forEach(async (match) => {
           let beforeimport = match
@@ -672,8 +675,8 @@ function Compiler(func) {
           let newImport = ''
           switch(true){
             case path && path.includes('json'):
-              // return default json
-            newImport = `import(${path}, {assert:{type:'json'}}).then((data) => data.default)`
+            path = path.replace(';', '')
+            newImport = `JSON.parse(require(${path}))`
             let htmlPrefetch = `<link rel="prefetch" href="${path}" as="fetch">`
             let beforeHTML = fs.existsSync(process.cwd() + "/dist/index.html") ? fs.readFileSync(process.cwd() + "/dist/index.html", "utf8") : '';
             if(!beforeHTML.includes(htmlPrefetch)){
@@ -691,14 +694,15 @@ function Compiler(func) {
       
       if(regularimportMatch){
         regularimportMatch.forEach(async (match) => {
+           
           let beforeimport = match
           let path = match.split('from')[1].trim()
           let newImport = ''
           let name = match.split('import')[1].split('from')[0].trim()
           switch(true){
             case path && path.includes('json'):
-              // return default json
-            newImport = `let ${name} = await import(${path}, {assert:{type:'json'}}).then((data) => data.default)`
+             path = path.replace(';', '')
+            newImport = `let ${name} = await require(${path}, {type: 'json'})`
             let htmlPrefetch = `<link rel="prefetch" href="${path.replace(/'/g, '')}" as="fetch">`
             let beforeHTML = fs.existsSync(process.cwd() + "/dist/index.html") ? fs.readFileSync(process.cwd() + "/dist/index.html", "utf8") : '';
             if(!beforeHTML.includes(htmlPrefetch)){
@@ -707,6 +711,7 @@ function Compiler(func) {
             }
             break;
            case path && path.includes('.jsx'):
+            
             newImport = `let ${name} = await require(${path})`
             break;
             default: 
@@ -718,15 +723,14 @@ function Compiler(func) {
           }
         })
       }
-    }else  if (line.includes('export')) {
+    }else  if (line.includes('export') && !line.includes('>') && !line.includes('<')) {
       let b4line = line;
       let exports = line.split('export')[1].trim();
       let isDefault = exports.includes('default');  
        
       let name = ''
       switch (true) {
-        case exports &&  isDefault:
-          console.log('default')
+        case exports &&  isDefault: 
 
           let expt = exports.split('default')[1].trim();
           // Check if it's a class definition
@@ -736,7 +740,7 @@ function Compiler(func) {
             let className =  match ? match[0].split('class')[1].split('extends')[0].trim() : expt.split('class')[1].split('{')[0].trim();
              name = className
 
-            exportss['default'] = className
+            exportss[isDefault ? 'default' : className] = className
           } else if (expt.includes('function')) {
             let funcName = expt.split('function')[1].split('(')[0].trim();
             name = funcName
@@ -767,8 +771,10 @@ function Compiler(func) {
     
      
   })
-  if(exportss){
-    string = string + `\n return ${Object.keys(exportss).length > 1 ? `{${Object.keys(exportss).map(key => key + ':' + exportss[key]).join(',')}}` : Object.keys(exportss)[0]}`
+  if(exportss){ 
+    let exports = Object.keys(exportss).map(key => key + ':' + exportss[key]).join(',')
+   
+    Object.keys(exportss).length > 1 ? string += `\n\n return {${exports}}` : string += `\n\nreturn ${Object.keys(exportss) == 'default' ? `{default: ${Object.values(exportss)[0]}}` : `${Object.keys(exportss)[0]}`}`
   }
    
   return string;

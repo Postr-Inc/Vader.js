@@ -165,7 +165,11 @@ export class Component {
     this.freeMemoryFromFunctions();
     this.checkIFMounted();
     this.memoizes = []
-    
+    /**
+     * @type {boolean}
+     * @description Indicates if the component is a child component
+     */
+    this.isChild = false;
     this.vdom =  []
     
     this.children = []
@@ -281,6 +285,8 @@ export class Component {
     comp.parentNode  = this;
     comp.request = this.request;
     comp.response = this.response;
+    comp.isChild = true;
+    delete comp.router 
     comp.key = props.key || null;
      
     if(!this.components[props.key]){
@@ -615,7 +621,7 @@ export class Component {
     if (!this.state[key]) {
       this.state[key] = initialState;
     }
-    const getValue = () => this.state[key];
+    const getValue = () =>  document.querySelector(`[ref="${key + this.key}"]`) ||  initialState;
     const set = (newValue) => {
       this.state[key] = newValue;
       this.hydrate();
@@ -624,7 +630,7 @@ export class Component {
     
     return  {
        bind: key + this.key,
-       current:   document.querySelector(`[ref="${key + this.key}"]`) ||  initialState
+       current: getValue(),
     }
   }
 
@@ -677,22 +683,23 @@ let cache = {};
  * @param {Boolean} noresolve - used to tell if the path should be automatically handled or manually handled - this is false by default
  * @returns
  */
-export const require = async (path, noresolve = false) => {
+export const require = async (path, options) => {
    
   if (cache[path]) {
     return cache[path];
   }
   let file = ''
   try {
-    file = await fetch(path).then((res) => res.text());
-    cache
+    file = await fetch(path).then((res) =>  options && options.type === 'json' ? res.json() : res.text());
+  
   } catch (error) {
      console.error(error)
   }
 
-  file = file + `\n//# sourceURL=${path}\n`;
+  
 
   let filetype = path.split(".").pop();
+  filetype !== "json"  ? file = file + `\n//# sourceURL=${path}\n` : null;
   switch (true) {
     case filetype === "js":
       let exports = file.match(/module.exports\s*=\s*{.*}/gs) || file.match(/exports\s*=\s*{.*}/gs);
@@ -712,6 +719,10 @@ export const require = async (path, noresolve = false) => {
       
       cache[path] = new Function(`return (async () => { ${file} })()`)();
       return cache[path]
+    case filetype === "json": 
+      cache[path] = file
+      return cache[path]
+
     case filetype === "jsx": 
     cache[path] = new Function(`return (async () => { ${file} })()`)();
     return  cache[path]
@@ -787,11 +798,12 @@ export const useRef = (initialState) => {
   return {
     /**
      * @description The current value of the ref.
-     
+       @type {*}
      */
     current: initialState,
     /**
      * @description A unique string that can be used to bind the ref to an element.
+     * @type {HTMLElement|string}
      */
     bind: '',
   };
