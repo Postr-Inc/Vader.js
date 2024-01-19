@@ -176,19 +176,4 @@ VaderJS is released under the MIT License. See the [LICENSE](https://github.com/
 ## Join the Community
 
 Connect with the VaderJS community on [GitHub](https://github.com/Postr-Inc/Vader.js). Contribute, share feedback, and improve VaderJS for SPA development. 
-=======
-<p align="center">
-  <a href="https://vader-js.pages.dev">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="/icon.jpeg">
-      <img src="./logo.png" height="128">
-    </picture>
-    <h1 align="center">Vader.js</h1>
-  </a>
-</p>
-
-# VaderJS: A Powerful Reactive Framework for SPAs inspired by react.js!
-
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Postr-Inc/Vader.js/blob/main/LICENSE) [![npm version](https://img.shields.io/npm/v/vaderjs.svg?style=flat)](https://www.npmjs.com/package/vaderjs) 
-
  
