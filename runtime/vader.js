@@ -42,6 +42,12 @@ let invokes = []
 let hasran = [];
 let states = {};
 let mounts = [];
+/**
+ * @method strictMount
+ * @description  This method allows you to await until the component is mounted before running a callback
+ * @param {*} key 
+ * @param {*} callback 
+ */
 export const strictMount = (key, callback) => {
   let timer = setInterval(() => {
     if (document.querySelector('[key="' + key + '"]')) {
@@ -51,54 +57,9 @@ export const strictMount = (key, callback) => {
   }, 120);
 };
 
-window.delegate = (event) => {
-  return event.detail.target
-}
 
 let components = {};
  
-let style = document.createElement("style");
- document.head.appendChild(style);
-
-const parseStyles = async (styles, className = '') => {
-    let css = await fetch(styles).then((res) => res.text());
-    let classes = css.split("}");
-    let parsedClasses = {};
-    classes.forEach((cls) => {
-     
-      let name = cls.split(".")[1];
-      let value = cls.split("{")[1] 
-      let keys = value.split(";");
-      let newKeys = [];
-      keys.forEach((key) => {
-        if (key.includes(":")) {
-          let newKey = key.split(":")[0].trim();
-          let newValue = key.split(":")[1].trim();
-          newKeys.push(`${newKey}: "${newValue}"`);
-        }
-      });
-      value = `{${newKeys.join(",")}}`;
-     
-      
-      parsedClasses[name] =  JSON.stringify(value);
-    });
-    return parsedClasses;
-};
-
-
-export const stylis = {
-  /**
-   * @method create 
-   * @param {*} styles 
-   * @returns  {Object} classes
-   * @description  This method allows you to create css classes from an object
-   */
-  create: async (/**@type {string} */ styles) => {
-     
-    return  await parseStyles(styles);
-  },
-};
-
 /**
  * @method mem
  * @param {Component} component
@@ -122,31 +83,7 @@ export const mem = (/**@type {Component}**/ component) => {
   return  components[key];
 };
 
-/**
- * @method invoke
- * @description  This method allows you to invoke a function from its id
- * @param {*} name
- * @param {*} params
- * @returns
- * @example
- * invoke(this.functions['test'], 'hello') // this will invoke the function test with the params hello
- */
  
-let functions = {};
- 
-export const invoke = (func, params) => {
-   let name = func.name;
-  
-   window[name] = function (params) {
-      return func(params);
-   }
-   window[name] =  window[name].bind(this);
-   
-    
-   return `${name}(${params})`;
-   
-};
-
 /**
  * Represents a component in the Vader framework.
  */
@@ -165,11 +102,7 @@ export class Component {
     this.freeMemoryFromFunctions();
     this.checkIFMounted();
     this.memoizes = []
-    /**
-     * @type {boolean}
-     * @description Indicates if the component is a child component
-     */
-    this.isChild = false;
+    this.functions = [] 
     this.vdom =  []
     
     this.children = []
@@ -285,8 +218,6 @@ export class Component {
     comp.parentNode  = this;
     comp.request = this.request;
     comp.response = this.response;
-    comp.isChild = true;
-    delete comp.router 
     comp.key = props.key || null;
      
     if(!this.components[props.key]){
@@ -434,8 +365,11 @@ export class Component {
   freeMemoryFromFunctions() {
     setInterval(() => {
       for (var [key, value] in this.functionMap) {
-        if (Date.now() - value.lastUsed > 1000) {
+        if (Date.now() - value.lastUsed >= 2000) {
           this.functionMap.delete(key);
+          document.removeEventListener(key, () => {
+            console.log('removed');
+          });
         }
       }
     }, 1000);
@@ -448,81 +382,55 @@ export class Component {
    * @param {string} ref - The reference.
    * @returns {string} - A valid inline JS function call.
    */
-  bind(funcData,jsx,ref, paramNames, ...params) {
+  bind(funcTion,isTerny, jsx,ref, paramNames, ...params) {
+     ref = ref + this.key;
+  
+     let paramObject = {};
    
-    
-    const name = `func_${crypto ? crypto.getRandomValues(new Uint32Array(1))[0] : Math.random()}`;
-
-    var dynamicFunction = async (...params) => {
+  
+     paramNames = paramNames.replace(/,,/g, ',');
+     let newparamnames = paramNames.replaceAll(',,', ',')
       
-      // Replace double commas with a single comma
-      
-    
-      // Turn params into a destructured object
-      let paramObject = {};
-      params = params[0] 
+     for(var i in params){
+        let param = params[i]
+        let paramname = newparamnames.split(',')[i]
+        paramObject[paramname] = param 
+     }
+ 
    
-      paramNames = paramNames.replace(/,,/g, ',');
-    let newparamnames = paramNames.replaceAll(',,', ',')
-      
-
-      for(var i in params){
-        paramObject[newparamnames.split(',')[i]] = params[i]
-      }
-       
-    
-      
+     
       paramNames = paramNames.replace(',,', ',');
       let func = new Function(`${paramNames}`, `
-        return (async (${paramNames}) => {
-           ${funcData}  
-        })(${Object.keys(paramObject).join(',')})
-      `); 
-       await func.bind(this)(...Object.values(paramObject));
-      
-    };
+       return (async (${paramNames}) => { 
+          ${funcTion.toString()}
+       })(${Object.keys(paramObject).join(',')}) 
+     `); 
+       func   = func.bind(this)
+    
+       if(!this.functions.find((f) => f.ref === ref)){
+         document.addEventListener(`$dispatch_#id=${ref}`, (e) => {
+            let { name,   event } = e.detail;
+            if (name === ref) { 
+              let params = this.functions.find((f) => f.ref === ref).params 
+               Object.keys(params).forEach((key) => {
+                if(params[key] instanceof CustomEvent){
+                  delete params[key]
+                }
+                params[key] === undefined ? delete params[key] : params[key]
+               })  
+               isTerny ? funcTion(event, ...Object.values(params)) : func(...Object.values(params))
+            }
+         });
+         
+      }
      
-
-    dynamicFunction = dynamicFunction.bind(this);
-    if (!this.functionMap.has(name)) {
-      document.addEventListener(`call_${name}`, (e) => {
-        
-        dynamicFunction(params)
-        this.functionMap.set(e.detail.name, {
-          lastUsed: Date.now(),
-        });
-      });
-    }
-
-    this.functionMap.set(name, {
-      lastUsed: Date.now(),
-    });
-
-    window.call = (name, eventdata, params) => {  
-      document.dispatchEvent(
-        new CustomEvent(`call_${name}`, {
-          detail: { name: `call_${name}`, target: eventdata },
-        })
-      );
-    };
-
-    // Return a valid inline js function call
-    function jsxCall(){
-      document.dispatchEvent(
-        new CustomEvent(`call_${name}`, {
-          detail: { name: `call_${name}` },
-        })
-      );
-    }
-    return jsx ? jsxCall: `
-    ((event) => { 
-      event.target.setAttribute('data-ref', '${ref}');
-      let reference = event.target.getAttribute('data-ref');
-      event.target.eventData = event;
-      event.target.data = event 
-      call('${name}', {event:event.target.data}, '${paramNames}')
-    })(event)
-    `;
+    window.callFunction = (name, event) => { 
+      document.dispatchEvent(new CustomEvent(`$dispatch_#id=${name}`, { detail: { name: name, params: null, event: event } }));
+    }   
+    !this.functions.find((f) => f.ref === ref) ? this.functions.push({ref: ref, params: paramObject})  :  !isTerny ? this.functions.find((f) => f.ref === ref).params = paramObject : null
+    
+     
+    return jsx ?  funcTion :  `((event)=>{event.target.ev = event; callFunction('${ref}', event.target.ev)})(event)`;
   }
 
   /**
@@ -634,14 +542,16 @@ export class Component {
     }
   }
 
-  useReducer(key = null, initialState, func = null) {
+   useReducer(key = null, initialState, func = null) {
     const getValue = () => this.state[key];
+    const value = getValue();
     const set = (newValue) => {
-       
-      this.hydrate();
+      const nextState = func ? func(this.state[key], newValue) : newValue;
+      this.state[key] = nextState;
     };
-    return [getValue, set];
+    return [value, set];
   }
+  
 
   /**
    * Placeholder for content to be rendered.
@@ -683,23 +593,22 @@ let cache = {};
  * @param {Boolean} noresolve - used to tell if the path should be automatically handled or manually handled - this is false by default
  * @returns
  */
-export const require = async (path, options) => {
+export const require = async (path, noresolve = false) => {
    
   if (cache[path]) {
     return cache[path];
   }
   let file = ''
   try {
-    file = await fetch(path).then((res) =>  options && options.type === 'json' ? res.json() : res.text());
-  
+    file = await fetch(path).then((res) => res.text());
+    cache
   } catch (error) {
      console.error(error)
   }
 
-  
+  file = file + `\n//# sourceURL=${path}\n`;
 
   let filetype = path.split(".").pop();
-  filetype !== "json"  ? file = file + `\n//# sourceURL=${path}\n` : null;
   switch (true) {
     case filetype === "js":
       let exports = file.match(/module.exports\s*=\s*{.*}/gs) || file.match(/exports\s*=\s*{.*}/gs);
@@ -719,10 +628,6 @@ export const require = async (path, options) => {
       
       cache[path] = new Function(`return (async () => { ${file} })()`)();
       return cache[path]
-    case filetype === "json": 
-      cache[path] = file
-      return cache[path]
-
     case filetype === "jsx": 
     cache[path] = new Function(`return (async () => { ${file} })()`)();
     return  cache[path]
@@ -811,13 +716,11 @@ export const useRef = (initialState) => {
 
 export default {
   Component,
-  require,
-  invoke,
+  require, 
   mem,
   constant,
   useRef,
   useReducer,
   useState,
-  strictMount,
-  stylis,
+  strictMount, 
 }

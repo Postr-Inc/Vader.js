@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 import fs from "fs";
-import { glob, globSync, globStream, globStreamSync, Glob } from 'glob'
- 
-let bundleSize = 0; 
-if(!fs.existsSync(process.cwd() + '/dist')){
+import { glob, globSync, globStream, globStreamSync, Glob } from 'glob' 
+let bundleSize = 0;
+if (!fs.existsSync(process.cwd() + '/dist')) {
   fs.mkdirSync(process.cwd() + '/dist')
   fs.mkdirSync(process.cwd() + '/dist/public')
   fs.mkdirSync(process.cwd() + '/dist/src')
   fs.mkdirSync(process.cwd() + '/dist/pages')
-}else if(!fs.existsSync(process.cwd() + '/dist/public')){
+} else if (!fs.existsSync(process.cwd() + '/dist/public')) {
   fs.mkdirSync(process.cwd() + '/dist/public')
-}else if(!fs.existsSync(process.cwd() + '/src') && !fs.existsSync(process.cwd() + '/dist/src')){
-  fs.mkdirSync(process.cwd()  + '/dist/src')
-  fs.mkdirSync(process.cwd()  + '/src')
+} else if (!fs.existsSync(process.cwd() + '/src') && !fs.existsSync(process.cwd() + '/dist/src')) {
+  fs.mkdirSync(process.cwd() + '/dist/src')
+  fs.mkdirSync(process.cwd() + '/src')
 }
- 
+
 function Compiler(func) {
   let string = func;
+  let returns = []
   let comments = string
 
     .match(/\{\s*\/\*.*\*\/\s*}/gs)
@@ -39,7 +39,7 @@ function Compiler(func) {
         )
       ) {
         return;
-      } 
+      }
 
       let name = func.split(" ")[1].split("(")[0].trim();
 
@@ -71,7 +71,7 @@ function Compiler(func) {
   let childs = [];
 
 
-   
+
   function extractAttributes(code) {
     // Match elements with opening tags
     const elementRegex = /<([a-zA-Z0-9_-]+)([^>]*)>/gs;
@@ -100,8 +100,8 @@ function Compiler(func) {
 
         //ex: (params)=>{console.log(params)} => console.log(params
         // do not split all =>
-        let newvalue =  attributeValue.split("=>").slice(1).join("=>").trim();
-       
+        let newvalue = attributeValue.split("=>").slice(1).join("=>").trim();
+
 
         newvalue = newvalue.trim();
 
@@ -113,6 +113,10 @@ function Compiler(func) {
           .split("(")[1]
           .split(")")[0]
           .trim();
+          params = params.match(/\/\*.*\*\//gs)
+          ? params.replace(params.match(/\/\*.*\*\//gs)[0], "")
+          : params;
+          
         let functionparams = [];
         // split first {}
         newvalue = newvalue.trim();
@@ -121,7 +125,7 @@ function Compiler(func) {
           newvalue = newvalue.split("{")[1];
         }
 
-        switch(true){
+        switch (true) {
           case newvalue.endsWith("}}"):
             newvalue = newvalue.replace("}}", "");
             break;
@@ -130,121 +134,53 @@ function Compiler(func) {
             break;
         }
 
-        
-
-        if (functionNames.length > 0) {
-          functionNames.forEach((name) => {
-            string.split("\n").forEach((line) => {
-              if (line.includes(name) && line.includes("function")) {
-                line = line.trim();
-                line = line.replace(/\s+/g, " ");
-
-                let ps = line.split("(").slice(1).join("(").split(")")[0].trim();
-
-                // remove comments
-                ps = ps.match(/\/\*.*\*\//gs)
-                  ? ps.replace(ps.match(/\/\*.*\*\//gs)[0], "")
-                  : ps;
-
-                functionparams.push({ ref: ref, name: name, params: ps });
-              }
-            });
-            newvalue = newvalue.trim();
-            let lines = newvalue.split("\n");
-
-            for (let i = 0; i < lines.length; i++) {
-              let line = lines[i];
-
-              if (line.includes(name) && !line.includes("useFunction")) {
-                let hasParams = line.includes("(") && line.includes(")");
-                let params = hasParams
-                  ? line.split("(")[1].split(")")[0].trim()
-                  : null;
- 
-                if (
-                  functionparams.length > 0 &&
-                  functionparams.find((p) => p.name == name)
-                ) {
-                  let params = functionparams.find((p) => p.name == name).params;
-                  line.includes(params) ? (params = params) : (params = null);
-                }
-
-                let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
-                let isJSXComponent = false;
-                elementMatch.forEach((element) => {
-                  element = element.trim().replace(/\s+/g, " ");
-                  if (element.includes(attributeName)) {
-                    let elementTag = element
-                      .split("<")[1]
-                      .split(">")[0]
-                      .split(" ")[0];
-                    isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
-                  }
-                });
-
-                if(isJSXComponent){
-                  return
-                }
-                let replacement = `this.useFunction(${name} ${isJSXComponent ? "" : ","
-                  } ${params || null}${isJSXComponent ? "" : ","} true ${isJSXComponent ? "" : ","
-                  } '${ref}')`;
-
-                newvalue = newvalue.replace(
-                  hasParams ? `${name}(${params})` : name,
-                  `this.callFunction(\${${replacement}}, ${isJSXComponent ? true : false
-                  }, event, \${JSON.stringify(${params || null})})`
-                );
-              }
-            }
-
-            params = params.match(/\/\*.*\*\//gs)
-              ? params.replace(params.match(/\/\*.*\*\//gs)[0], "")
-              : params;
-
-            // get full element with function from string
-            let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
-            let isJSXComponent = false;
-            elementMatch.forEach((element) => {
-              element = element.trim().replace(/\s+/g, " ");
-              if (element.includes(attributeName)) {
-                let elementTag = element
-                  .split("<")[1]
-                  .split(">")[0]
-                  .split(" ")[0];
-                isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
-              }
-
-            });
 
 
-
-            let otherdata = {};
+        let currentParams = params
+        let name = functionNames.map((name) => { return newvalue.includes(name) ? name : null }).filter(Boolean)[0]
+        if (name ) {
            
-            params ? (otherdata["params"] = params) : null;
-            otherdata["jsx"] = isJSXComponent;
-            otherdata["ref"] = ref;
- 
-            newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
-            
-            // turn params into param1, param2, param3
+          if(newvalue.includes('function')){
+             return
+          } 
+          
+          name && string.split("\n").forEach((line) => {
+            if (line.includes(name) && line.includes("function")) {
+              line = line.trim();
+              line = line.replace(/\s+/g, " ");
 
-            
-            let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
- 
-            paramString = paramString.replaceAll(',,', ',')
-            let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}}.bind(this),`
-            let newatribute =  `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}",`
+              let ps = line.split("(").slice(1).join("(").split(")")[0].trim();
 
-            attribute[attributeName] = {
-              old: old,
-              new: isJSXComponent ? jsxAttribute : newatribute,
-              attribute: attributeName,
-            };
-            attributesList.push({
-              element: attributeName,
-              attributes: attribute,
-            });
+              // remove comments
+              ps = ps.match(/\/\*.*\*\//gs)
+                ? ps.replace(ps.match(/\/\*.*\*\//gs)[0], "")
+                : ps;
+
+              functionparams.push({ ref: ref, name: name, params: ps });
+            }
           });
+          let hasParams = newvalue.includes("(") && newvalue.includes(")");
+          let isJSXComponent = false;
+          let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
+          elementMatch.forEach((element) => {
+            element = element.trim().replace(/\s+/g, " ");
+            if (element.includes(attributeName)) {
+              let elementTag = element
+                .split("<")[1]
+                .split(">")[0]
+                .split(" ")[0];
+              isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
+            }
+          });
+          
+          let functionParmas = functionparams.map((param) => { return param.params }).join(',')
+          let suppliedParams = newvalue.split("(")[1].split(")")[0].trim();
+          
+          let replacement = `this.bind(${name}, true, ${isJSXComponent ? true : false}, '${ref}', "${functionParmas}", event, ${suppliedParams || null})`
+          let newattribute = `${attributeName}="\${${replacement}}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
+        
+          string = string.replace(old,  newattribute);
+          
         }
         else {
           let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
@@ -265,15 +201,15 @@ function Compiler(func) {
           let otherdata = {};
           params ? (otherdata["params"] = params) : null;
           otherdata["jsx"] = isJSXComponent;
-          otherdata["ref"] = ref; 
+          otherdata["ref"] = ref;
           // since js is all in one line split it
-          newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n'); 
+          newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
           let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
           paramString = paramString.replaceAll(',,', ',')
           let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}}.bind(this),`
-          let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}",`
+         let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, false, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
           newattribute = newattribute.replace(/\s+/g, " ")
-          string = string.replace(old,  isJSXComponent ? jsxAttribute : newattribute);
+          string = string.replace(old, isJSXComponent ? jsxAttribute : newattribute);
         }
       }
     }
@@ -308,7 +244,7 @@ function Compiler(func) {
   let contents = "";
   let updatedContents = "";
   outerReturn.forEach((returnStatement) => {
-    
+
     let lines = returnStatement.split("\n");
 
     for (let i = 0; i < lines.length; i++) {
@@ -317,7 +253,7 @@ function Compiler(func) {
         continue;
       }
       contents += line + "\n";
-    } 
+    }
 
     // Remove trailing ']'
     contents = contents.trim().replace(/\]$/, "");
@@ -330,26 +266,26 @@ function Compiler(func) {
       const { element, attributes } = attribute;
       if (Object.keys(attributes).length === 0) return;
 
-       
+
       newAttributes.push(attribute);
       for (let key in attributes) {
 
         let value = attributes[key];
         let oldvalue = value;
-        if (value && !value.new) { 
+        if (value && !value.new) {
           if (value && value.includes("={")) {
             value = value.replace("=", "");
             value == "undefined" ? (value = '"') : (value = value);
-            
+
             key == 'style' ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
 
-             
+
             value = `="\$${value}",`;
             string = string.replace(oldvalue, value);
 
           } else if (value && value.includes("={`")) {
             value = value.replace("=", "");
- 
+
             value = `"\$${value}",`;
             string = string.replace(oldvalue, value);
 
@@ -420,11 +356,11 @@ function Compiler(func) {
         let setKey = line.split("=")[0].split(",")[1].trim().replace("]", "");
 
         key = key.replace("[", "").replace(",", "");
-        let value = line.split("=")[1].split("useState(")[1] 
-         
+        let value = line.split("=")[1].split("useState(")[1]
+
         let regex = /useState\((.*)\)/gs
         value = value.match(regex) ? value.match(regex)[0].split("useState(")[1].split(")")[0].trim() : value
-        switch(true){
+        switch (true) {
           case value.startsWith("'"):
             type = "String"
             break;
@@ -451,7 +387,7 @@ function Compiler(func) {
             break;
           case value.includes("false"):
             type = "Boolean"
-            break;  
+            break;
           case value.includes("null"):
             type = "Null"
             break;
@@ -460,19 +396,19 @@ function Compiler(func) {
             break;
           case value.includes("?") && value.includes(":"):
             type = "Any"
-            break; 
+            break;
           default:
             type = "*"
             break;
         }
-       
+
         let typejsdoc = `/** @type {${type}} */`;
 
-          
+
         let newState = `${varType} [${typejsdoc}${key}, ${setKey}] = this.useState('${key}', ${value}
          
           `;
-       
+
 
         // get setkey calls and replace with this.setKey
         string.split("\n").forEach((line) => {
@@ -492,12 +428,31 @@ function Compiler(func) {
         // let ref = useRef(null)
         let type = line.split(" ")[0];
         let key = line.split("=")[0].split(" ")[1].trim();
-        let value = line.split("=")[1].split("useRef(")[1] 
-         
+        let value = line.split("=")[1].split("useRef(")[1]
+
         let regex = /useState\((.*)\)/gs
         value = value.match(regex) ? value.match(regex)[0].split("useRef(")[1].split(")")[0].trim() : value
         let newState = `${type} ${key} = this.useRef('${key}', ${value}`;
 
+        string = string.replace(line, newState);
+      } else if (line.includes("useReducer") && !line.includes("import")) {
+        //ex: const [state, dispatch] = useReducer(function, initialState);
+
+        line = line.trim();
+        line = line.replaceAll(/\s+/g, " ");
+
+        // derive [key, value] from line
+        let varType = line.split(" ")[0];
+        let type = ''
+        let key = line
+          .split("=")[0]
+          .split(" ")[1]
+          .trim()
+          .replace("[", "")
+          .replace(",", "");
+        let setKey = line.split("=")[0].split(",")[1].trim().replace("]", "");
+        let reducer = line.split("=")[1].split("useReducer(")[1]
+        let newState = `${varType} [${key}, ${setKey}] = this.useReducer('${key}', ${line.includes('=>') ? reducer + '=>{' : reducer}`
         string = string.replace(line, newState);
       }
     }
@@ -535,7 +490,7 @@ function Compiler(func) {
   string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
 
   string = string.replaceAll('../src', './src')
- 
+
 
   // capture <Component />, <Component></Component>, and <Component>content</Component>
 
@@ -556,9 +511,9 @@ function Compiler(func) {
       let myChildrens = [];
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
-      let props = component.split(`<${name}`)[1].split(">")[0].trim() 
-      
-     
+      let props = component.split(`<${name}`)[1].split(">")[0].trim()
+
+
       let savedname = name;
       let children = props
         ? component
@@ -593,46 +548,46 @@ function Compiler(func) {
           myChildrens.push(child.children);
         }
       });
-      
- 
+
+
 
       /**
        * @prop {string} props
        * @description replace any given possible value in props and parse the string to a valid JSON object
        */
-      props = props 
-      .replaceAll('"', "'")
-     
-      
-      .replaceAll(",,", ',')
-      .replaceAll("className", "class")
-      .replaceAll("classname", "class")
-      .replaceAll("'${", "")
-      .replaceAll("}'", "")
-      .split("$:")
-      .join("") 
-      // replace / with '' at the end of the string
-      .replace(/\/\s*$/, "")
-     
-      .replace(/,\s*$/, "")
-      .replaceAll('="', ':"')
-      .replaceAll("='", ":'")
-      .replaceAll('=`', ':`')
-      .replaceAll(`={\``, ':`')
-      .replaceAll('`}', '`')
-      .replaceAll(",,", ',')
-      .replaceAll(/=(?=(?:(?:[^"']*["'][^"']*['"])*[^"']*$))/g, ':');
- 
-      props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,');  
+      props = props
+        .replaceAll('"', "'")
+
+
+        .replaceAll(",,", ',')
+        .replaceAll("className", "class")
+        .replaceAll("classname", "class")
+        .replaceAll("'${", "")
+        .replaceAll("}'", "")
+        .split("$:")
+        .join("")
+        // replace / with '' at the end of the string
+        .replace(/\/\s*$/, "")
+
+        .replace(/,\s*$/, "")
+        .replaceAll('="', ':"')
+        .replaceAll("='", ":'")
+        .replaceAll('=`', ':`')
+        .replaceAll(`={\``, ':`')
+        .replaceAll('`}', '`')
+        .replaceAll(",,", ',')
+        .replaceAll(/=(?=(?:(?:[^"']*["'][^"']*['"])*[^"']*$))/g, ':');
+
+      props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,');
       // ANY VALUE NUMBER BOOLEAN OR STRING
       props = props.replace(/=(\d+)/g, ':$1,');
       props = props.replaceAll(',,', ',')
-     
- 
-     /**
-      * @memoize - memoize a component to be remembered on each render and replace the old jsx
-      */
- 
+
+
+      /**
+       * @memoize - memoize a component to be remembered on each render and replace the old jsx
+       */
+
       let replace = "";
       replace = isChild
         ? `this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, ${props}, [${myChildrens.length > 0 ? myChildrens.join(",") : ""
@@ -648,10 +603,10 @@ function Compiler(func) {
 
 
 
-  string = string.replaceAll('vaderjs/client', './vader.js')
+  string = string.replaceAll('vaderjs/client', '/dist/vader.js')
   string = string.replaceAll("<>", "`").replaceAll("</>", "`");
   string = parseComponents(string);
- 
+
   string = string
     .replaceAll("className", "class")
     .replaceAll("classname", "class");
@@ -659,125 +614,67 @@ function Compiler(func) {
   string += `\n\n //wascompiled`;
 
   string = string.replaceAll("undefined", "");
-  let exportss = {}
+
   string.split('\n').forEach(line => {
-    if(line.includes('import')){
-       // Regular expression for matching import() statements
-let  asyncimportMatch = line.match(/import\s*\((.*)\)/gs);
+    if (line.includes('import')) {
+      // Regular expression for matching import() statements
+      let asyncimportMatch = line.match(/import\s*\((.*)\)/gs);
+      let regularimportMatch = line.match(/import\s+([\w\s{},]*)\s*from\s*(['"][^'"]+['"])(?![^<]*>)/gs);
 
-// Regular expression for matching regular import statements excluding lines with HTML elements
-let  regularimportMatch = line.match(/import\s+([\w\s{},]*)\s*from\s*(['"][^'"]+['"])(?![^<]*>)/gs);
-
-      if(asyncimportMatch){
+      if (asyncimportMatch) {
         asyncimportMatch.forEach(async (match) => {
           let beforeimport = match
           let path = match.split('(')[1].split(')')[0].trim()
           let newImport = ''
-          switch(true){
+          switch (true) {
             case path && path.includes('json'):
-            path = path.replace(';', '')
-            newImport = `JSON.parse(require(${path}))`
-            let htmlPrefetch = `<link rel="prefetch" href="${path}" as="fetch">`
-            let beforeHTML = fs.existsSync(process.cwd() + "/dist/index.html") ? fs.readFileSync(process.cwd() + "/dist/index.html", "utf8") : '';
-            if(!beforeHTML.includes(htmlPrefetch)){
-              let newHTML = beforeHTML + `\n${htmlPrefetch}`
-              fs.writeFileSync(process.cwd() + "/dist/index.html", newHTML);
-            }
-            break;
-  
+              path = path.replace(';', '')
+              newImport = `JSON.parse(await fetch(${path}).then(res => res.json()))`
+
+              break;
+
           }
-          if(newImport){
+          if (newImport) {
             string = string.replace(beforeimport, newImport)
           }
         })
       }
-      
-      if(regularimportMatch){
+
+      if (regularimportMatch) {
         regularimportMatch.forEach(async (match) => {
-           
+
           let beforeimport = match
           let path = match.split('from')[1].trim()
           let newImport = ''
           let name = match.split('import')[1].split('from')[0].trim()
-          switch(true){
+          switch (true) {
             case path && path.includes('json'):
-             path = path.replace(';', '')
-            newImport = `let ${name} = await require(${path}, {type: 'json'})`
-            let htmlPrefetch = `<link rel="prefetch" href="${path.replace(/'/g, '')}" as="fetch">`
-            let beforeHTML = fs.existsSync(process.cwd() + "/dist/index.html") ? fs.readFileSync(process.cwd() + "/dist/index.html", "utf8") : '';
-            if(!beforeHTML.includes(htmlPrefetch)){
-              let newHTML = beforeHTML + `\n${htmlPrefetch}`
-              fs.writeFileSync(process.cwd() + "/dist/index.html", newHTML);
-            }
-            break;
-           case path && path.includes('.jsx'):
-            
-            newImport = `let ${name} = await require(${path})`
-            break;
-            default: 
-              newImport = `let ${name} = await import(${path})`
+              path = path.replace(';', '')
+              // remove any ../
+              path = path.replaceAll('../', '')
+              path = `src/${path.replace(/'/g, '')}`
+              newImport = `let ${name} = await fetch('${path}').then(res => res.json())`
+
+              string = string.replace(beforeimport, newImport)
               break;
-          }
-          if(newImport){
-            string = string.replace(beforeimport, newImport)
+            default:
+              let beforePath = path
+              let deep = path.split('/').length - 1
+              for (let i = 0; i < deep; i++) {
+                path = path.split('../').join('')
+              }
+              path = path.replaceAll('../', '').replaceAll('./src', '/dist/src').replaceAll('.jsx', '.js')
+
+              string = string.replace(beforePath, path)
           }
         })
       }
-    }else  if (line.includes('export') && !line.includes('>') && !line.includes('<')) {
-      let b4line = line;
-      let exports = line.split('export')[1].trim();
-      let isDefault = exports.includes('default');  
-       
-      let name = ''
-      switch (true) {
-        case exports &&  isDefault: 
-
-          let expt = exports.split('default')[1].trim();
-          // Check if it's a class definition
-          if (expt.includes('class')) {
-            // also capture extends
-            let match =  expt.match(/class\s*([a-zA-Z0-9_-]+)\s*extends\s*([a-zA-Z0-9_-]+)/gs)
-            let className =  match ? match[0].split('class')[1].split('extends')[0].trim() : expt.split('class')[1].split('{')[0].trim();
-             name = className
-
-            exportss[isDefault ? 'default' : className] = className
-          } else if (expt.includes('function')) {
-            let funcName = expt.split('function')[1].split('(')[0].trim();
-            name = funcName
-              exportss[isDefault ? 'default' : funcName] = funcName
-          }else{
-            name = expt
-            exportss[isDefault ? 'default' : expt] = expt
-            
-          }
-          break;
-    
-        default:
-          let expt2 =  exports
-          if(expt2.includes('function')){
-            let funcName = expt2.split('function')[1].split('(')[0].trim();
-            exportss[funcName] = funcName
-          }else if(expt2.includes('class')){
-            let match =  expt2.match(/class\s*([a-zA-Z0-9_-]+)\s*extends\s*([a-zA-Z0-9_-]+)/gs)
-            let className =  match ? match[0].split('class')[1].split('extends')[0].trim() : expt2.split('class')[1].split('{')[0].trim();
-            name = className
-            exportss[className] = className
-          }
-          break;
-      }
-    
-      string = string.replace(b4line, b4line.replaceAll(/\s+/g, " ").trim().split('export').join('').split('default').join('').trim());
     }
-    
-     
+
+
   })
-  if(exportss){ 
-    let exports = Object.keys(exportss).map(key => key + ':' + exportss[key]).join(',')
-   
-    Object.keys(exportss).length > 1 ? string += `\n\n return {${exports}}` : string += `\n\nreturn ${Object.keys(exportss) == 'default' ? `{default: ${Object.values(exportss)[0]}}` : `${Object.keys(exportss)[0]}`}`
-  }
-   
-  return string;
+
+  return string
 }
 let bindings = []
 globalThis.isBuilding = false
@@ -794,7 +691,7 @@ async function Build() {
         fs.mkdirSync(file.split('/').slice(0, -1).join('/'), { recursive: true })
         break;
     }
-    await  fs.writeFileSync(file, data);
+    await fs.writeFileSync(file, data);
 
     return { _written: true };
   };
@@ -806,102 +703,102 @@ async function Build() {
     absolute: true,
     recursive: true
   });
-  
+
   // Process files in the 'pages' directory
   let appjs = '';
   let hasWritten = []
-  const writejs = () =>{
+  const writejs = () => {
     writer(process.cwd() + '/dist/app.js', appjs)
   }
   for await (let file of glb) {
     // Normalize file paths
     let origin = file.replace(/\\/g, '/');
-    let fileName =  origin.split('/pages/')[1].split('.jsx')[0].replace('.jsx', '') + '.jsx';
+    let fileName = origin.split('/pages/')[1].split('.jsx')[0].replace('.jsx', '') + '.jsx';
     let isBasePath = fileName === 'index.jsx';
-  
+
     // Extract all dynamic parameters from the file path [param1]/[param2]/[param3
-    let aburl =  origin.split('/pages')[1].split('.jsx')[0].replace('.jsx', '').split('[').join(':').split(']').join('');
-     
-    if(aburl.includes('...')){
+    let aburl = origin.split('/pages')[1].split('.jsx')[0].replace('.jsx', '').split('[').join(':').split(']').join('');
+
+    if (aburl.includes('...')) {
       // this is a catch all route
       // it should be /pages/[...]/index.jsx or /pages/[...].jsx  
       aburl = aburl.split('...').join('*').split(':*').join('*')
-      aburl = aburl.replaceAll('./index', '')  
-      
-    } 
+      aburl = aburl.replaceAll('./index', '')
+
+    }
     // Create an object with URL and pathname properties
     let obj = {
       url: isBasePath ? '/' : aburl.replaceAll('/index', ''),
       pathname: `/pages/${origin.split('pages/')[1].split('.jsx')[0].replace('.jsx', '')}.jsx`,
       fullpath: origin,
-    }; 
-   
+    };
+
     // Read and compile file content
     let data = await fs.readFileSync(origin, "utf8");
-    data = Compiler(data) 
-   
-    await writer(process.cwd() + "/dist/pages/" + fileName, data);
-   
+    data = Compiler(data)
+
+
+    await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), data)
+
     // Generate routing logic
     let js = `
       router.get('${obj.url}', async (req, res) => {
-        res.render(await require('.${obj.pathname}'), req, res)
+        res.render(await import('./pages/${fileName.replace('.jsx', '.js')}'), req, res)
       }) 
       //@desc ${obj.pathname}
     ` + '\n';
     appjs += js
- 
+
     writejs()
 
-     
 
-    let beforeHTML = fs.existsSync(process.cwd() + "/dist/index.html") ? await reader(process.cwd() + "/dist/index.html") : '';
-    if(!beforeHTML.includes(`<link rel="prefetch" href="/pages/${origin.split('pages/')[1] }" as="fetch">`)){
-      let newHTML = beforeHTML + `\n<link rel="prefetch" href="/pages/${origin.split('pages/')[1] }" as="fetch">`
-      await writer(process.cwd() + "/dist/index.html", newHTML);
-    }
+
+
   }
-  
-   
- 
+
+
+
   const scannedSourceFiles = await glob("**/**.{jsx,js,json}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
     cwd: process.cwd() + '/src/',
     absolute: true,
   });
-  const scannedVaderFiles = await glob("**/**.{html,js}", { 
+  const scannedVaderFiles = await glob("**/**.{html,js}", {
     cwd: process.cwd() + '/node_modules/vaderjs/runtime',
     absolute: true,
-  }); 
-  scannedVaderFiles.forEach(async (file) => { 
-     file = file.replace(/\\/g, '/');
-   
-    
-    let name = file.split( '/node_modules/vaderjs/runtime/')[1]
-    if(file.includes('index.html') && fs.existsSync(process.cwd() + "/dist/" + name)){
-        return
-   }
+  });
+  scannedVaderFiles.forEach(async (file) => {
+    file = file.replace(/\\/g, '/');
+
+
+    let name = file.split('/node_modules/vaderjs/runtime/')[1]
+    if (file.includes('index.html') && fs.existsSync(process.cwd() + "/dist/" + name)) {
+      return
+    }
     let data = await reader(file)
     bundleSize += fs.statSync(file).size;
     await writer(process.cwd() + "/dist/" + name, data);
   })
-  scannedSourceFiles.forEach(async (file) => { 
-     file = file.replace(/\\/g, '/');
-    let name = file.split('/src/')[1] 
+  scannedSourceFiles.forEach(async (file) => {
+    file = file.replace(/\\/g, '/');
+    let name = file.split('/src/')[1]
     //parse jsx 
-   
+
     let data = await reader(process.cwd() + "/src/" + name)
     if (name.includes('.jsx')) {
-      data = Compiler(data)  
+      data = Compiler(data)
+
+      await writer(process.cwd() + "/dist/src/" + name.split('.jsx').join('.js'), data)
+      return
     }
     bundleSize += fs.statSync(process.cwd() + "/src/" + name).size;
     await writer(process.cwd() + "/dist/src/" + name, data);
   })
- 
-  const scannedPublicFiles =  await glob("**/**.{css,js,html}", {
+
+  const scannedPublicFiles = await glob("**/**.{css,js,html}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
     cwd: process.cwd() + '/public/',
-    absolute: true, 
+    absolute: true,
   });
   scannedPublicFiles.forEach(async (file) => {
     file = file.replace(/\\/g, '/');
@@ -909,35 +806,35 @@ async function Build() {
     let data = await reader(process.cwd() + "/public/" + file)
     bundleSize += fs.statSync(process.cwd() + "/public/" + file).size;
     await writer(process.cwd() + "/dist/public/" + file, data);
-  }) 
+  })
   const scannedFiles = await glob("**/**.{css,js,html}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
-    cwd: process.cwd()  + "/runtime/",
+    cwd: process.cwd() + "/runtime/",
     absolute: true,
-  }) 
+  })
 
   if (!fs.existsSync(process.cwd() + "/dist/index.html")) {
-     
+
     scannedFiles.forEach(async (file) => {
       file = file.split(process.cwd() + '/runtime/')[1]
 
       if (file === "app.js") {
         return
-      } 
-      if(file.includes('index.html') && fs.existsSync(process.cwd() + "/runtime/" + file)){
-       
-          return
       }
-      bundleSize += fs.statSync(process.cwd() +  "/runtime/" + file).size;
+      if (file.includes('index.html') && fs.existsSync(process.cwd() + "/runtime/" + file)) {
+
+        return
+      }
+      bundleSize += fs.statSync(process.cwd() + "/runtime/" + file).size;
       let data = await reader(process.cwd() + "/runtime/" + file)
       await writer(process.cwd() + "/dist/" + file, data);
     });
-    
+
   }
- 
+
   globalThis.isBuilding = false
 }
-import { watch } from "fs"; 
+import { watch } from "fs";
 
 switch (true) {
   case process.argv.includes('--watch'):
@@ -948,32 +845,32 @@ Vader.js v1.3.3
 - Watching for changes in ./src
 `)
     Build()
- 
-      const watcher = watch(
-        process.cwd() + '/pages',
-        { recursive: true },
-        (event, filename) => {
-          if (event == 'change'
+
+    const watcher = watch(
+      process.cwd() + '/pages',
+      { recursive: true },
+      (event, filename) => {
+        if (event == 'change'
           && !globalThis.isBuilding
-          ) {
-            Build()
-          }
-        },
-      );
-      const watcher2 = watch(
-        process.cwd() + '/src',
-        { recursive: true },
-        (event, filename) => {
-          if (event == 'change'
+        ) {
+          Build()
+        }
+      },
+    );
+    const watcher2 = watch(
+      process.cwd() + '/src',
+      { recursive: true },
+      (event, filename) => {
+        if (event == 'change'
           && !globalThis.isBuilding
-          ) {
-            Build()
-          }
-        },
-      );
-      watcher2.on('error', (err) => console.log(err))
-      watcher.on('error', (err) => console.log(err))
-  
+        ) {
+          Build()
+        }
+      },
+    );
+    watcher2.on('error', (err) => console.log(err))
+    watcher.on('error', (err) => console.log(err))
+
     break;
   case process.argv.includes('--build'):
 

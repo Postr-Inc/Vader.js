@@ -236,16 +236,11 @@ class VaderRouter{
         },
         render: async (/**@type {Component} */ Component, req, res) => {
           try {
-              // Check if the component is valid
-              if (!Component || !Component.default || !Component.constructor) {
-                  let message = !Component || !Component.default ? 'default' : 'constructor';
-                  switch (message) {
-                      case 'default':
-                          throw new Error(`Component must have a default export ex: return {default: Component}`);
-                      case 'constructor':
-                          throw new Error(`Component is invalid, please check the constructor`);
-                  }
+              if(!Component.default || !Component.default.constructor){
+                let message = !Component.default ? `Router expected a default exported component ie: export default class Component` : !Component.default.constructor ? 'Component is not a class' : null;
+                throw new Error(message);
               }
+              
       
               // Create an instance of the component
               Component = Component.default ? new Component.default() : Component.constructor ? new Component() : Component;
@@ -266,6 +261,7 @@ class VaderRouter{
       
               // Check if the component has a router and is not a child component
               if (Component.router.use && !Component.isChild) {
+                 
                   // Allow pausing the route and run code before rendering
                   await new Promise(async (resolve) => {
                       await Component.router.use(req, res)
@@ -276,6 +272,8 @@ class VaderRouter{
                           clearInterval(timer);
                         }
                       }, 1000);
+                     }else{
+                        resolve();
                      }
                   });
               } else if (Component.router.use && Component.isChild) {
@@ -302,19 +300,22 @@ class VaderRouter{
         send: (data) => {
           document.querySelector('#root').innerHTML = data;
         },
-        json: (selector, data) => {
-          
-          if(typeof selector === 'string'){
-            // @ts-ignore
-            let obj = document.createElement('object');
-             // data url
-            obj.data =  URL.createObjectURL(new Blob([JSON.stringify(data)], {type: 'application/json'}));
-            // @ts-ignore
-            document.querySelector(selector).appendChild(obj);
-          }else{
-            throw new Error('Selector must be a string');
-          }
-        } 
+        json: (data) => {
+          const rootElement = document.querySelector('#root');
+        
+          // Clear existing content in #root
+          rootElement.innerHTML = '';
+        
+          // Create a <pre> element
+          const preElement = document.createElement('pre');
+        
+          // Set the text content of the <pre> element with formatted JSON
+          preElement.textContent = JSON.stringify(data, null, 2);
+        
+          // Append the <pre> element to the #root element
+          rootElement.appendChild(preElement);
+        }
+        
       }; 
       middlewares.forEach((middleware) => { 
         middleware(req, res);
