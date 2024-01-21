@@ -1,4 +1,4 @@
-let { Component, useState } = await import(Vader.root + '//vader.js')
+import { Component, useState } from Vader.root + "/vader.js"
 
 export class Collapse extends Component{
     constructor(props){
@@ -16,7 +16,7 @@ export class Collapse extends Component{
               
              >
                 <button class="${this.props?.class}",
-                 onClick="${this.bind(`setOpen(!open); this.props?.click(this.props?.redirectTo); `, false, false, '00cj3rqug8xqk', "setOpen,open,", setOpen, open)}", usesEvent="true", eventType="onClick",data-ref="00cj3rqug8xqk", >
+                 onClick="${this.bind(`setOpen(!open); this.props?.click(this.props?.redirectTo); `, false, false, 'xjmx81350jm', "setOpen,open,", setOpen, open)}", usesEvent="true", eventType="onClick",data-ref="xjmx81350jm", >
                     ${this.props?.title}
                  </button>
                 <div 

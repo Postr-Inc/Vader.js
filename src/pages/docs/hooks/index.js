@@ -1,4 +1,4 @@
-let {useState, useRef, Component} = await import(Vader.root + '//vader.js')
+import {useState, useRef, Component} from '/vader.js'
 const data = {
   useState: `
   <div>
@@ -36,7 +36,7 @@ class Hooks extends Component {
              <li class='list-inside' >
                <a 
                class='text-blue-500 cursor-pointer hover:underline'
-               onClick="${this.bind(`this.props?.click('/docs/hooks/useState'); `, false, false, 'btjfb6edb5', "", null)}", usesEvent="true", eventType="onClick",data-ref="btjfb6edb5", >
+               onClick="${this.bind(`this.props?.click('/docs/hooks/useState'); `, false, false, '3mbn21kf4a5', "", null)}", usesEvent="true", eventType="onClick",data-ref="3mbn21kf4a5", >
                   useState
                 </a>  
               </li>

@@ -1,4 +1,4 @@
-let { Component } = await import(Vader.root + '//vader.js')
+import { Component } from '/vader.js'
 
 export class Deployment extends Component {
   constructor(props) {
@@ -13,7 +13,7 @@ export class Deployment extends Component {
         <div class="text-sm breadcrumbs">
           <ul>
             <li><a class='no-underline'
-              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'rx6arbdtdej', "", null)}", usesEvent="true", eventType="onClick",data-ref="rx6arbdtdej", 
+              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '0g8c8vjvjlq', "", null)}", usesEvent="true", eventType="onClick",data-ref="0g8c8vjvjlq", 
             >Getting Started</a></li>
             <li><a class='font-semibold'>Deployment</a></li>
           </ul>

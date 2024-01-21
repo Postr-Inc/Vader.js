@@ -1,6 +1,6 @@
-let { Component, useState, useRef } = await import(Vader.root + '//vader.js')
-let {Routing} = await import(Vader.root + '/src/pages/docs/routing/index.js') 
-let { Deployment } = await import(Vader.root + '/src/pages/docs/deployment/index.js') 
+import { Component, useState, useRef } from '/vader.js'
+import {Routing}  from '/src/pages/docs/routing/index.js' 
+import { Deployment } from '/src/pages/docs/deployment/index.js' 
 class Installation extends Component {
   constructor(props) {
     super(props)
@@ -16,7 +16,7 @@ class Installation extends Component {
         <div class="text-sm breadcrumbs">
           <ul>
             <li><a class='no-underline'
-              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '8it00hbw1cu', "", null)}", usesEvent="true", eventType="onClick",data-ref="8it00hbw1cu", 
+              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'wo4torj75dc', "", null)}", usesEvent="true", eventType="onClick",data-ref="wo4torj75dc", 
             >Getting Started</a></li>
             <li><a class='font-semibold'>Installation</a></li>
           </ul>
@@ -48,7 +48,7 @@ class Installation extends Component {
               </svg>
               <div class="absolute end-5"
                 ref="${copiedRef.bind}",
-                onClick="${this.bind(`navigator.clipboard.writeText('npx vaderjs@latest --build'); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, 'nc9ejc8joz8', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="nc9ejc8joz8", 
+                onClick="${this.bind(`navigator.clipboard.writeText('npx vaderjs@latest --build'); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, 's6z4gozp33n', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="s6z4gozp33n", 
               >
                 <div class='hover:bg-base-200 px-[.4rem] py-[.4rem] rounded'>
                   ${
@@ -130,7 +130,7 @@ class Installation extends Component {
               </svg>
               <div class="absolute end-5"
                 ref="${copiedRef.bind}",
-                onClick="${this.bind(`navigator.clipboard.writeText(examples['1']); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, 'k4gddg9jjs', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="k4gddg9jjs", 
+                onClick="${this.bind(`navigator.clipboard.writeText(examples['1']); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, '50id2529hc4', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="50id2529hc4", 
               >
                 <div class='hover:bg-base-200 px-[.4rem] py-[.4rem] rounded'>
                   ${
@@ -261,7 +261,7 @@ class Installation extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`console.log(this); this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'rx5j1nxi81', "", null)}", usesEvent="true", eventType="onClick",data-ref="rx5j1nxi81", 
+            onClick="${this.bind(`console.log(this); this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '38ryhr59pzn', "", null)}", usesEvent="true", eventType="onClick",data-ref="38ryhr59pzn", 
           >Getting Started  </span>
         </div>
         <div class='mt-12 absolute mb-6 end-5  flex flex-col gap-3'>
@@ -271,7 +271,7 @@ class Installation extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`console.log(this); this.props?.swapPage({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, 'qwgem193ll', "", null)}", usesEvent="true", eventType="onClick",data-ref="qwgem193ll", 
+            onClick="${this.bind(`console.log(this); this.props?.swapPage({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, '4ymyje0habb', "", null)}", usesEvent="true", eventType="onClick",data-ref="4ymyje0habb", 
           >Project Structure </span>
         </div>
 
@@ -295,7 +295,7 @@ class ProjectStructure extends Component {
         <div class="text-sm breadcrumbs">
           <ul>
             <li><a class='no-underline'
-              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'oalcl0qcp17', "", null)}", usesEvent="true", eventType="onClick",data-ref="oalcl0qcp17", 
+              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '1y7zafs9566', "", null)}", usesEvent="true", eventType="onClick",data-ref="1y7zafs9566", 
             >Getting Started</a></li>
             <li><a class='font-semibold'>Page Structure</a></li>
           </ul>
@@ -377,7 +377,7 @@ class ProjectStructure extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '8j00dyq1w3e', "", null)}", usesEvent="true", eventType="onClick",data-ref="8j00dyq1w3e", 
+            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'b5whqymws1j', "", null)}", usesEvent="true", eventType="onClick",data-ref="b5whqymws1j", 
           >Getting Started  </span>
         </div>
         <div class='mt-24 absolute mb-6 end-5  flex flex-col gap-3'>
@@ -387,7 +387,7 @@ class ProjectStructure extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'routing' }); `, false, false, 'wn815fmh8no', "", null)}", usesEvent="true", eventType="onClick",data-ref="wn815fmh8no", 
+            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'routing' }); `, false, false, 'rmia074dibq', "", null)}", usesEvent="true", eventType="onClick",data-ref="rmia074dibq", 
           >Routing </span>
         </div>
      </div>
@@ -506,7 +506,7 @@ export class Home extends Component {
                   <span
 
                     class='font-bold cursor-pointer hover:opacity-100 opacity-60 '
-                    onClick="${this.bind(`this.props?.click('getting-started', 'installation'); `, false, false, 'zk7yxn2o18m', "", null)}", usesEvent="true", eventType="onClick",data-ref="zk7yxn2o18m", 
+                    onClick="${this.bind(`this.props?.click('getting-started', 'installation'); `, false, false, '1slv42hv0rs', "", null)}", usesEvent="true", eventType="onClick",data-ref="1slv42hv0rs", 
                   >Installation  </span>
                 </div>
               </div>

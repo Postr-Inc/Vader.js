@@ -1,47 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vaderjs v1.3.3</title>
     <meta name="description" content="Vader.js is a modern web framework for building web applications.">
-    <link rel="shortcut icon" href="https://raw.githubusercontent.com/Postr-Inc/Vader.js/main/logo.png" type="image/x-icon">
+    <link rel="shortcut icon" href="https://raw.githubusercontent.com/Postr-Inc/Vader.js/main/logo.png"
+        type="image/x-icon">
     <link rel="stylesheet" href="./public//styles.css">
- 
-                
-                
-                <link rel="modulepreload" href="//vader.js">
-                <link rel="preload" href="//vader.js" as="script">
-                
-                <link rel="modulepreload" href="/src/button.js">
-                <link rel="preload" href="/src/button.js" as="script">
-                
-                <link rel="modulepreload" href="/src/Nav.js">
-                <link rel="preload" href="/src/Nav.js" as="script">
-                
-                <link rel="modulepreload" href="/src/examples/component.js">
-                <link rel="preload" href="/src/examples/component.js" as="script">
-                
-                <link rel="modulepreload" href="/src/pages/docs/overview/index.js">
-                <link rel="preload" href="/src/pages/docs/overview/index.js" as="script">
-                
-                <link rel="modulepreload" href="/src/search.js">
-                <link rel="preload" href="/src/search.js" as="script">
-                
-                <link rel="modulepreload" href="/src/pages/docs/routing/index.js">
-                <link rel="preload" href="/src/pages/docs/routing/index.js" as="script">
-                
-                <link rel="modulepreload" href="/src/pages/docs/deployment/index.js">
-                <link rel="preload" href="/src/pages/docs/deployment/index.js" as="script">
-                </head>
+
+<link rel="modulepreload" href="/vader.js"><link rel="preload" href="/vader.js" as="script"><link rel="modulepreload" href="./src/button.js"><link rel="preload" href="./src/button.js" as="script"><link rel="modulepreload" href="./src/Nav.js"><link rel="preload" href="./src/Nav.js" as="script"><link rel="modulepreload" href="./src/examples/component.js"><link rel="preload" href="./src/examples/component.js" as="script"><link rel="modulepreload" href="./src/pages/docs/overview/index.js"><link rel="preload" href="./src/pages/docs/overview/index.js" as="script"><link rel="modulepreload" href="./src/search.js"><link rel="preload" href="./src/search.js" as="script"><link rel="modulepreload" href="./src/pages/docs/routing/index.js"><link rel="preload" href="./src/pages/docs/routing/index.js" as="script"><link rel="modulepreload" href="./src/pages/docs/deployment/index.js"><link rel="preload" href="./src/pages/docs/deployment/index.js" as="script"><link rel="modulepreload" href="../src/button.js"><link rel="preload" href="../src/button.js" as="script"><link rel="modulepreload" href="../src/search.js"><link rel="preload" href="../src/search.js" as="script"><link rel="modulepreload" href="../src/Nav.js"><link rel="preload" href="../src/Nav.js" as="script"><link rel="modulepreload" href="../src/examples/component.js"><link rel="preload" href="../src/examples/component.js" as="script"><link rel="modulepreload" href="../src/pages/docs/overview/index.js"><link rel="preload" href="../src/pages/docs/overview/index.js" as="script"><link rel="modulepreload" href="../src/pages/docs/routing/index.js"><link rel="preload" href="../src/pages/docs/routing/index.js" as="script"><link rel="modulepreload" href="../src/pages/docs/deployment/index.js"><link rel="preload" href="../src/pages/docs/deployment/index.js" as="script"><link rel="modulepreload" href="/src/button.js"><link rel="preload" href="/src/button.js" as="script"><link rel="modulepreload" href="/src/Nav.js"><link rel="preload" href="/src/Nav.js" as="script"><link rel="modulepreload" href="/src/examples/component.js"><link rel="preload" href="/src/examples/component.js" as="script"><link rel="modulepreload" href="/src/pages/docs/overview/index.js"><link rel="preload" href="/src/pages/docs/overview/index.js" as="script"><link rel="modulepreload" href="/src/search.js"><link rel="preload" href="/src/search.js" as="script"><link rel="modulepreload" href="/src/pages/docs/routing/index.js"><link rel="preload" href="/src/pages/docs/routing/index.js" as="script"><link rel="modulepreload" href="/src/pages/docs/deployment/index.js"><link rel="preload" href="/src/pages/docs/deployment/index.js" as="script"></head>
+
 <body>
     <div id="root"></div>
     <script type="module">
-        import VaderRouter from './router.js' 
+        import VaderRouter from './router.js'
         const router = new VaderRouter('/', 3000)
         window.router = router
         await import('./app.js')
         router.listen(3000)
-    </script> 
+    </script>
 </body>
+
 </html>
