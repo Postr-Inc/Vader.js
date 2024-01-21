@@ -1,4 +1,4 @@
-import {Component, useState, strictMount, useRef}  from '/vader.js'
+let {Component, useState, strictMount, useRef} = await import(Vader.root + '//vader.js')
 
 class Video extends Component{
     constructor(props){
@@ -27,7 +27,7 @@ class Video extends Component{
                         ref="${likedRef.bind}",
                         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="${1.5}", stroke="currentColor" 
                         class="${`w-6 h-6 cursor-pointer ${liked ? 'fill-error stroke-error' : ''}`}",
-                        onClick="${this.bind(`setLiked(!liked, likedRef.bind); `, false, false, '9bhmzeuce0k', "setLiked,,liked,likedRef,event,", setLiked, liked, likedRef, event)}", usesEvent="true", eventType="onClick",data-ref="9bhmzeuce0k", 
+                        onClick="${this.bind(`setLiked(!liked, likedRef.bind); `, false, false, '9toqkdxafxq', "setLiked,,liked,likedRef,event,", setLiked, liked, likedRef, event)}", usesEvent="true", eventType="onClick",data-ref="9toqkdxafxq", 
                         >
                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                         </svg>
@@ -107,7 +107,7 @@ export class ComponentExample extends Component{
                    
                 
                     <input  
-                    onInput="${this.bind(filterVideos, true, false, 'gw856tfwt4w', "e, test", event, videos)}", usesEvent="true", eventType="onInput",data-ref="gw856tfwt4w",       
+                    onInput="${this.bind(filterVideos, true, false, '4aylv5n28wx', "e, test", event, videos)}", usesEvent="true", eventType="onInput",data-ref="4aylv5n28wx",       
                     type="text" class="input input-bordered rounded-full" placeholder="Search..." />
                 </div>
                 <h1   class='font-bold text-xl  mx-5 p-2' ref="${searchHook.bind}", >${videos.length} Videos</h1>

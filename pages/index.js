@@ -1,8 +1,7 @@
-import { Component, useState, strictMount, useRef } from "/vader.js"
-import  {Button} from "/dist/src/button.js" 
-import {Nav }from '/dist/src/Nav.js' 
-import { ComponentExample} from "/dist/src/examples/component.js"
-
+let { Component, useState, strictMount, useRef } = await import(Vader.root + '//vader.js')
+let {Button} = await import(Vader.root + '/src/button.js') 
+let {Nav } = await import(Vader.root + '/src/Nav.js') 
+let { ComponentExample} = await import(Vader.root + '/src/examples/component.js')
 export default class Index extends Component {
     constructor(props) {
         super(props);
@@ -79,7 +78,7 @@ export default class Index extends Component {
 
                         <button
                             class="btn btn-ghost  shadow border-slate-200 border  hover:bg-white btn-sm w-fit text-center align-middle mx-auto mt-5"
-                            onClick="${this.bind(`setView(view === 'index' ? 'stackblitz' : 'index'); console.log(view); `, false, false, 'pmq1yyr1prc', "setView,view,embedref,", setView, view, embedref)}", usesEvent="true", eventType="onClick",data-ref="pmq1yyr1prc", 
+                            onClick="${this.bind(`setView(view === 'index' ? 'stackblitz' : 'index'); console.log(view); `, false, false, 'w5xo1rydzs', "setView,view,embedref,", setView, view, embedref)}", usesEvent="true", eventType="onClick",data-ref="w5xo1rydzs", 
                         >
                             ${
                                 view === 'index' ? 'Click to View Code' : 'Click to View Example Component'
@@ -97,7 +96,7 @@ export default class Index extends Component {
                                     : `
                                         <embed
                                             ref="${embedref.bind}",
-                                            onLoad="${this.bind(``, false, false, '0kjdxrcfucjb', "setLoaded,loaded,", setLoaded, loaded)}", usesEvent="true", eventType="onLoad",data-ref="0kjdxrcfucjb", 
+                                            onLoad="${this.bind(``, false, false, '8cd1g6vi6fb', "setLoaded,loaded,", setLoaded, loaded)}", usesEvent="true", eventType="onLoad",data-ref="8cd1g6vi6fb", 
                                             class="h-[600px] w-[600px] rounded  "
                                             src="https://stackblitz.com/edit/web-platform-aanbgw?file=dev%2Fpages%2Findex.jsx&view=editor"
                                             style={{ width: '100%', height: '100%' }}

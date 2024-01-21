@@ -1,4 +1,4 @@
-let {Component, useParams} = await import('/vader.js')
+let {Component, useParams} = await await import(Vader.root + '//vader.js')
 
 class Index extends Component{
     constructor(props){

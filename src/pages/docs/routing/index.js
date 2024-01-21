@@ -1,4 +1,4 @@
-import { Component, useRef, useState } from '/vader.js'
+let { Component, useRef, useState } = await import(Vader.root + '//vader.js')
 
 export class Routing extends Component {
   constructor(props) {
@@ -17,7 +17,7 @@ export class Routing extends Component {
         <div class="text-sm breadcrumbs">
           <ul>
             <li><a class='no-underline'
-              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'rs613olvz0b', "", null)}", usesEvent="true", eventType="onClick",data-ref="rs613olvz0b", 
+              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '9nlu25a1g04', "", null)}", usesEvent="true", eventType="onClick",data-ref="9nlu25a1g04", 
             >Getting Started</a></li>
             <li><a class='font-semibold'>Routing</a></li>
           </ul>
@@ -35,7 +35,7 @@ export class Routing extends Component {
         <h2 class='text-2xl font-bold'>Pages</h2>
         <p>
           Vaderjs uses a filesystem routing system. That automatically compiles code from the pages directory and appends the route in the main app.js file, based on the file structure.
-          <a onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, 'mmtcc4chg9j', "", null)}", usesEvent="true", eventType="onClick",data-ref="mmtcc4chg9j",  class='text-blue-500 cursor-pointer hover:underline'>Learn more about project structure</a>
+          <a onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, '0lmpsjghgu1h', "", null)}", usesEvent="true", eventType="onClick",data-ref="0lmpsjghgu1h",  class='text-blue-500 cursor-pointer hover:underline'>Learn more about project structure</a>
         </p>
         <ul class="menu  border border-slate-200 rounded" aria-label='file structure example' title='file structure example'>
           <li><a>index.jsx - <span class='badge bg-base-200 border border-slate-200 rounded'>acme.com#/</span></a></li>
@@ -79,7 +79,7 @@ export class Routing extends Component {
             </svg>
             <div class="absolute end-5 z-[9999]"
 
-              onClick="${this.bind(`setSaved(true, copiedRef.bind); `, false, false, 'l0ne052cavj', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="l0ne052cavj", 
+              onClick="${this.bind(`setSaved(true, copiedRef.bind); `, false, false, 'wj3xz3qwi58', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="wj3xz3qwi58", 
             >
               <div
                 ref="${copiedRef.bind}",
@@ -219,7 +219,7 @@ export class Routing extends Component {
               </svg>
               <div class="absolute end-5"
                 ref="${copiedRef.bind}",
-                onClick="${this.bind(`navigator.clipboard.writeText(examples['1']); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, 'gjs9q5eq1hk', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="gjs9q5eq1hk", 
+                onClick="${this.bind(`navigator.clipboard.writeText(examples['1']); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, '2bun5onxvsh', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="2bun5onxvsh", 
               >
                 
               </div>
@@ -332,7 +332,7 @@ export class Routing extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, '9nq7eubv96', "", null)}", usesEvent="true", eventType="onClick",data-ref="9nq7eubv96", 
+            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, 'm50aw5izhuq', "", null)}", usesEvent="true", eventType="onClick",data-ref="m50aw5izhuq", 
           >Project Structure  </span>
         </div>
         <div class='mt-24 absolute mb-6 end-5  flex flex-col gap-3'>
@@ -342,7 +342,7 @@ export class Routing extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'deployment' }); `, false, false, 'sosyh6e4ju', "", null)}", usesEvent="true", eventType="onClick",data-ref="sosyh6e4ju", 
+            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'deployment' }); `, false, false, '47ewfsf6ier', "", null)}", usesEvent="true", eventType="onClick",data-ref="47ewfsf6ier", 
           >Deployment  </span>
         </div>
      </div>

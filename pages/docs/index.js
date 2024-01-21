@@ -1,6 +1,6 @@
-let { Component, useState } = await import('/vader.js')
-import { Nav }from '/dist/src/Nav.js' 
-import { Home } from '/dist/src/pages/docs/overview/index.js'
+let { Component, useState } = await await import(Vader.root + '//vader.js')
+let { Nav } = await import(Vader.root + '/src/Nav.js') 
+let { Home } = await import(Vader.root + '/src/pages/docs/overview/index.js')
   
 window.Vader['docs'] = {
     'overview': {
@@ -40,14 +40,14 @@ class Index extends Component {
 
                                 <li><a
                                     class='font-semibold'
-                                    onClick="${this.bind(`this.response.setQuery({ page: 'getting-started' }); `, false, false, '2rkp1b05cbc', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="2rkp1b05cbc", 
+                                    onClick="${this.bind(`this.response.setQuery({ page: 'getting-started' }); `, false, false, 'ba4mq3dohq', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="ba4mq3dohq", 
                                 >Getting Started</a></li>
                                 <li class='p-1'><a
                                     class="${`
            ${path == '/docs/getting-started/installation' ? 'font-semibold text-blue-500 font-sans' : ''
                                         }
          `}",
-                                    onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'installation' }); `, false, false, 'ztyjefuzv1', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="ztyjefuzv1", 
+                                    onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'installation' }); `, false, false, '30lzaadjz0i', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="30lzaadjz0i", 
                                 >Installation</a></li>
                                 <li class='p-1'><a
                                     class="${`
@@ -55,20 +55,20 @@ class Index extends Component {
            ${path == '/docs/getting-started/project-structure' ? 'font-semibold  text-blue-500 font-sans' : ''
                                         }
          `}",
-                                    onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, '08hs78caqoji', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="08hs78caqoji", 
+                                    onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, 'ht7dppuhot', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="ht7dppuhot", 
                                 >Project Structure</a></li>
                                 
                                 <li class="p-1">
 
                                     <a
                                         class="${`${path == '/docs/getting-started/routing' ? 'font-semibold text-blue-500 font-sans' : ''}`}",
-                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'routing' }); `, false, false, 'vnr0112rdlo', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="vnr0112rdlo", 
+                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'routing' }); `, false, false, '0ye1yd81gmda', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="0ye1yd81gmda", 
                                     >Routing</a></li>
                                 <li class="p-1">
 
 <a
     class="${`${path == '/docs/getting-started/deployment' ? 'font-semibold text-blue-500 font-sans' : ''}`}",
-    onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'deployment' }); `, false, false, 'urq8uehj7qp', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="urq8uehj7qp", 
+    onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'deployment' }); `, false, false, 'vkqbif0zgua', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="vkqbif0zgua", 
 >Deployment</a></li> 
   
                                     
@@ -106,7 +106,7 @@ class Index extends Component {
 
                         <ul class='p-5     fixed    flex flex-col text-sm gap-5'>
                             <li
-                                onClick="${this.bind(`this.response.setQuery({ page: 'getting-started' }); `, false, false, 'ddtt7lvcjie', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="ddtt7lvcjie", 
+                                onClick="${this.bind(`this.response.setQuery({ page: 'getting-started' }); `, false, false, 'j6qmzevm17q', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="j6qmzevm17q", 
                                 class='cursor-pointer'
                             >
                                 <a class='flex gap-2 hero'>
@@ -177,7 +177,7 @@ class Index extends Component {
                             ${
                                 path.includes('getting-started') ? `
                                     <li
-                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'installation' }); `, false, false, '9l302q84pxf', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="9l302q84pxf", 
+                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'installation' }); `, false, false, 'wi3j5ir65vh', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="wi3j5ir65vh", 
                                         class='cursor-pointer'
                                     >
                                         <a
@@ -197,7 +197,7 @@ class Index extends Component {
                                         </a>
                                     </li>
                                     <li
-                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, '8qpbu8wrnbd', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="8qpbu8wrnbd", 
+                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, 'rv7cy0gzmud', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="rv7cy0gzmud", 
                                         class='cursor-pointer'
                                     >
                                         <a class='flex gap-2 hero'>
@@ -212,7 +212,7 @@ class Index extends Component {
                                         </a>
                                     </li>
                                     <li
-                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'routing' }); `, false, false, 'kx9fnfuj5re', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="kx9fnfuj5re", 
+                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'routing' }); `, false, false, 'jscxt805id', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="jscxt805id", 
                                         class='cursor-pointer'
                                     >
                                         <a class='flex gap-2 hero'>
@@ -229,7 +229,7 @@ class Index extends Component {
                                         </a>
                                     </li>
                                     <li
-                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'deployment' }); `, false, false, 'kbtws7ioqf9', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="kbtws7ioqf9", 
+                                        onClick="${this.bind(`this.response.setQuery({ page: 'getting-started', subpage: 'deployment' }); `, false, false, 'qx1qvlqu9mi', "setPath,", setPath)}", usesEvent="true", eventType="onClick",data-ref="qx1qvlqu9mi", 
                                         class='cursor-pointer'
                                     >
                                         <a class='flex gap-2 hero'>

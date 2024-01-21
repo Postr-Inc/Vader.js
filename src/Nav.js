@@ -1,5 +1,5 @@
-import { Component } from '/vader.js'
-import {SearchBar}  from './search.js' 
+let { Component } = await import(Vader.root + '//vader.js')
+let {SearchBar} = await import(Vader.root + '/src/search.js') 
 export class Nav extends Component {
     constructor(props) {
         super(props)
@@ -8,7 +8,7 @@ export class Nav extends Component {
         return `
             <div class="navbar  sticky top-0 z-[9999]    bg-white ">
                 <div class="navbar-start"
-                    onClick="${this.bind(`this.response.redirect('/'); `, false, false, '88xzmtfqgv2', "", null)}", usesEvent="true", eventType="onClick",data-ref="88xzmtfqgv2", 
+                    onClick="${this.bind(`this.response.redirect('/'); `, false, false, 's7eifr793j', "", null)}", usesEvent="true", eventType="onClick",data-ref="s7eifr793j", 
                 >
 
                     <img

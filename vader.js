@@ -1,5 +1,6 @@
 window.Vader = {
   version: "1.3.3", 
+  root:import.meta.url.split('/').slice(0, -1).join('/'),
 };
 
 let errors = {
