@@ -1,6 +1,6 @@
 import { Component } from "./vader.js";
 
- 
+let middlewares = [];
 
  
 
@@ -55,6 +55,7 @@ class VaderRouter{
      */
   
     use(/* path, */ middleware) {
+      console.log(middleware)
       this.middlewares.push(middleware);
     }
   
@@ -134,6 +135,7 @@ class VaderRouter{
       hash = hash.slice(1);
       let status = 200;
       let paramsCatchall = {}
+      let hashBefore = hash;
       let route = this.routes.find((route) => {
         if (route.path === hash) {
           return true;
@@ -143,6 +145,9 @@ class VaderRouter{
           return true
         }
     
+        if(hash.includes('?')){
+           hash = hash.split('?')[0]
+        } 
         if (route.path.includes('*') || route.path.includes(':')) {
           const routeParts = route.path.split('/');
           const hashParts = hash.split('/');
@@ -168,15 +173,14 @@ class VaderRouter{
     
           return true;
         }
-    
-        const params = this.extractParams(route.path, hash);
+     
+        const params = this.extractParams(route.path, hashBefore);
         return Object.keys(params).length > 0;
-      });
+      }); 
     
       
       if (!route) { 
         route = this.routes.find((errorRoute) => {
-          console.log(errorRoute)
           if (errorRoute.path.includes('/404')){ 
             this.error = true;
             return true;
@@ -188,8 +192,8 @@ class VaderRouter{
         status = route ? 200 : 404;
       }
      
-      const queryParams = this.extractQueryParams(hash);
-      const params =  route && route.path ? this.extractParams(route.path, hash) : {};
+      const queryParams = this.extractQueryParams(hashBefore);
+      const params =  route && route.path ? this.extractParams(route.path,  hashBefore) : {};
       const req = {
         headers: {},
         params: params,
@@ -223,45 +227,67 @@ class VaderRouter{
             });
           }
         },
+        refresh: () => {
+           this.handleRoute(window.location.hash);
+        },
         redirect: (path) => { 
           !path.startsWith('/') ? path = `/${path}` : null;
           window.location.hash = `#${path}`;
         },
         render: async (/**@type {Component} */ Component, req, res) => {
-          
-            if(!Component || !Component.default || !Component.constructor){
-              let message = !Component || !Component.default ? 'default' : 'constructor';
-              switch(message){
-                case 'default':
-                  throw new Error(`Component must have a default export ex: return {default: Component}`);
-                  
-                case 'constructor':
-                  throw new Error(`Component is invalid, please check the constructor`);
-                  
+          try {
+              if(!Component.default || !Component.default.constructor){
+                let message = !Component.default ? `Router expected a default exported component ie: export default class Component` : !Component.default.constructor ? 'Component is not a class' : null;
+                throw new Error(message);
               }
+              
+      
+              // Create an instance of the component
+              Component = Component.default ? new Component.default() : Component.constructor ? new Component() : Component;
+      
+              // Set the 'mounted' flag to true
+              Component.mounted = true;
+      
+              // Check if the root element exists
+              if (!document.querySelector('#root')) {
+                  throw new Error('Root element not found, please add an element with id root');
+              }
+      
+              // Reset component state
+              Component.reset();
+              Component.components = {};
+              Component.request = req;
+              Component.response = res;
+      
+              // Check if the component has a router and is not a child component
+              if (Component.router.use && !Component.isChild) {
+                 
+                  // Allow pausing the route and run code before rendering
+                  await new Promise(async (resolve) => {
+                      await Component.router.use(req, res)
+                      if(req.pause){
+                      let timer = setInterval(() => {
+                        if(!req.pause){
+                          resolve();
+                          clearInterval(timer);
+                        }
+                      }, 1000);
+                     }else{
+                        resolve();
+                     }
+                  });
+              } else if (Component.router.use && Component.isChild) {
+                  console.warn('Router.use() is not supported in child components');
+              } 
+                  const renderedContent = await Component.render();
+                  document.querySelector('#root').innerHTML = renderedContent;
+                  Component.bindMount();
+                  Component.onMount();
              
-            }
-        
-            Component = Component.default ? new Component.default() :  Component.constructor ? new Component() : Component;
-            
-         
-            Component.mounted = true;
-            
-            if(!document.querySelector('#root')){
-              throw new Error('Root element not found, please add an element with id root');
-            }
-            Component.router.use = this.use.bind(this)
-            Component.state = {}
-            Component.reset();
-            Component.components = {}
-            Component.request = req;
-            Component.response = res;
-            document.querySelector('#root').innerHTML =   Component.render() 
-            Component.bindMount();
-            Component.onMount()
-           
-           
-        },
+          } catch (error) {
+              console.error(error);
+          }
+      },
         setQuery: (query) => {
           let queryString = '';
           Object.keys(query).forEach((key, index) => {
@@ -274,21 +300,24 @@ class VaderRouter{
         send: (data) => {
           document.querySelector('#root').innerHTML = data;
         },
-        json: (selector, data) => {
-          
-          if(typeof selector === 'string'){
-            // @ts-ignore
-            let obj = document.createElement('object');
-             // data url
-            obj.data =  URL.createObjectURL(new Blob([JSON.stringify(data)], {type: 'application/json'}));
-            // @ts-ignore
-            document.querySelector(selector).appendChild(obj);
-          }else{
-            throw new Error('Selector must be a string');
-          }
-        } 
-      };
-      this.middlewares.forEach((middleware) => {
+        json: (data) => {
+          const rootElement = document.querySelector('#root');
+        
+          // Clear existing content in #root
+          rootElement.innerHTML = '';
+        
+          // Create a <pre> element
+          const preElement = document.createElement('pre');
+        
+          // Set the text content of the <pre> element with formatted JSON
+          preElement.textContent = JSON.stringify(data, null, 2);
+        
+          // Append the <pre> element to the #root element
+          rootElement.appendChild(preElement);
+        }
+        
+      }; 
+      middlewares.forEach((middleware) => { 
         middleware(req, res);
       });
     
@@ -297,7 +326,7 @@ class VaderRouter{
     
     
   }
-
+ 
   window.VaderRouter = VaderRouter;
   
   export default VaderRouter;
