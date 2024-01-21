@@ -1,4 +1,4 @@
-import { Component } from '/dist/vader.js'
+import { Component } from '/vader.js'
 import {SearchBar}  from './search.js' 
 export class Nav extends Component {
     constructor(props) {
@@ -8,7 +8,7 @@ export class Nav extends Component {
         return `
             <div class="navbar  sticky top-0 z-[9999]    bg-white ">
                 <div class="navbar-start"
-                    onClick="${this.bind(`this.response.redirect('/'); `, false, false, '5uso0vs8dww', "", null)}", usesEvent="true", eventType="onClick",data-ref="5uso0vs8dww", 
+                    onClick="${this.bind(`this.response.redirect('/'); `, false, false, '88xzmtfqgv2', "", null)}", usesEvent="true", eventType="onClick",data-ref="88xzmtfqgv2", 
                 >
 
                     <img

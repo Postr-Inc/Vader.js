@@ -1,4 +1,4 @@
-let {Component, useParams} = await import('/dist/vader.js')
+let {Component, useParams} = await import('/vader.js')
 
 class Index extends Component{
     constructor(props){

@@ -1,4 +1,4 @@
-import { Component, useState } from "/dist/vader.js"
+import { Component, useState } from "/vader.js"
 
 export class Collapse extends Component{
     constructor(props){
@@ -16,7 +16,7 @@ export class Collapse extends Component{
               
              >
                 <button class="${this.props?.class}",
-                 onClick="${this.bind(`setOpen(!open); this.props?.click(this.props?.redirectTo); `, false, false, '28k9qys4cti', "setOpen,open,", setOpen, open)}", usesEvent="true", eventType="onClick",data-ref="28k9qys4cti", >
+                 onClick="${this.bind(`setOpen(!open); this.props?.click(this.props?.redirectTo); `, false, false, '60jnfrlriyj', "setOpen,open,", setOpen, open)}", usesEvent="true", eventType="onClick",data-ref="60jnfrlriyj", >
                     ${this.props?.title}
                  </button>
                 <div 

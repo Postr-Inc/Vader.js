@@ -1,4 +1,4 @@
-import { Component, useState, useRef } from '/dist/vader.js'
+import { Component, useState, useRef } from '/vader.js'
 import {Routing}  from '/dist/src/pages/docs/routing/index.js' 
 import { Deployment } from '/dist/src/pages/docs/deployment/index.js' 
 class Installation extends Component {
@@ -16,7 +16,7 @@ class Installation extends Component {
         <div class="text-sm breadcrumbs">
           <ul>
             <li><a class='no-underline'
-              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'ynmezjz5bxe', "", null)}", usesEvent="true", eventType="onClick",data-ref="ynmezjz5bxe", 
+              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'k1k4xfhpyn', "", null)}", usesEvent="true", eventType="onClick",data-ref="k1k4xfhpyn", 
             >Getting Started</a></li>
             <li><a class='font-semibold'>Installation</a></li>
           </ul>
@@ -48,7 +48,7 @@ class Installation extends Component {
               </svg>
               <div class="absolute end-5"
                 ref="${copiedRef.bind}",
-                onClick="${this.bind(`navigator.clipboard.writeText('npx vaderjs@latest --build'); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, '1oogdshb6t8', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="1oogdshb6t8", 
+                onClick="${this.bind(`navigator.clipboard.writeText('npx vaderjs@latest --build'); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, '83g1pl2r0fj', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="83g1pl2r0fj", 
               >
                 <div class='hover:bg-base-200 px-[.4rem] py-[.4rem] rounded'>
                   ${
@@ -130,7 +130,7 @@ class Installation extends Component {
               </svg>
               <div class="absolute end-5"
                 ref="${copiedRef.bind}",
-                onClick="${this.bind(`navigator.clipboard.writeText(examples['1']); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, 'kshyl6giafd', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="kshyl6giafd", 
+                onClick="${this.bind(`navigator.clipboard.writeText(examples['1']); setSaved(!saved, copiedRef.bind); setTimeout(() => {; setSaved(false, copiedRef.bind); }, 1000); `, false, false, 'hc2kdrip4xc', "setSaved,saved,copiedRef,", setSaved, saved, copiedRef)}", usesEvent="true", eventType="onClick",data-ref="hc2kdrip4xc", 
               >
                 <div class='hover:bg-base-200 px-[.4rem] py-[.4rem] rounded'>
                   ${
@@ -177,7 +177,7 @@ class Installation extends Component {
                 <div>
 
                   <li class='hover:bg-base-200 rounded'>
-                    <span class='mx-2'><span class='text-yellow-600'>import</span></span> <span class='text-blue-500'>${'{Component, useState}'}</span> <span class='text-yellow-600'>from</span> <span class='text-green-500'>'/dist/vader.js'</span> 
+                    <span class='mx-2'><span class='text-yellow-600'>import</span></span> <span class='text-blue-500'>${'{Component, useState}'}</span> <span class='text-yellow-600'>from</span> <span class='text-green-500'>'/vader.js'</span> 
                   </li>
                   <li class='hover:bg-base-200 rounded'>
                     <span class='mx-2'><span class='text-yellow-600'>class</span> <span class='text-blue-500'>Index</span> <span class='text-yellow-600'>extends</span> <span class='text-purple-500'>Component</span> <span class='text-purple-500'>${'{'}</span></span>
@@ -261,7 +261,7 @@ class Installation extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`console.log(this); this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '0u282cuclfwk', "", null)}", usesEvent="true", eventType="onClick",data-ref="0u282cuclfwk", 
+            onClick="${this.bind(`console.log(this); this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'vg6jv5ryx8n', "", null)}", usesEvent="true", eventType="onClick",data-ref="vg6jv5ryx8n", 
           >Getting Started  </span>
         </div>
         <div class='mt-12 absolute mb-6 end-5  flex flex-col gap-3'>
@@ -271,7 +271,7 @@ class Installation extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`console.log(this); this.props?.swapPage({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, 'g7g30pinm', "", null)}", usesEvent="true", eventType="onClick",data-ref="g7g30pinm", 
+            onClick="${this.bind(`console.log(this); this.props?.swapPage({ page: 'getting-started', subpage: 'project-structure' }); `, false, false, 'j4ju3y2zdh', "", null)}", usesEvent="true", eventType="onClick",data-ref="j4ju3y2zdh", 
           >Project Structure </span>
         </div>
 
@@ -295,7 +295,7 @@ class ProjectStructure extends Component {
         <div class="text-sm breadcrumbs">
           <ul>
             <li><a class='no-underline'
-              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '5k9v0ce9raf', "", null)}", usesEvent="true", eventType="onClick",data-ref="5k9v0ce9raf", 
+              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'utqmg44gmld', "", null)}", usesEvent="true", eventType="onClick",data-ref="utqmg44gmld", 
             >Getting Started</a></li>
             <li><a class='font-semibold'>Page Structure</a></li>
           </ul>
@@ -377,7 +377,7 @@ class ProjectStructure extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '1u57yf34oof', "", null)}", usesEvent="true", eventType="onClick",data-ref="1u57yf34oof", 
+            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, '754kq5lok34', "", null)}", usesEvent="true", eventType="onClick",data-ref="754kq5lok34", 
           >Getting Started  </span>
         </div>
         <div class='mt-24 absolute mb-6 end-5  flex flex-col gap-3'>
@@ -387,7 +387,7 @@ class ProjectStructure extends Component {
           <span
 
             class='font-bold mb-12 hover:opacity-100 cursor-pointer opacity-60 '
-            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'routing' }); `, false, false, 'gci2i52kjgr', "", null)}", usesEvent="true", eventType="onClick",data-ref="gci2i52kjgr", 
+            onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: 'routing' }); `, false, false, 'lydu0owwqr', "", null)}", usesEvent="true", eventType="onClick",data-ref="lydu0owwqr", 
           >Routing </span>
         </div>
      </div>
@@ -506,7 +506,7 @@ export class Home extends Component {
                   <span
 
                     class='font-bold cursor-pointer hover:opacity-100 opacity-60 '
-                    onClick="${this.bind(`this.props?.click('getting-started', 'installation'); `, false, false, 'p1oliek9lwk', "", null)}", usesEvent="true", eventType="onClick",data-ref="p1oliek9lwk", 
+                    onClick="${this.bind(`this.props?.click('getting-started', 'installation'); `, false, false, 'o2oqurvmqz', "", null)}", usesEvent="true", eventType="onClick",data-ref="o2oqurvmqz", 
                   >Installation  </span>
                 </div>
               </div>

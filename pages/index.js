@@ -1,4 +1,4 @@
-import { Component, useState, strictMount, useRef } from "/dist/vader.js"
+import { Component, useState, strictMount, useRef } from "/vader.js"
 import  {Button} from "/dist/src/button.js" 
 import {Nav }from '/dist/src/Nav.js' 
 import { ComponentExample} from "/dist/src/examples/component.js"
@@ -79,7 +79,7 @@ export default class Index extends Component {
 
                         <button
                             class="btn btn-ghost  shadow border-slate-200 border  hover:bg-white btn-sm w-fit text-center align-middle mx-auto mt-5"
-                            onClick="${this.bind(`setView(view === 'index' ? 'stackblitz' : 'index'); console.log(view); `, false, false, '6lzjjsogrba', "setView,view,embedref,", setView, view, embedref)}", usesEvent="true", eventType="onClick",data-ref="6lzjjsogrba", 
+                            onClick="${this.bind(`setView(view === 'index' ? 'stackblitz' : 'index'); console.log(view); `, false, false, 'pmq1yyr1prc', "setView,view,embedref,", setView, view, embedref)}", usesEvent="true", eventType="onClick",data-ref="pmq1yyr1prc", 
                         >
                             ${
                                 view === 'index' ? 'Click to View Code' : 'Click to View Example Component'
@@ -97,7 +97,7 @@ export default class Index extends Component {
                                     : `
                                         <embed
                                             ref="${embedref.bind}",
-                                            onLoad="${this.bind(``, false, false, 'ksey12ogw', "setLoaded,loaded,", setLoaded, loaded)}", usesEvent="true", eventType="onLoad",data-ref="ksey12ogw", 
+                                            onLoad="${this.bind(``, false, false, '0kjdxrcfucjb', "setLoaded,loaded,", setLoaded, loaded)}", usesEvent="true", eventType="onLoad",data-ref="0kjdxrcfucjb", 
                                             class="h-[600px] w-[600px] rounded  "
                                             src="https://stackblitz.com/edit/web-platform-aanbgw?file=dev%2Fpages%2Findex.jsx&view=editor"
                                             style={{ width: '100%', height: '100%' }}

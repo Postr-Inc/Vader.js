@@ -1,4 +1,4 @@
-import { Component, strictMount, useReducer } from '/dist/vader.js'
+import { Component, strictMount, useReducer } from '/vader.js'
 
 let data = await fetch('src/searchData/search.json').then(res => res.json())
  
@@ -25,7 +25,7 @@ export class SearchBar extends Component {
         return `
             <div class='xl:flex lg:flex md:flex hidden'>
                 <div
-                    onClick="${this.bind(`document.getElementById('my_modal_5').showModal(); `, false, false, '5yacfob8mkg', "", null)}", usesEvent="true", eventType="onClick",data-ref="5yacfob8mkg", 
+                    onClick="${this.bind(`document.getElementById('my_modal_5').showModal(); `, false, false, 'raaqme15ry8', "", null)}", usesEvent="true", eventType="onClick",data-ref="raaqme15ry8", 
                      
                     class=' flex hero gap-2 rounded-box   input-sm      hover:bg-base-200  text-sm focus:outline-none border-slate-200 border' type='text'
 
@@ -35,7 +35,7 @@ export class SearchBar extends Component {
                     </svg>
                     Search Documentation</div>
             </div>
-            <div onClick="${this.bind(`document.getElementById('my_modal_5').showModal(); `, false, false, 'hvd33h7hfgt', "", null)}", usesEvent="true", eventType="onClick",data-ref="hvd33h7hfgt", 
+            <div onClick="${this.bind(`document.getElementById('my_modal_5').showModal(); `, false, false, '2hn72cv0s3x', "", null)}", usesEvent="true", eventType="onClick",data-ref="2hn72cv0s3x", 
                 class='xl:hidden lg:hidden md:hidden'>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="${1.5}", stroke="currentColor" class="w-6 h-6">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />

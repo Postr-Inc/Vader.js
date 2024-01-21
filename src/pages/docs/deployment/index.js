@@ -1,4 +1,4 @@
-import { Component } from "/dist/vader.js"
+import { Component } from "/vader.js"
 
 export class Deployment extends Component {
   constructor(props) {
@@ -13,7 +13,7 @@ export class Deployment extends Component {
         <div class="text-sm breadcrumbs">
           <ul>
             <li><a class='no-underline'
-              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'c14egj16cm', "", null)}", usesEvent="true", eventType="onClick",data-ref="c14egj16cm", 
+              onClick="${this.bind(`this.props?.swapPage({ page: 'getting-started', subpage: '' }); `, false, false, 'jyogbu1tvei', "", null)}", usesEvent="true", eventType="onClick",data-ref="jyogbu1tvei", 
             >Getting Started</a></li>
             <li><a class='font-semibold'>Deployment</a></li>
           </ul>
