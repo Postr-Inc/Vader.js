@@ -1,6 +1,5 @@
 window.Vader = {
-  version: "1.3.3", 
-  root:import.meta.url.split('/').slice(0, -1).join('/'),
+  version: "1.3.3",  
 };
 
 let errors = {
@@ -324,10 +323,16 @@ export class Component {
  
    
      
-      paramNames = paramNames.replace(',,', ',');
+      let ranfunctionanme = Math.random().toString(36).substring(7).slice(0, 5).replace(/[^a-z0-9]+/g, '')
+      // no numbers
+      ranfunctionanme = ranfunctionanme.replace(/[0-9]/g, '')
+      let tfunc = funcTion.toString().replace('async', '').replace('function', `function ${ranfunctionanme}`)
+     
+      paramNames = paramNames.replace(',,', ','); 
+     
       let func = new Function(`${paramNames}`, `
        return (async (${paramNames}) => { 
-          ${funcTion.toString()}
+          ${tfunc}
        })(${Object.keys(paramObject).join(',')}) 
      `); 
        func   = func.bind(this)
