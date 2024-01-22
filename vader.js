@@ -664,6 +664,7 @@ function Compiler(func, file) {
               break;
             case path && path.includes('module.css'):
               let css = await fs.readFileSync(process.cwd() + path, 'utf8')
+              css = css.replaceAll('.', '')
               if (!name) {
                 throw new Error('Could not find name for css module ' + path + ' at' + beforeimport + ' file' + file)
               }
