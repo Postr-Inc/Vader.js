@@ -74,12 +74,14 @@ For pages that have [params] you can derive it using this.request
 
 ### Simplified Component Creation
 
+Class based components
+
 ```jsx
 // pages/home.jsx
 import  {Component, useState, useRef} = from 'vaderjs/client'
 import Mycomponent from './src/mycomponent.jsx' 
 
-class Home extends Vader {
+export default class extends Component {
   constructor() {
     super();
     this.key = '2'
@@ -94,9 +96,24 @@ class Home extends Vader {
   }
 }
 
-export default Home
+ 
+
 ```
 
+Function based components
+
+```jsx
+import Mycomponent from './src/mycomponent.jsx' 
+export default function(props){
+  this.key = ''
+  console.log(this) // returns the component object data
+  return <>
+   <h1>hello world</>
+   <Mycomponent ...props />
+  </>
+}
+
+```
  
 
 ### State Management
