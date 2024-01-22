@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fs from "fs";
-import { glob, globSync, globStream, globStreamSync, Glob } from 'glob' 
+import { glob, globSync, globStream, globStreamSync, Glob, } from 'glob'
 let bundleSize = 0;
 if (!fs.existsSync(process.cwd() + '/dist')) {
   fs.mkdirSync(process.cwd() + '/dist')
@@ -113,10 +113,10 @@ function Compiler(func) {
           .split("(")[1]
           .split(")")[0]
           .trim();
-          params = params.match(/\/\*.*\*\//gs)
+        params = params.match(/\/\*.*\*\//gs)
           ? params.replace(params.match(/\/\*.*\*\//gs)[0], "")
           : params;
-          
+
         let functionparams = [];
         // split first {}
         newvalue = newvalue.trim();
@@ -138,12 +138,12 @@ function Compiler(func) {
 
         let currentParams = params
         let name = functionNames.map((name) => { return newvalue.includes(name) ? name : null }).filter(Boolean)[0]
-        if (name ) {
-           
-          if(newvalue.includes('function')){
-             return
-          } 
-          
+        if (name) {
+
+          if (newvalue.includes('function')) {
+            return
+          }
+
           name && string.split("\n").forEach((line) => {
             if (line.includes(name) && line.includes("function")) {
               line = line.trim();
@@ -172,15 +172,15 @@ function Compiler(func) {
               isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
             }
           });
-          
+
           let functionParmas = functionparams.map((param) => { return param.params }).join(',')
           let suppliedParams = newvalue.split("(")[1].split(")")[0].trim();
-          
+
           let replacement = `this.bind(${name}, true, ${isJSXComponent ? true : false}, '${ref}', "${functionParmas}", event, ${suppliedParams || null})`
           let newattribute = `${attributeName}="\${${replacement}}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
-        
-          string = string.replace(old,  newattribute);
-          
+
+          string = string.replace(old, newattribute);
+
         }
         else {
           let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
@@ -207,7 +207,7 @@ function Compiler(func) {
           let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
           paramString = paramString.replaceAll(',,', ',')
           let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}}.bind(this),`
-         let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, false, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
+          let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, false, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
           newattribute = newattribute.replace(/\s+/g, " ")
           string = string.replace(old, isJSXComponent ? jsxAttribute : newattribute);
         }
@@ -603,7 +603,7 @@ function Compiler(func) {
 
 
 
-  string = string.replaceAll('vaderjs/client', '/dist/vader.js')
+  string = string.replaceAll('vaderjs/client', '/vader.js')
   string = string.replaceAll("<>", "`").replaceAll("</>", "`");
   string = parseComponents(string);
 
@@ -632,6 +632,21 @@ function Compiler(func) {
               newImport = `JSON.parse(await fetch(${path}).then(res => res.json()))`
 
               break;
+            default:
+              let deep = path.split('/').length - 1
+              for (let i = 0; i < deep; i++) {
+                path = path.split('../').join('')
+                path = path.split('./').join('')
+              }
+              path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
+              // remove double / from path
+              path = path.split('//').join('/')
+              if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src')) {
+                path = 'src/' + path
+              }
+
+              path = path.replaceAll('.jsx', '.js');
+              newImport = `await import(${path})`
 
           }
           if (newImport) {
@@ -662,10 +677,31 @@ function Compiler(func) {
               let deep = path.split('/').length - 1
               for (let i = 0; i < deep; i++) {
                 path = path.split('../').join('')
+                path = path.split('./').join('')
               }
-              path = path.replaceAll('../', '').replaceAll('./src', '/dist/src').replaceAll('.jsx', '.js')
+              path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
+              // remove double / from path
+              path = path.split('//').join('/')
+              if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src')) {
+                path.includes('src') ? path.split('src')[1] : null
+                path = '/src/' + path
+              } else if (path.startsWith('src')) {
+                path = '/' + path
+              }
+              path = path.replaceAll('.jsx', '.js');
+              let html = fs.existsSync(process.cwd() + '/dist/index.html') ? fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8') : ''
+              if (!html.includes(`<link rel="modulepreload" href="${path.replace(/'/g, '').trim()}">`)) {
+                if (!html.includes(`</head>`)) {
+                  throw new Error('Could not find </head> in index.html')
+                }
+                let preload = `<link rel="modulepreload" href="${path.trim()}"><link rel="preload" href="${path.trim()}" as="script">`
 
-              string = string.replace(beforePath, path)
+                html = html.replace('</head>', `${preload}</head>`)
+
+                fs.writeFileSync(process.cwd() + '/dist/index.html', html)
+              }
+
+              string = string.replace(beforePath, "'" + path + "'")
           }
         })
       }
@@ -677,6 +713,9 @@ function Compiler(func) {
   return string
 }
 let bindings = []
+let exec = await import('child_process').then((child) => {
+  return child.exec
+})
 globalThis.isBuilding = false
 async function Build() {
   globalThis.isBuilding = true
@@ -708,8 +747,12 @@ async function Build() {
   let appjs = '';
   let hasWritten = []
   const writejs = () => {
+
     writer(process.cwd() + '/dist/app.js', appjs)
   }
+
+
+
   for await (let file of glb) {
     // Normalize file paths
     let origin = file.replace(/\\/g, '/');
@@ -733,12 +776,32 @@ async function Build() {
       fullpath: origin,
     };
 
-    // Read and compile file content
+
+
     let data = await fs.readFileSync(origin, "utf8");
     data = Compiler(data)
 
 
-    await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), data)
+
+    await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), data).then(async () => {
+
+      let { minify } = await import('terser')
+      try {
+        let minified = await minify(data, {
+          ecma: " 2016",
+          module: true,
+          compress: true,
+          mangle: true
+        })
+        await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), minified.code)
+      } catch (error) {
+         console.log(error)
+      }
+    })
+
+
+    obj.compiledPath = process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js')
+
 
     // Generate routing logic
     let js = `
@@ -753,6 +816,7 @@ async function Build() {
 
 
 
+    console.log(`Compilation finished`)
 
   }
 
@@ -788,7 +852,20 @@ async function Build() {
     if (name.includes('.jsx')) {
       data = Compiler(data)
 
-      await writer(process.cwd() + "/dist/src/" + name.split('.jsx').join('.js'), data)
+      await writer(process.cwd() + "/dist/src/" + name.split('.jsx').join('.js'), data).then(async () => {
+        let { minify } = await import('terser')
+       try {
+        let minified = await minify(data, {
+          ecma: " 2016",
+          module: true,
+          compress: true,
+        })
+        await writer(process.cwd() + "/dist/src/" + name.replace('.jsx', '.js'), minified.code)
+       } catch (error) {
+         console.log(error)
+       }
+
+      })
       return
     }
     bundleSize += fs.statSync(process.cwd() + "/src/" + name).size;
@@ -839,6 +916,7 @@ import { watch } from "fs";
 switch (true) {
   case process.argv.includes('--watch'):
 
+    globalThis.devMode = true
     console.log(`
 Vader.js v1.3.3
 - Watching for changes in ./pages
@@ -873,7 +951,7 @@ Vader.js v1.3.3
 
     break;
   case process.argv.includes('--build'):
-
+    globalThis.devMode = false
     console.log(`
 Vader.js v1.3.3 
 Building to ./dist

@@ -1,46 +1,11 @@
-
-window.params = {};
 window.Vader = {
-  version: "1.3.3", 
+  version: "1.3.3",
 };
 
 let errors = {
   "SyntaxError: Unexpected token '<'": "You forgot to enclose tags in a fragment <></>",
 }
- 
-const path = {
-  basename: (path) => {
-    return path.split("/").pop();
-  },
 
-}
-
-window.queryRef = (ref) => {
-  return document.querySelector(`[data-ref="${ref}"]`)
-}
-window.reinvoke = (eventtype, element) => {
-  const eventListener = (e) => {
-    return e
-  };
-
-  // Check if the event listener has not been added before adding it
-  if (!element._eventListenerAdded) {
-    element.addEventListener(eventtype, eventListener);
-
-    // Set the flag to indicate that the event listener has been added
-    element._eventListenerAdded = true;
-
-    // Trigger the event without overwriting existing data or listeners
-    element.dispatchEvent(new Event(eventtype));
-  }
-};
-
-
-
-
-let invokes = []
-let hasran = [];
-let states = {};
 let mounts = [];
 /**
  * @method strictMount
@@ -50,7 +15,7 @@ let mounts = [];
  */
 export const strictMount = (key, callback) => {
   let timer = setInterval(() => {
-    if (document.querySelector('[key="' + key + '"]')) {
+    if (mounts.find((m) => m.key === key)) {
       clearInterval(timer);
       callback();
     }
@@ -58,32 +23,7 @@ export const strictMount = (key, callback) => {
 };
 
 
-let components = {};
- 
-/**
- * @method mem
- * @param {Component} component
- * @returns  {Component} Stateless Component
- * @description  This method allows you to memoize a component - this means it will be intialized only once and can be reused multiple times baased on a static key
- */
-export const mem = (/**@type {Component}**/ component) => {
-  // ensure component is instance of Component
-  switch (true) {
-    case !(component instanceof Component):
-      throw new Error("component must be an instance of Component");
-    case !component.key:
-      throw new Error("component must have a static key");
-    // check if key was randomly generated
-  } 
-  let key = component.key;
-  if (!components[key]) {
-    components[key] = component;
-  }
 
-  return  components[key];
-};
-
- 
 /**
  * Represents a component in the Vader framework.
  */
@@ -95,55 +35,50 @@ export class Component {
     this.state = {};
     this.key = null;
     this.components = {};
-    this.mounted = false; 
-    this.currenthtml = null;
-    window.listeners = [];
-    this.functionMap = new Map();
-    this.freeMemoryFromFunctions();
+    this.mounted = false;
     this.checkIFMounted();
     this.memoizes = []
-    this.functions = [] 
-    this.vdom =  []
-    
+    this.functions = []
+
     this.children = []
-   
-     
+
+
     /**
      * Parent of the current component.
      * @type {Component}
      */
-    this.parentNode =  {}
-    
+    this.parentNode = {}
+
+    /**
+     * Request object.
+     */
+    this.request = {
       /**
-       * Request object.
+       * @type {string}
+       * @description The headers for the current route
        */
-      this.request =  {
-        /**
-         * @type {string}
-         * @description The headers for the current route
-         */
-        headers:{},
-        /**
-         * @type {string}
-         * @description The method for the current route
-         */
-        method: "GET",
-        /**
-         * @type {string}
-         * @description params for the given route /:id/:name etc
-         */
-        params: {},
-        /**
-         * @type {string}
-         * @description path: current route path
-         */
-        path: "",
-        /**
-         * @type {string}
-         * @description query: query  object for the current route ?name=hello -> {name: 'hello'}
-         */
-        query: {},
-      },
+      headers: {},
+      /**
+       * @type {string}
+       * @description The method for the current route
+       */
+      method: "GET",
+      /**
+       * @type {string}
+       * @description params for the given route /:id/:name etc
+       */
+      params: {},
+      /**
+       * @type {string}
+       * @description path: current route path
+       */
+      path: "",
+      /**
+       * @type {string}
+       * @description query: query  object for the current route ?name=hello -> {name: 'hello'}
+       */
+      query: {},
+    },
       /**
        * @type {string}
        * @description The response object for the current route
@@ -154,119 +89,123 @@ export class Component {
          * @description  This method allows you to send json data to the client
          * @param {*} data 
          */
-        json: (data) => {},
+        json: (data) => { },
         /**
          * @method send
          * @description  This method allows you to send text data to the client
          * @param {*} data 
          */
-        send: (data) => {},
+        send: (data) => { },
         /**
          * @method redirect
          * @description  This method allows you to redirect the client to a new route
          * @param {*} path 
          */
-        redirect: (path) => {},
+        redirect: (path) => { },
         /**
          * @method render
          * @description  render a new component to the client
          *  @param {*} Component
          */
-        render: async (Component) => {},
+        render: async (Component) => { },
         /**
          * @method log
          * @description  This method is used to log the request and response
          * @param {String} type
          */
-        log: (type) => {},
+        log: (type) => { },
         /**
          * @method setQuery
          * @description  This method is used to set the query object for the current route
          */
-        setQuery: (query) => {},
-        
-  }
-  /**
-   * @method router
-   * @description use router methods directly from the parent component
-   */
+        setQuery: (query) => { },
 
-   this.router = {
+      }
+    /**
+     * @method router
+     * @description use router methods directly from the parent component
+     */
+
+    this.router = {
       /**
        * @method use
        * @description add a middleware to the current route
        * @param {Function} middleware
        * @returns {void}
        */
-      use: (/**@type {Function} */ middleware) => {},
-   }
-}
+      use: (/**@type {Function} */ middleware) => { },
+    }
+  }
 
   createComponent(/**@type {Component}**/component, props, children) {
-     
+
     if (!component) {
       throw new Error("Component must be defined");
     }
-    if(!props.key){
+    if (!props.key) {
       throw new Error('new components must have a key')
-    } 
+    }
     let comp = new component(props);
-    
+
     comp['props'] = props;
-    comp.children = children; 
+    comp.children = children;
     comp.props.children = children.join('')
-    comp.parentNode  = this;
+    comp.parentNode = this;
     comp.request = this.request;
     comp.response = this.response;
     comp.key = props.key || null;
-     
-    if(!this.components[props.key]){
-      states[props.key] =  {}
+
+    if (!this.components[props.key]) {
+      this.components[props.key] = comp;
     }
-    this.components[props.key] = comp
     this.children.push(comp)
-    return this.components[props.key] 
+    return this.components[props.key]
   }
-  reset(){
+  reset() {
+    console.log('reset')
     Object.keys(this.components).forEach((key) => {
-      states[key] =  {}
+      this.components[key].onUnmount()
+      delete this.components[key]
     })
-    states[this.key] =  {}
-    this.components = {}
+    this.state = {}
     this.children = []
   }
-  memoize(/**@type {Component}**/component){  
-    if(!component.key){
+  memoize(/**@type {Component}**/component) {
+    if (!component.key) {
       throw new Error('Component must have a static key')
     }
-    switch(true){
+    switch (true) {
       case !this.memoizes.includes(component.key):
         this.memoizes.push(component.key)
         this.components[component.key] = component;
         break;
     }
- 
+
     let comp = this.components[component.key];
-    comp.props = component.props; 
-    let h = comp.render() 
-    
-    if(h && h.split('>,').length > 1){
+    comp.bindMount();
+    comp.parentNode = this;
+    comp.props = component.props;
+    comp.request = this.request;
+    comp.response = this.response;
+    let h = comp.render()
+
+    if (h && h.split('>,').length > 1) {
       h = h.replaceAll('>,', '>')
     }
 
     return `<div key="${component.key}">${h}</div>`
   }
-  parseStyle(styles){ 
+  parseStyle(styles) {
     let css = ''
-    Object.keys(styles).forEach((key) => { 
+    Object.keys(styles).forEach((key) => {
       let value = styles[key]
-       key = key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()
-       css += `${key}:${value};`
+      key = key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase()
+      css += `${key}:${value};`
     })
     return css
   }
-  bindMount(){
-    mounts.push(this) 
+  bindMount() {
+    mounts.push(this)
   }
 
   /**
@@ -274,13 +213,13 @@ export class Component {
    * @private
    */
 
- domDifference(oldDom, newDom) {
+  domDifference(oldDom, newDom) {
     let diff = [];
-  
+
     for (let i = 0; i < oldDom.length; i++) {
       let oldEl = oldDom[i];
       let newEl = newDom[i];
-  
+
       if (oldEl && newEl && !oldEl.isEqualNode(newEl)) {
         diff.push({
           type: 'replace',
@@ -289,11 +228,11 @@ export class Component {
         });
       }
     }
-  
+
     return diff;
   }
-  
-   updateChangedElements(diff) {
+
+  updateChangedElements(diff) {
     diff.forEach((change) => {
       switch (change.type) {
         case 'replace':
@@ -310,12 +249,12 @@ export class Component {
       }
     });
   }
-  
-   hydrate(hook) {
+
+  hydrate(hook) {
     if (this.key) {
       if (hook) {
         let newDom = new DOMParser().parseFromString(this.render(), 'text/html').body.firstChild;
-  
+
         let oldElements = document.body.querySelectorAll(`[ref="${hook}"]`);
         let newElements = newDom.querySelectorAll(`[ref="${hook}"]`);
         let diff = this.domDifference(oldElements, newElements);
@@ -330,18 +269,18 @@ export class Component {
       }
     }
   }
-  
- 
-  
+
+
+
   patch(oldElements, newElements) {
     const diff = this.domDifference(oldElements, newElements);
-  
+
     this.updateChangedElements(diff);
   }
-  
-  
-  
-  
+
+
+
+
 
   /**
    * Handles an object by parsing it as JSON and evaluating it.
@@ -358,22 +297,7 @@ export class Component {
     return eval(obj);
   }
 
-  /**
-   * Frees memory from functions that have not been used for a certain period of time.c
-   * @private
-   */
-  freeMemoryFromFunctions() {
-    setInterval(() => {
-      for (var [key, value] in this.functionMap) {
-        if (Date.now() - value.lastUsed >= 2000) {
-          this.functionMap.delete(key);
-          document.removeEventListener(key, () => {
-            console.log('removed');
-          });
-        }
-      }
-    }, 1000);
-  }
+
 
   /**
    * Binds a function to the component.
@@ -382,108 +306,64 @@ export class Component {
    * @param {string} ref - The reference.
    * @returns {string} - A valid inline JS function call.
    */
-  bind(funcTion,isTerny, jsx,ref, paramNames, ...params) {
-     ref = ref + this.key;
-  
-     let paramObject = {};
-   
-  
-     paramNames = paramNames.replace(/,,/g, ',');
-     let newparamnames = paramNames.replaceAll(',,', ',')
-      
-     for(var i in params){
-        let param = params[i]
-        let paramname = newparamnames.split(',')[i]
-        paramObject[paramname] = param 
-     }
- 
-   
-     
-      paramNames = paramNames.replace(',,', ',');
-      let func = new Function(`${paramNames}`, `
+  bind(funcTion, isTerny, jsx, ref, paramNames, ...params) {
+    ref = ref + this.key;
+
+    let paramObject = {};
+
+
+    paramNames = paramNames.replace(/,,/g, ',');
+    let newparamnames = paramNames.replaceAll(',,', ',')
+
+    for (var i in params) {
+      let param = params[i]
+      let paramname = newparamnames.split(',')[i]
+      paramObject[paramname] = param
+    }
+
+
+
+    let ranfunctionanme = Math.random().toString(36).substring(7).slice(0, 5).replace(/[^a-z0-9]+/g, '')
+    // no numbers
+    ranfunctionanme = ranfunctionanme.replace(/[0-9]/g, '')
+    let tfunc = funcTion.toString().replace('async', '').replace('function', `function ${ranfunctionanme}`)
+
+    paramNames = paramNames.replace(',,', ',');
+
+    let func = new Function(`${paramNames}`, `
        return (async (${paramNames}) => { 
-          ${funcTion.toString()}
+          ${tfunc}
        })(${Object.keys(paramObject).join(',')}) 
-     `); 
-       func   = func.bind(this)
-    
-       if(!this.functions.find((f) => f.ref === ref)){
-         document.addEventListener(`$dispatch_#id=${ref}`, (e) => {
-            let { name,   event } = e.detail;
-            if (name === ref) { 
-              let params = this.functions.find((f) => f.ref === ref).params 
-               Object.keys(params).forEach((key) => {
-                if(params[key] instanceof CustomEvent){
-                  delete params[key]
-                }
-                params[key] === undefined ? delete params[key] : params[key]
-               })  
-               isTerny ? funcTion(event, ...Object.values(params)) : func(...Object.values(params))
+     `);
+    func = func.bind(this)
+
+    if (!this.functions.find((f) => f.ref === ref)) {
+      document.addEventListener(`$dispatch_#id=${ref}`, (e) => {
+        let { name, event } = e.detail;
+        if (name === ref) {
+          let params = this.functions.find((f) => f.ref === ref).params
+          Object.keys(params).forEach((key) => {
+            if (params[key] instanceof CustomEvent) {
+              delete params[key]
             }
-         });
-         
-      }
-     
-    window.callFunction = (name, event) => { 
-      document.dispatchEvent(new CustomEvent(`$dispatch_#id=${name}`, { detail: { name: name, params: null, event: event } }));
-    }   
-    !this.functions.find((f) => f.ref === ref) ? this.functions.push({ref: ref, params: paramObject})  :  !isTerny ? this.functions.find((f) => f.ref === ref).params = paramObject : null
-    
-     
-    return jsx ?  funcTion :  `((event)=>{event.target.ev = event; callFunction('${ref}', event.target.ev)})(event)`;
-  }
-
-  /**
-   * Calls a function with the specified parameters. and dispatches an event.
-   * @param {string} func - The function name.
-   * @param {...*} params - The function parameters.
-   */
-  callFunction(func,  isInlineJsx, ...params) {
-    if(!isInlineJsx && params[0] && params[0].detail){
-      let el = params[0].detail.target.event.target 
-      params[0].data =   el.value; 
-      params[0] = params[0].detail.target.event
-    } 
-    func = func.replace(/'/g, '');
-     document.dispatchEvent(new CustomEvent(func, { detail: { name: func, params: params } }));
-  }
-
-  /**
-   * Uses a function with the specified parameters.
-   * @param {Function} func - The function to use.
-   * @param {string} params - The function parameters.
-   * @param {boolean} [isInlineJsx=false] - Indicates if the function is an inline JSX.
-   * @returns {string} - The function call.
-   */
-  useFunction(func, params, isInlineJsx = false) {
-    const sanitizedFuncName = func.name.trim().replace(/\s+/g, '_');
-
-    if (!invokes.includes(`'${sanitizedFuncName}'${this.key}`)) {
-      invokes.push(`'${sanitizedFuncName}'${this.key}`); 
-      document.addEventListener(`call_${sanitizedFuncName}_${this.key}`, (e) => { 
-        let { name, params } = e.detail;
-        if (name === `call_${sanitizedFuncName}_${this.key}`) {
-          let isarray = Array.isArray(params);
-
-          func(...(isarray ? params : [params]));
+            params[key] === undefined ? delete params[key] : params[key]
+          })
+          isTerny ? funcTion(event, ...Object.values(params)) : func(...Object.values(params))
         }
       });
 
-      func = func.bind(this);
     }
 
-    try {
-      params = JSON.parse(params);
-    } catch (error) {
-      // Handle JSON parsing error if needed
+    window.callFunction = (name, event) => {
+      document.dispatchEvent(new CustomEvent(`$dispatch_#id=${name}`, { detail: { name: name, params: null, event: event } }));
     }
+    !this.functions.find((f) => f.ref === ref) ? this.functions.push({ ref: ref, params: paramObject }) : !isTerny ? this.functions.find((f) => f.ref === ref).params = paramObject : null
 
-    const returnString = isInlineJsx
-      ? `'call_${sanitizedFuncName}_${this.key}'`
-      : `document.dispatchEvent(new CustomEvent('call_${sanitizedFuncName}_${this.key}', { detail: { name: 'call_${sanitizedFuncName}_${this.key}', params: ${JSON.stringify(params)} } }))`;
 
-    return returnString;
+    return jsx ? funcTion : `((event)=>{event.target.ev = event; callFunction('${ref}', event.target.ev)})(event)`;
   }
+
+
 
   /**
  * useState hook.
@@ -493,56 +373,56 @@ export class Component {
  * @param {T} initialState - The initial state value.
  * @returns {[() => T, (newValue: T, hook: Function) => void]} - A tuple with getter and setter functions.
  */
- useState(key, initialState) { 
-  if (!states[this.key][key]) {
-    states[this.key][key] = initialState;
+  useState(key, initialState) {
+    if (!this.state[key]) {
+      this.state[key] = initialState;
+    }
+
+    /**
+     * Get the current state value.
+     *
+     * @returns {T} The current state value.
+     */
+    let updatedValue = () => this.state[key];
+
+    const getValue = updatedValue();
+
+    /**
+     * Set a new value for the state.
+     *
+     * @param {T} newValue - The new value to set.
+     * @param {Function} hook - The hook to hydrate after setting the value.
+     */
+    const set = (newValue, hook) => {
+      this.state[key] = newValue;
+      this.hydrate(hook);
+    };
+
+
+
+    return [getValue, set];
   }
 
-  /**
-   * Get the current state value.
-   *
-   * @returns {T} The current state value.
-   */
-  let updatedValue = () => states[this.key][key];
 
-  const getValue = updatedValue();
-
-  /**
-   * Set a new value for the state.
-   *
-   * @param {T} newValue - The new value to set.
-   * @param {Function} hook - The hook to hydrate after setting the value.
-   */
-  const set = (newValue, hook) => {
-    states[this.key][key] = newValue;
-    this.hydrate(hook);
-  };
-
- 
-
-  return  [getValue, set];
-}
-
-  
 
   useRef(key = null, initialState) {
     if (!this.state[key]) {
       this.state[key] = initialState;
     }
-    const getValue = () =>  document.querySelector(`[ref="${key + this.key}"]`) ||  initialState;
+    const getValue = () => document.querySelector(`[ref="${key + this.key}"]`) || initialState;
     const set = (newValue) => {
       this.state[key] = newValue;
       this.hydrate();
     };
-   
-    
-    return  {
-       bind: key + this.key,
-       current: getValue(),
+
+
+    return {
+      bind: key + this.key,
+      current: getValue(),
     }
   }
 
-   useReducer(key = null, initialState, func = null) {
+  useReducer(key = null, initialState, func = null) {
     const getValue = () => this.state[key];
     const value = getValue();
     const set = (newValue) => {
@@ -551,92 +431,53 @@ export class Component {
     };
     return [value, set];
   }
-  
+
 
   /**
    * Placeholder for content to be rendered.
    * @method render
    */
-  render() {}
+  render() { }
 
   /**
    * Checks if the component is mounted and triggers the onMount method.
    * @private
    */
   checkIFMounted() {
-    if (this.mounted || !this.key) return;
-    let timer = setInterval(() => {
-      if (document.querySelector('[key="' + this.key + '"]')) {
-        clearInterval(timer);
-        this.mounted = true;
-        this.onMount();
-      }
-    }, 120);
+    let observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+
+        if (mutation.target.querySelector(`[key="${this.key}"]`) && !this.mounted) {
+          this.onMount();
+          this.mounted = true;
+        }
+
+        if (Array.from(mutation.removedNodes).find((node) => node.attributes && node.attributes.key && node.attributes.key.value === this.key)) {
+          this.onUnmount();
+          this.reset();
+        }
+      })
+    })
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
   }
 
   /**
    * Method that is called when the component is mounted.
    * @method onMount
    */
-  onMount() {}
+  onMount() { }
+  /**
+   * Method that is called when the component is unmounted.
+   * @method onUnmount
+   */
+  onUnmount() { }
 }
 
 
 
-
-
-let cache = {};
-/**
- * @method require
- * @description  Import  CommonJS modules like Node.js for the browser
- * @param {string} path
- * @param {Boolean} noresolve - used to tell if the path should be automatically handled or manually handled - this is false by default
- * @returns
- */
-export const require = async (path, noresolve = false) => {
-   
-  if (cache[path]) {
-    return cache[path];
-  }
-  let file = ''
-  try {
-    file = await fetch(path).then((res) => res.text());
-    cache
-  } catch (error) {
-     console.error(error)
-  }
-
-  file = file + `\n//# sourceURL=${path}\n`;
-
-  let filetype = path.split(".").pop();
-  switch (true) {
-    case filetype === "js":
-      let exports = file.match(/module.exports\s*=\s*{.*}/gs) || file.match(/exports\s*=\s*{.*}/gs);
-      exports = exports ? exports[0] : null;
-
-      if (exports) {
-        let keys = exports.split("{")[1].split("}")[0].split(",");
-        let returnstring = "";
-        keys.forEach((key) => {
-          key = key.trim();
-          returnstring += `${key},`;
-        });
-        returnstring = `return {${returnstring}}`;
-        file = file += returnstring;
-        file = file.replaceAll(exports, "");
-      }
-      
-      cache[path] = new Function(`return (async () => { ${file} })()`)();
-      return cache[path]
-    case filetype === "jsx": 
-    cache[path] = new Function(`return (async () => { ${file} })()`)();
-    return  cache[path]
-       
-  } 
-};
-
-
-window.require = require;
 /**
  *  useState hook.
  *
@@ -670,7 +511,7 @@ export const useState = (key, initialState) => {
   return [states[key], set];
 };
 
- 
+
 
 /**
  * @method useReducer
@@ -679,26 +520,16 @@ export const useState = (key, initialState) => {
  * @returns  {Array} [value, set]
  */
 export const useReducer = (/**@type {*}**/initialState, /**@type {function}**/reducer) => {
-  return [initialState, (newValue) => {}];
+  return [initialState, (newValue) => { }];
 };
 
-const constants = {};
-let constantCounter = 0;
 
-export const constant = (value) => {
-  const key = `constant_${constantCounter++}`;
-  if (!constants[key]) {
-    constants[key] = value;
-  }
-  return constants[key];
-};
-
- /**
- *  useRef hook.
- *
- * @param {*} initialState - The initial state value for the ref.
- * @returns {{ current: *, bind: string }} - An object containing the current value and a bind string.
- */
+/**
+*  useRef hook.
+*
+* @param {*} initialState - The initial state value for the ref.
+* @returns {{ current: *, bind: string }} - An object containing the current value and a bind string.
+*/
 export const useRef = (initialState) => {
   return {
     /**
@@ -716,11 +547,8 @@ export const useRef = (initialState) => {
 
 export default {
   Component,
-  require, 
-  mem,
-  constant,
   useRef,
   useReducer,
   useState,
-  strictMount, 
+  strictMount,
 }
