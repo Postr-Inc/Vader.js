@@ -104,9 +104,10 @@ Function based components
 
 ```jsx
 import Mycomponent from './src/mycomponent.jsx' 
-export default function(props){
+// function components have direct access to request and response both param way and using this.request or this.response!
+export default function(req, res){
   this.key = ''
-  console.log(this) // returns the component object data
+  
   return <>
    <h1>hello world</>
    <Mycomponent ...props />
