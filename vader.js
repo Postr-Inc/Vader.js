@@ -7,9 +7,13 @@ if (!fs.existsSync(process.cwd() + '/dist')) {
   fs.mkdirSync(process.cwd() + '/dist/public')
   fs.mkdirSync(process.cwd() + '/dist/src')
   fs.mkdirSync(process.cwd() + '/dist/pages')
-} else if (!fs.existsSync(process.cwd() + '/dist/public')) {
+}  
+ 
+if (!fs.existsSync(process.cwd() + '/dist/public')) {
   fs.mkdirSync(process.cwd() + '/dist/public')
-} else if (!fs.existsSync(process.cwd() + '/src') && !fs.existsSync(process.cwd() + '/dist/src')) {
+} 
+
+if (!fs.existsSync(process.cwd() + '/src') && !fs.existsSync(process.cwd() + '/dist/src')) {
   fs.mkdirSync(process.cwd() + '/dist/src')
   fs.mkdirSync(process.cwd() + '/src')
 }
