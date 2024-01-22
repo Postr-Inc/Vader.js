@@ -124,7 +124,30 @@ export default function(req, res){
 
 ```
  
+### Styling
 
+Vaderjs has two types of in javascript styling - css modules and inline jsx styling
+```jsx
+
+// inline
+<button style={{color:'red'}}>Button</button>
+
+// css module
+
+//public/app.module.css
+`
+ .container{
+  color:red;
+  font-size:20px
+ }
+`
+
+// import file
+import style from 'public/app.module.css' // this gets replaced with the compiled css output
+
+<button style={{...style.container}}>Button </button>
+
+```
 ### State Management
 Vaderjs uses partial hydration & full reflection
 
