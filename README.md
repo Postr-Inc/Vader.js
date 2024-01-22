@@ -84,11 +84,14 @@ import Mycomponent from './src/mycomponent.jsx'
 export default class extends Component {
   constructor() {
     super();
-    this.key = '2'
+    this.key = 2 // you can explicitly set key
   }
   render() {
     return  <>
-      <div key={this.key}>
+    ${/**
+    or set it directly to the element and hydration will grab it
+  **/}
+      <div key={2}>
         <p>Hello World</p>
       </div>
       <Mycomponent ..props />
@@ -106,11 +109,16 @@ Function based components
 import Mycomponent from './src/mycomponent.jsx' 
 // function components have direct access to request and response both param way and using this.request or this.response!
 export default function(req, res){
-  this.key = ''
+  this.key = '' // you can explicitly set key
   
   return <>
+  ${/**
+    or set it directly to the element and hydration will grab it
+  **/}
+  <div key="somevalue">  
    <h1>hello world</>
    <Mycomponent ...props />
+   </div>
   </>
 }
 
