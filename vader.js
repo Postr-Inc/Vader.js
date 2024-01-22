@@ -7,18 +7,19 @@ if (!fs.existsSync(process.cwd() + '/dist')) {
   fs.mkdirSync(process.cwd() + '/dist/public')
   fs.mkdirSync(process.cwd() + '/dist/src')
   fs.mkdirSync(process.cwd() + '/dist/pages')
-}  
- 
+}
+
 if (!fs.existsSync(process.cwd() + '/dist/public')) {
   fs.mkdirSync(process.cwd() + '/dist/public')
-} 
+}
 
 if (!fs.existsSync(process.cwd() + '/src') && !fs.existsSync(process.cwd() + '/dist/src')) {
   fs.mkdirSync(process.cwd() + '/dist/src')
   fs.mkdirSync(process.cwd() + '/src')
 }
 
-function Compiler(func) {
+
+function Compiler(func, file) {
   let string = func;
   let returns = []
   let comments = string
@@ -281,7 +282,9 @@ function Compiler(func) {
             value = value.replace("=", "");
             value == "undefined" ? (value = '"') : (value = value);
 
-            key == 'style' ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
+            key == 'style'
+              && value.includes("{{")
+              ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
 
 
             value = `="\$${value}",`;
@@ -618,7 +621,29 @@ function Compiler(func) {
   string += `\n\n //wascompiled`;
 
   string = string.replaceAll("undefined", "");
+  const parse = (css) => {
+    let styles = {};
+    let currentSelector = '';
 
+    css.split('\n').forEach(line => {
+      line = line.trim();
+
+      if (line.endsWith('{')) {
+        // Start of a block, extract the selector
+        currentSelector = line.slice(0, -1).trim();
+        styles[currentSelector] = {};
+      } else if (line.endsWith('}')) {
+        // End of a block
+        currentSelector = '';
+      } else if (line.includes(':') && currentSelector) {
+        // Inside a block and contains key-value pair
+        let [key, value] = line.split(':').map(part => part.trim());
+        styles[currentSelector][key] = value;
+      }
+    });
+
+    return styles;
+  };
   string.split('\n').forEach(line => {
     if (line.includes('import')) {
       // Regular expression for matching import() statements
@@ -630,11 +655,20 @@ function Compiler(func) {
           let beforeimport = match
           let path = match.split('(')[1].split(')')[0].trim()
           let newImport = ''
+          let name = match.split('import')[1].split('from')[0].trim()
           switch (true) {
             case path && path.includes('json'):
               path = path.replace(';', '')
-              newImport = `JSON.parse(await fetch(${path}).then(res => res.json()))`
+              newImport = `let ${name} = await fetch('${path}').then(res => res.json())`
 
+              break;
+            case path && path.includes('module.css'):
+              let css = await fs.readFileSync(process.cwd() + path, 'utf8')
+              if (!name) {
+                throw new Error('Could not find name for css module ' + path + ' at' + beforeimport + ' file' + file)
+              }
+              newImport = `let ${name} = ${JSON.stringify(parse(css))}`
+              console.log(newImport)
               break;
             default:
               let deep = path.split('/').length - 1
@@ -651,7 +685,6 @@ function Compiler(func) {
 
               path = path.replaceAll('.jsx', '.js');
               newImport = `await import(${path})`
-
           }
           if (newImport) {
             string = string.replace(beforeimport, newImport)
@@ -660,54 +693,63 @@ function Compiler(func) {
       }
 
       if (regularimportMatch) {
-        regularimportMatch.forEach(async (match) => {
-
+        for (let match of regularimportMatch) {
           let beforeimport = match
           let path = match.split('from')[1].trim()
           let newImport = ''
           let name = match.split('import')[1].split('from')[0].trim()
-          switch (true) {
-            case path && path.includes('json'):
-              path = path.replace(';', '')
-              // remove any ../
-              path = path.replaceAll('../', '')
-              path = `src/${path.replace(/'/g, '')}`
-              newImport = `let ${name} = await fetch('${path}').then(res => res.json())`
 
-              string = string.replace(beforeimport, newImport)
-              break;
-            default:
-              let beforePath = path
-              let deep = path.split('/').length - 1
-              for (let i = 0; i < deep; i++) {
-                path = path.split('../').join('')
-                path = path.split('./').join('')
-              }
-              path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
-              // remove double / from path
-              path = path.split('//').join('/')
-              if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src')) {
-                path.includes('src') ? path.split('src')[1] : null
-                path = '/src/' + path
-              } else if (path.startsWith('src')) {
-                path = '/' + path
-              }
-              path = path.replaceAll('.jsx', '.js');
-              let html = fs.existsSync(process.cwd() + '/dist/index.html') ? fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8') : ''
-              if (!html.includes(`<link rel="modulepreload" href="${path.replace(/'/g, '').trim()}">`)) {
-                if (!html.includes(`</head>`)) {
-                  throw new Error('Could not find </head> in index.html')
-                }
-                let preload = `<link rel="modulepreload" href="${path.trim()}"><link rel="preload" href="${path.trim()}" as="script">`
+          if (path && path.includes('json')) {
+            path = path.replace(';', '')
+            newImport = `let ${name} = await fetch('${path}').then(res => res.json())`
+          } else if (path && path.includes('module.css')) {
 
-                html = html.replace('</head>', `${preload}</head>`)
+            path = path.replace(';', '')
+            path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
+            path = path.replaceAll('.jsx', '.js');
+            path = path.replaceAll('../', '');
+            let css = fs.readFileSync(process.cwd() + '/' + path, 'utf8')
 
-                fs.writeFileSync(process.cwd() + '/dist/index.html', html)
-              }
+            newImport = `let ${name} = ${JSON.stringify(parse(css))}`
+            string = string.replace(beforeimport, newImport)
+          } else {
+            let beforePath = path
+            let deep = path.split('/').length - 1
+            for (let i = 0; i < deep; i++) {
+              path = path.split('../').join('')
+              path = path.split('./').join('')
+            }
+            path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
+            // remove double / from path
+            path = path.split('//').join('/')
+            if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src')) {
+              path.includes('src') ? path.split('src')[1] : null
+              path = '/src/' + path
+            } else if (path.startsWith('src')) {
+              path = '/' + path
+            }
+            path = path.replaceAll('.jsx', '.js');
 
-              string = string.replace(beforePath, "'" + path + "'")
+
+            string = string.replace(beforePath, "'" + path + "'")
           }
-        })
+          let html = fs.existsSync(process.cwd() + '/dist/index.html') ? fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8') : ''
+          if (!html.includes(`<link rel="preload" href="${path.replace(/'/g, '').trim()}" as="${path.replace(/'/g, '').trim().includes('.css') ? 'style' : 'script'}">`)) {
+            if (!html.includes(`</head>`)) {
+              throw new Error('Could not find </head> in index.html')
+            }
+            let preload = `${!path.trim().includes('.css') ? `<link rel="modulepreload" href="${path.trim()}">` : ''}<link rel="preload" href="${path.trim()}" as="${path.trim().includes('.css') ? 'style' : 'script'}">`
+            html = html.replace('</head>', `${preload}\n</head>`)
+
+            fs.writeFileSync(process.cwd() + '/dist/index.html', html)
+          }
+          if (newImport) {
+            string = string.replace(beforeimport, newImport)
+          }
+
+        }
+
+
       }
     }
 
@@ -783,7 +825,7 @@ async function Build() {
 
 
     let data = await fs.readFileSync(origin, "utf8");
-    data = Compiler(data)
+    data = Compiler(data, origin);
 
 
 
@@ -799,7 +841,7 @@ async function Build() {
         })
         await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), minified.code)
       } catch (error) {
-         console.log(error)
+        console.log(error)
       }
     })
 
@@ -854,20 +896,20 @@ async function Build() {
 
     let data = await reader(process.cwd() + "/src/" + name)
     if (name.includes('.jsx')) {
-      data = Compiler(data)
+      data = Compiler(data, process.cwd() + "/src/" + name);
 
       await writer(process.cwd() + "/dist/src/" + name.split('.jsx').join('.js'), data).then(async () => {
         let { minify } = await import('terser')
-       try {
-        let minified = await minify(data, {
-          ecma: " 2016",
-          module: true,
-          compress: true,
-        })
-        await writer(process.cwd() + "/dist/src/" + name.replace('.jsx', '.js'), minified.code)
-       } catch (error) {
-         console.log(error)
-       }
+        try {
+          let minified = await minify(data, {
+            ecma: " 2016",
+            module: true,
+            compress: true,
+          })
+          await writer(process.cwd() + "/dist/src/" + name.replace('.jsx', '.js'), minified.code)
+        } catch (error) {
+          console.log(error)
+        }
 
       })
       return
@@ -925,6 +967,7 @@ switch (true) {
 Vader.js v1.3.3
 - Watching for changes in ./pages
 - Watching for changes in ./src
+- Watching for changes in ./public
 `)
     Build()
 
@@ -950,8 +993,20 @@ Vader.js v1.3.3
         }
       },
     );
+    const watcher3 = watch(
+      process.cwd() + '/public',
+      { recursive: true },
+      (event, filename) => {
+        if (event == 'change'
+          && !globalThis.isBuilding
+        ) {
+          Build()
+        }
+      },
+    );
     watcher2.on('error', (err) => console.log(err))
     watcher.on('error', (err) => console.log(err))
+    watcher3.on('error', (err) => console.log(err))
 
     break;
   case process.argv.includes('--build'):
