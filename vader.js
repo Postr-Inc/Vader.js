@@ -30,6 +30,8 @@ Object.keys(dirs).map((key, index) => {
 
 function Compiler(func, file) {
   let string = func;
+  // Remove block comments 
+ 
   let returns = []
   let comments = string.match(/\{\s*\/\*.*\*\/\s*}/gs)?.map((comment) => comment.trim());
 
@@ -104,30 +106,59 @@ function Compiler(func, file) {
       let [, attributeName, attributeValue] = functionMatch;
       let attribute = {};
 
-      if (attributeValue && attributeValue.includes("=>")) {
-        let ref = Math.random().toString(36).substring(2);
-        let old = `${attributeName}${attributeValue}`;
+      if (attributeValue && attributeValue.includes("=>") || attributeValue && attributeValue.includes("function")) {
+        let functionparams = [];
+        // ref with no numbers
+        let ref = Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join('')
+        let old = `${attributeName}${attributeValue}`
+        functionNames.forEach((name) => {
+          string.split("\n").forEach((line) => {
+            if (line.includes(name) && line.includes("function")) {
+              line = line.trim();
+              line = line.replace(/\s+/g, " ");
 
-        //ex: (params)=>{console.log(params)} => console.log(params
-        // do not split all =>
-        let newvalue = attributeValue.split("=>").slice(1).join("=>").trim();
+              let ps = line.split("(").slice(1).join("(").split(")")[0].trim();
 
+              // remove comments
+              ps = ps.match(/\/\*.*\*\//gs)
+                ? ps.replace(ps.match(/\/\*.*\*\//gs)[0], "")
+                : ps; 
+              functionparams.push({ ref: ref, name: name, params: ps });
+               
+            }
+          });
+        });
+        let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
+        let isJSXComponent = false;
+        elementMatch.forEach((element) => {
+          element = element.trim().replace(/\s+/g, " ");
+          if (element.includes(attributeName)) {
+            let elementTag = element
+              .split("<")[1]
+              .split(">")[0]
+              .split(" ")[0];
+            isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
+          }
+        });   
+        let newvalue = attributeValue.includes('=>') ? attributeValue.split("=>").slice(1).join("=>").trim() : attributeValue.split("function").slice(1).join("function").trim()
+  
 
         newvalue = newvalue.trim();
 
         //remove starting {
         newvalue = newvalue.replace("{", "");
 
+       
         let params = attributeValue
           .split("=>")[0]
           .split("(")[1]
           .split(")")[0]
           .trim();
+
+        // remove comments 
         params = params.match(/\/\*.*\*\//gs)
           ? params.replace(params.match(/\/\*.*\*\//gs)[0], "")
-          : params;
-
-        let functionparams = [];
+          : params; 
         // split first {}
         newvalue = newvalue.trim();
 
@@ -142,86 +173,30 @@ function Compiler(func, file) {
           case newvalue.endsWith("}"):
             newvalue = newvalue.replace("}", "");
             break;
+        } 
+        // replace trailing }
+        newvalue = newvalue.trim();
+        if (newvalue.endsWith("}")) {
+          newvalue = newvalue.replace("}", "");
         }
-
-
-
-        let currentParams = params
-        let name = functionNames.map((name) => { return newvalue.includes(name) ? name : null }).filter(Boolean)[0]
-        switch (true) {
-          case name:
-
-            if (newvalue.includes('function')) {
-              return
-            }
-
-            name && string.split("\n").forEach((line) => {
-              if (line.includes(name) && line.includes("function")) {
-                line = line.trim();
-                line = line.replace(/\s+/g, " ");
-
-                let ps = line.split("(").slice(1).join("(").split(")")[0].trim();
-
-                // remove comments
-                ps = ps.match(/\/\*.*\*\//gs)
-                  ? ps.replace(ps.match(/\/\*.*\*\//gs)[0], "")
-                  : ps;
-
-                functionparams.push({ ref: ref, name: name, params: ps });
-              }
-            });
-            let isJSXComponent = false;
-            let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
-            elementMatch.forEach((element) => {
-              element = element.trim().replace(/\s+/g, " ");
-              if (element.includes(attributeName)) {
-                let elementTag = element
-                  .split("<")[1]
-                  .split(">")[0]
-                  .split(" ")[0];
-                isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
-              }
-            });
-
-            let functionParmas = functionparams.map((param) => { return param.params }).join(',')
-            let suppliedParams = newvalue.split("(")[1].split(")")[0].trim();
-
-            let replacement = `this.bind(${name}, true, ${isJSXComponent ? true : false}, '${ref}', "${functionParmas}", event, ${suppliedParams || null})`
-            let newattribute = `${attributeName}="\${${replacement}}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
-
-            string = string.replace(old, newattribute);
-            break;
-          default:
-            let elementMatch1 = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
-            let isJSXComponent1 = false;
-            elementMatch1.forEach((element) => {
-              element = element.trim().replace(/\s+/g, " ");
-              if (element.includes(attributeName)) {
-                let elementTag = element
-                  .split("<")[1]
-                  .split(">")[0]
-                  .split(" ")[0];
-                isJSXComponent1 = elementTag.match(/^[A-Z]/) ? true : false;
-              }
-
-            });
-
-
-            let otherdata = {};
-            params ? (otherdata["params"] = params) : null;
-            otherdata["jsx"] = isJSXComponent1;
-            otherdata["ref"] = ref;
-            // since js is all in one line split it
-            newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
-            let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
-            paramString = paramString.replaceAll(',,', ',')
-            let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}}.bind(this),`
-            let newattribute2 = `${attributeName}="\${this.bind(\`${newvalue}\`, false, ${isJSXComponent1 ? true : false}, '${ref}', "${paramString}", ${params || null})}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
-            newattribute2 = newattribute2.replace(/\s+/g, " ")
-            string = string.replace(old, isJSXComponent1 ? jsxAttribute : newattribute2);
-            break;
-        }
-
+        console.log(newvalue)
+        functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null  
+        newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
+        newvalue = newvalue.replaceAll(',,', ',')
+        let paramnames = params ? params.split(',').map((e) => e.trim())  : null
+        paramnames = paramnames ? paramnames.filter((e) => e.length > 0) : null
+        // remove comments
+        paramnames = paramnames ? paramnames.map((e) => e.match(/\/\*.*\*\//gs) ? e.replace(e.match(/\/\*.*\*\//gs)[0], "") : e) : null
+        
+        let bind =  isJSXComponent ? `${attributeName}=function(${params}){${newvalue}}.bind(this)` :  `${attributeName} = "\$\{this.bind("${newvalue.replace(/\s+g/, " ")}", ${isJSXComponent}, "${ref}",   "${paramnames ?   paramnames.map((e, index)=> {
+          if(e.length < 1) return  ''
+          if(e.length > 0){
+            index == 0 ?  e : ',' + e
+         }
+          return e
+        }) : ''}" ${params ? params.split(',').map((e) => e.trim()).filter(Boolean).map((e) => `,${e}`).join('') : ''})}"`
+        bind = bind.replaceAll(/\s+/g, " "); 
+        string = string.replace(old, bind);
       }
     }
 
@@ -528,7 +503,21 @@ function Compiler(func, file) {
 
 
 
+  // replace all comments
+ 
   string = string.replaceAll('vaderjs/client', '/vader.js')
+  // replace ${... with ${
+    
+  string = string.replaceAll(/\$\{[^{]*\.{3}/gs, (match) => {
+    if (match.includes('...')) {
+      // Your logic for replacement goes here
+      // For example, you can replace '...' with some other string
+      return match.replace('...', '');
+    }
+  
+    return match;
+  });
+  
   string = string.replaceAll("<>", "`").replaceAll("</>", "`");
   string = parseComponents(string);
 
@@ -539,6 +528,7 @@ function Compiler(func, file) {
 
   string = string.replaceAll('../src', './src')
   string += `\n\n //wascompiled`;
+  
 
   string = string.replaceAll("undefined", "");
   const parse = (css) => {
@@ -585,7 +575,7 @@ function Compiler(func, file) {
             case path && path.includes('module.css'):
               let css = await fs.readFileSync(process.cwd() + path, 'utf8')
               css = css.replaceAll('.', '')
-              console
+           
               if (!name) {
                 throw new Error('Could not find name for css module ' + path + ' at' + beforeimport + ' file' + file)
               }
@@ -761,7 +751,8 @@ async function Build() {
           ecma: " 2016",
           module: true,
           compress: true,
-          mangle: true
+          mangle: true,
+          keep_fnames: true,
         })
         await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), minified.code)
       } catch (error) {
@@ -829,6 +820,7 @@ async function Build() {
             ecma: " 2016",
             module: true,
             compress: true,
+            keep_fnames: true,
           })
           await writer(process.cwd() + "/dist/src/" + name.replace('.jsx', '.js'), minified.code)
         } catch (error) {

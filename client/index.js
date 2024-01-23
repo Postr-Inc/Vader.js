@@ -1,17 +1,8 @@
-window.Vader = {
-  version: "1.3.3", 
-};
-window.componentRegistry = {};
-let errors = {
-  "SyntaxError: Unexpected token '<'": "You forgot to enclose tags in a fragment <></>",
-} 
- 
-let mounts = [];
 /**
  * @method strictMount
  * @description  This method allows you to await until the component is mounted before running a callback
- * @param {*} key 
- * @param {*} callback 
+ * @param {Component key} key 
+ * @param {Function} callback 
  */
 export const strictMount = (key, callback) => {
    
