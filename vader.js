@@ -585,11 +585,12 @@ function Compiler(func, file) {
             case path && path.includes('module.css'):
               let css = await fs.readFileSync(process.cwd() + path, 'utf8')
               css = css.replaceAll('.', '')
+              console
               if (!name) {
                 throw new Error('Could not find name for css module ' + path + ' at' + beforeimport + ' file' + file)
               }
-              newImport = `let ${name} = ${JSON.stringify(parse(css))}`
-              console.log(newImport)
+              newImport = `let ${name} = ${JSON.stringify(parse(css.replaceAll('.', '').replace(/\s+/g, " ")))}`
+            
               break;
             default:
               let deep = path.split('/').length - 1
@@ -629,8 +630,10 @@ function Compiler(func, file) {
             path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
             path = path.replaceAll('.jsx', '.js');
             path = path.replaceAll('../', '');
+            
             let css = fs.readFileSync(process.cwd() + '/' + path, 'utf8')
-
+ 
+            css = css.replaceAll('.', '') 
             newImport = `let ${name} = ${JSON.stringify(parse(css))}`
             string = string.replace(beforeimport, newImport)
           } else {
