@@ -2,76 +2,81 @@
 import fs from "fs";
 import { glob, globSync, globStream, globStreamSync, Glob, } from 'glob'
 let bundleSize = 0;
-if (!fs.existsSync(process.cwd() + '/dist')) {
-  fs.mkdirSync(process.cwd() + '/dist')
-  fs.mkdirSync(process.cwd() + '/dist/public')
-  fs.mkdirSync(process.cwd() + '/dist/src')
-  fs.mkdirSync(process.cwd() + '/dist/pages')
+let errorCodes = {
+  "SyntaxError: Unexpected token '<'": "You forgot to enclose tags in a fragment <></>",
+}
+/**
+ * define directories
+ */
+let dirs = {
+  ...fs.existsSync(process.cwd() + '/pages') ? { pages: true } : { pages: false },
+  ...fs.existsSync(process.cwd() + '/src') ? { components: true } : { components: false },
+  ...fs.existsSync(process.cwd() + '/public') ? { public: true } : { public: false },
+  ...fs.existsSync(process.cwd() + '/dist') ? { dist: true } : { dist: false },
+  ...fs.existsSync(process.cwd() + '/dist/pages') ? { distpages: true } : { distpages: false },
+  ...fs.existsSync(process.cwd() + '/dist/src') ? { distcomponents: true } : { distcomponents: false },
+  ...fs.existsSync(process.cwd() + '/dist/public') ? { distpublic: true } : { distpublic: false },
 }
 
-if (!fs.existsSync(process.cwd() + '/dist/public')) {
-  fs.mkdirSync(process.cwd() + '/dist/public')
-}
 
-if (!fs.existsSync(process.cwd() + '/src') && !fs.existsSync(process.cwd() + '/dist/src')) {
-  fs.mkdirSync(process.cwd() + '/dist/src')
-  fs.mkdirSync(process.cwd() + '/src')
-}
+Object.keys(dirs).map((key, index) => {
+  if (!dirs[key]) {
+    fs.mkdirSync('./' + key)
+  }
+}).filter(Boolean)[0]
+
+
 
 
 function Compiler(func, file) {
   let string = func;
   let returns = []
-  let comments = string
-
-    .match(/\{\s*\/\*.*\*\/\s*}/gs)
-    ?.map((comment) => comment.trim());
+  let comments = string.match(/\{\s*\/\*.*\*\/\s*}/gs)?.map((comment) => comment.trim());
 
   let savedfuncnames = [];
-  let functions = string
-    .match(
-      /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
-    )
+  let functions = string.match(
+    /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
+  )
     ?.map((match) => match.trim());
 
   let functionNames = [];
 
-  if (functions) {
-    functions.forEach((func) => {
-      if (
-        !func.match(
-          /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
-        )
-      ) {
-        return;
-      }
 
-      let name = func.split(" ")[1].split("(")[0].trim();
+  functions && functions.forEach((func) => {
+    if (
+      !func.match(
+        /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
+      )
+    ) {
+      return;
+    }
 
-      let lines = string.match(/return\s*\<>.*\<\/>/gs);
+    let name = func.split(" ")[1].split("(")[0].trim();
 
-      if (lines) {
-        for (let i = 0; i < lines.length; i++) {
-          let line = lines[i];
+    let lines = string.match(/return\s*\<>.*\<\/>/gs);
 
-          if (!functionNames.includes(name)) {
-            functionNames.push(name);
-          }
+    if (lines) {
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+
+        if (!functionNames.includes(name)) {
+          functionNames.push(name);
         }
       }
-    });
-  }
+    }
+  });
+
   // get all Obj({}) and parse to JSON.stringify
 
   let objects = string.match(/Obj\({.*}\)/gs);
-  if (objects) {
-    objects.forEach((obj) => {
-      let key = obj.split("Obj")[1].split("(")[1].split(")")[0].trim();
-      let newobj = obj.replaceAll(`Obj(${key})`, `${key}`);
-      // let newobj = obj.replaceAll(`Obj(${key})`, `JSON.parse('${key}')`)
-      string = string.replaceAll(obj, `this.handleObject('${newobj}')`);
-    });
-  }
+
+  objects && objects.forEach((obj) => {
+    let key = obj.split("Obj")[1].split("(")[1].split(")")[0].trim();
+    let newobj = obj.replaceAll(`Obj(${key})`, `${key}`);
+    // let newobj = obj.replaceAll(`Obj(${key})`, `JSON.parse('${key}')`)
+    string = string.replaceAll(obj, `this.handleObject('${newobj}')`);
+  });
+
 
   let childs = [];
 
@@ -143,79 +148,80 @@ function Compiler(func, file) {
 
         let currentParams = params
         let name = functionNames.map((name) => { return newvalue.includes(name) ? name : null }).filter(Boolean)[0]
-        if (name) {
+        switch (true) {
+          case name:
 
-          if (newvalue.includes('function')) {
-            return
-          }
-
-          name && string.split("\n").forEach((line) => {
-            if (line.includes(name) && line.includes("function")) {
-              line = line.trim();
-              line = line.replace(/\s+/g, " ");
-
-              let ps = line.split("(").slice(1).join("(").split(")")[0].trim();
-
-              // remove comments
-              ps = ps.match(/\/\*.*\*\//gs)
-                ? ps.replace(ps.match(/\/\*.*\*\//gs)[0], "")
-                : ps;
-
-              functionparams.push({ ref: ref, name: name, params: ps });
+            if (newvalue.includes('function')) {
+              return
             }
-          });
-          let hasParams = newvalue.includes("(") && newvalue.includes(")");
-          let isJSXComponent = false;
-          let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
-          elementMatch.forEach((element) => {
-            element = element.trim().replace(/\s+/g, " ");
-            if (element.includes(attributeName)) {
-              let elementTag = element
-                .split("<")[1]
-                .split(">")[0]
-                .split(" ")[0];
-              isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
-            }
-          });
 
-          let functionParmas = functionparams.map((param) => { return param.params }).join(',')
-          let suppliedParams = newvalue.split("(")[1].split(")")[0].trim();
+            name && string.split("\n").forEach((line) => {
+              if (line.includes(name) && line.includes("function")) {
+                line = line.trim();
+                line = line.replace(/\s+/g, " ");
 
-          let replacement = `this.bind(${name}, true, ${isJSXComponent ? true : false}, '${ref}', "${functionParmas}", event, ${suppliedParams || null})`
-          let newattribute = `${attributeName}="\${${replacement}}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
+                let ps = line.split("(").slice(1).join("(").split(")")[0].trim();
 
-          string = string.replace(old, newattribute);
+                // remove comments
+                ps = ps.match(/\/\*.*\*\//gs)
+                  ? ps.replace(ps.match(/\/\*.*\*\//gs)[0], "")
+                  : ps;
 
+                functionparams.push({ ref: ref, name: name, params: ps });
+              }
+            });
+            let isJSXComponent = false;
+            let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
+            elementMatch.forEach((element) => {
+              element = element.trim().replace(/\s+/g, " ");
+              if (element.includes(attributeName)) {
+                let elementTag = element
+                  .split("<")[1]
+                  .split(">")[0]
+                  .split(" ")[0];
+                isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
+              }
+            });
+
+            let functionParmas = functionparams.map((param) => { return param.params }).join(',')
+            let suppliedParams = newvalue.split("(")[1].split(")")[0].trim();
+
+            let replacement = `this.bind(${name}, true, ${isJSXComponent ? true : false}, '${ref}', "${functionParmas}", event, ${suppliedParams || null})`
+            let newattribute = `${attributeName}="\${${replacement}}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
+
+            string = string.replace(old, newattribute);
+            break;
+          default:
+            let elementMatch1 = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
+            let isJSXComponent1 = false;
+            elementMatch1.forEach((element) => {
+              element = element.trim().replace(/\s+/g, " ");
+              if (element.includes(attributeName)) {
+                let elementTag = element
+                  .split("<")[1]
+                  .split(">")[0]
+                  .split(" ")[0];
+                isJSXComponent1 = elementTag.match(/^[A-Z]/) ? true : false;
+              }
+
+            });
+
+
+            let otherdata = {};
+            params ? (otherdata["params"] = params) : null;
+            otherdata["jsx"] = isJSXComponent1;
+            otherdata["ref"] = ref;
+            // since js is all in one line split it
+            newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
+            let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
+            paramString = paramString.replaceAll(',,', ',')
+            let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}}.bind(this),`
+            let newattribute2 = `${attributeName}="\${this.bind(\`${newvalue}\`, false, ${isJSXComponent1 ? true : false}, '${ref}', "${paramString}", ${params || null})}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
+            newattribute2 = newattribute2.replace(/\s+/g, " ")
+            string = string.replace(old, isJSXComponent1 ? jsxAttribute : newattribute2);
+            break;
         }
-        else {
-          let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
-          let isJSXComponent = false;
-          elementMatch.forEach((element) => {
-            element = element.trim().replace(/\s+/g, " ");
-            if (element.includes(attributeName)) {
-              let elementTag = element
-                .split("<")[1]
-                .split(">")[0]
-                .split(" ")[0];
-              isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
-            }
 
-          });
-
-
-          let otherdata = {};
-          params ? (otherdata["params"] = params) : null;
-          otherdata["jsx"] = isJSXComponent;
-          otherdata["ref"] = ref;
-          // since js is all in one line split it
-          newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
-          let paramString = params ? params.split(' ').map(param => param + ',').join('') : "";
-          paramString = paramString.replaceAll(',,', ',')
-          let jsxAttribute = `${attributeName}=function(${paramString}){${newvalue}}.bind(this),`
-          let newattribute = `${attributeName}="\${this.bind(\`${newvalue}\`, false, ${isJSXComponent ? true : false}, '${ref}', "${paramString}", ${params || null})}", usesEvent="true", eventType="${attributeName}",data-ref="${ref}", `
-          newattribute = newattribute.replace(/\s+/g, " ")
-          string = string.replace(old, isJSXComponent ? jsxAttribute : newattribute);
-        }
       }
     }
 
@@ -240,9 +246,15 @@ function Compiler(func, file) {
 
   function extractOuterReturn(code) {
     // match return [...]
-    let returns = code.match(/return\s*\<>.*\<\/>/gs);
+    let returns = code.match(/return\s*\<>.*\<\/>/gs)
 
     return returns || [];
+  }
+  // throw error if return is not wrapped in <></> if return is found and not wrapped in <></> or <div></div> and not <><div></div></>
+  if (string.match(/return\s*\<>/gs) && !string.match(/return\s*\<>.*\<\/>/gs)
+    || string.match(/return\s*\<[a-zA-Z0-9_-]+.*>/gs)
+  ) {
+    throw new SyntaxError("You forgot to enclose jsx in a fragment <></> at line " + string.split(/return\s*\<[a-zA-Z0-9_-]+.*>/gs)[0].split('\n').length + ' in file ' + file)
   }
 
   let outerReturn = extractOuterReturn(string);
@@ -312,8 +324,7 @@ function Compiler(func, file) {
     let code = "";
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i];
-      if (line.match(/return\s*\<>/gs)) {
-      }
+
       code += line + "\n";
     }
 
@@ -344,164 +355,71 @@ function Compiler(func, file) {
   }
   let lines = string.split("\n");
   lines.forEach((line) => {
+
     if (
       line.includes("let") ||
       line.includes("const") ||
       line.includes("var")
     ) {
-      if (line.includes("useState") && !line.includes("import")) {
-        line = line.trim();
-        // derive [key, value] from line
-        let varType = line.split(" ")[0];
-        let type = ''
-        let key = line
-          .split("=")[0]
-          .split(" ")[1]
-          .trim()
-          .replace("[", "")
-          .replace(",", "");
-        let setKey = line.split("=")[0].split(",")[1].trim().replace("]", "");
+      switch (true) {
+        case line.includes("useState") && !line.includes("import"):
+          let varType = line.split("[")[0]
+          let key = line.split("=")[0].split(",")[0].trim().split('[')[1];
 
-        key = key.replace("[", "").replace(",", "");
-        let value = line.split("=")[1].split("useState(")[1]
+          let setKey = line.split("=")[0].trim().split(",")[1].trim().replace("]", "");
+          key = key.replace("[", "").replace(",", "");
+          let valuestate = line.split("=")[1].split("useState(")[1];
 
-        let regex = /useState\((.*)\)/gs
-        value = value.match(regex) ? value.match(regex)[0].split("useState(")[1].split(")")[0].trim() : value
-        switch (true) {
-          case value.startsWith("'"):
-            type = "String"
-            break;
-          case value.startsWith('"'):
-            type = "String"
-            break;
-          case value.startsWith("`"):
-            type = "String"
-            break;
-          case value.startsWith("{"):
-            type = "Object"
-            break;
-          case value.startsWith("["):
-            type = "Array"
-            break;
-          case value.includes("function"):
-            type = "Function"
-            break;
-          case value.includes("=>"):
-            type = "Function"
-            break;
-          case value.includes("true"):
-            type = "Boolean"
-            break;
-          case value.includes("false"):
-            type = "Boolean"
-            break;
-          case value.includes("null"):
-            type = "Null"
-            break;
-          case value.includes("undefined"):
-            type = "Undefined"
-            break;
-          case value.includes("?") && value.includes(":"):
-            type = "Any"
-            break;
-          default:
-            type = "*"
-            break;
-        }
-
-        let typejsdoc = `/** @type {${type}} */`;
+          let regex = /useState\((.*)\)/gs;
+          valuestate = valuestate.match(regex) ? valuestate.match(regex)[0].split("useState(")[1].split(")")[0].trim() : valuestate
 
 
-        let newState = `${varType} [${typejsdoc}${key}, ${setKey}] = this.useState('${key}', ${value}
-         
-          `;
+          let newState = `${varType} [${key}, ${setKey}] = this.useState('${key}', ${valuestate}
+           
+            `;
+          string = string.replace(line, newState);
+          break;
+        case line.includes("useRef") && !line.includes("import"):
+          line = line.trim();
+          let typeref = line.split(" ")[0]
+
+          let keyref = line.split(typeref)[1].split("=")[0].trim().replace("[", "").replace(",", "");
 
 
-        // get setkey calls and replace with this.setKey
-        string.split("\n").forEach((line) => {
-          if (line.includes(setKey) && !line.includes("useState")) {
-            string = string.replace(line, line);
-          }
+          let valueref = line.split("=")[1].split("useRef(")[1];
 
-          if (line.includes(key)) {
-            line = line.replace(key, `this.states['${key}']`);
+          let newStateref = `${typeref} ${keyref} = this.useRef('${keyref}', ${valueref}`;
+          string = string.replace(line, newStateref);
+          break;
+        case line.includes("useReducer") && !line.includes("import"):
+          line = line.trim();
+          line = line.replaceAll(/\s+/g, " ");
 
-            string = string.replace(line, line);
-          }
-        });
-        string = string.replace(line, newState);
-      } else if (line.includes("useRef") && !line.includes("import")) {
-        line = line.trim();
-        // let ref = useRef(null)
-        let type = line.split(" ")[0];
-        let key = line.split("=")[0].split(" ")[1].trim();
-        let value = line.split("=")[1].split("useRef(")[1]
+          let varTypereducer = line.split(" ")[0];
+          let keyreducer = line
+            .split("=")[0]
+            .split(" ")[1]
+            .trim()
+            .replace("[", "")
+            .replace(",", "");
+          let setKeyreducer = line.split("=")[0].trim().split(",")[1].trim().replace("]", "");
 
-        let regex = /useState\((.*)\)/gs
-        value = value.match(regex) ? value.match(regex)[0].split("useRef(")[1].split(")")[0].trim() : value
-        let newState = `${type} ${key} = this.useRef('${key}', ${value}`;
+          let reducer = line.split("=")[1].split("useReducer(")[1];
 
-        string = string.replace(line, newState);
-      } else if (line.includes("useReducer") && !line.includes("import")) {
-        //ex: const [state, dispatch] = useReducer(function, initialState);
+          let newStatereducer = `${varTypereducer} [${keyreducer}, ${setKeyreducer}] = this.useReducer('${keyreducer}', ${line.includes('=>') ? reducer + '=>{' : reducer}`;
 
-        line = line.trim();
-        line = line.replaceAll(/\s+/g, " ");
-
-        // derive [key, value] from line
-        let varType = line.split(" ")[0];
-        let type = ''
-        let key = line
-          .split("=")[0]
-          .split(" ")[1]
-          .trim()
-          .replace("[", "")
-          .replace(",", "");
-        let setKey = line.split("=")[0].split(",")[1].trim().replace("]", "");
-        let reducer = line.split("=")[1].split("useReducer(")[1]
-        let newState = `${varType} [${key}, ${setKey}] = this.useReducer('${key}', ${line.includes('=>') ? reducer + '=>{' : reducer}`
-        string = string.replace(line, newState);
+          string = string.replace(line, newStatereducer);
+          break;
       }
+
     }
   });
 
-  // create a polyfill for Array.prototype.filter
 
-  /**
-   * @method Delete
-   * @param {*} item
-   * @returns  {Array} array
-   * @description  Delete an item from an array
-   */
-  Array.prototype.delete = function (item) {
-    let array = this;
-    array.forEach((i, index) => {
-      switch (true) {
-        case typeof i === "object":
-          if (JSON.stringify(i) === JSON.stringify(item)) {
-            array.splice(index, 1);
-          }
-          break;
-        default:
-          if (i === item) {
-            array.splice(index, 1);
-          }
-          break;
-      }
-    });
-
-    return array;
-  };
-
-  // replaceall comments ${/* */} with ''
   string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
 
   string = string.replaceAll('../src', './src')
 
-
-  // capture <Component />, <Component></Component>, and <Component>content</Component>
-
-  // Example usage
   function parseComponents(body, isChild) {
     let componentRegex =
       /<([A-Z][a-zA-Z0-9_-]+)([^>]*)\/>|<([A-Z][a-zA-Z0-9_-]+)([^>]*)>(.*?)<\/\3>/gs;
@@ -617,7 +535,9 @@ function Compiler(func, file) {
   string = string
     .replaceAll("className", "class")
     .replaceAll("classname", "class");
+  string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
 
+  string = string.replaceAll('../src', './src')
   string += `\n\n //wascompiled`;
 
   string = string.replaceAll("undefined", "");
@@ -863,7 +783,6 @@ async function Build() {
 
 
 
-    console.log(`Compilation finished`)
 
   }
 
@@ -878,6 +797,7 @@ async function Build() {
     cwd: process.cwd() + '/node_modules/vaderjs/runtime',
     absolute: true,
   });
+
   scannedVaderFiles.forEach(async (file) => {
     file = file.replace(/\\/g, '/');
 
@@ -937,16 +857,19 @@ async function Build() {
     absolute: true,
   })
 
+
   if (!fs.existsSync(process.cwd() + "/dist/index.html")) {
 
     scannedFiles.forEach(async (file) => {
       file = file.split(process.cwd() + '/runtime/')[1]
 
-      if (file === "app.js") {
-        return
-      }
-      if (file.includes('index.html') && fs.existsSync(process.cwd() + "/runtime/" + file)) {
+      let objCase = {
+        ...file == "app.js" ? { exit: true } : null,
+        ...file.includes("index.html") && fs.existsSync(process.cwd() + "/runtime/" + file) ? { exit: true } : null,
 
+      }
+      if (objCase.exit) {
+        console.log('exiting')
         return
       }
       bundleSize += fs.statSync(process.cwd() + "/runtime/" + file).size;
@@ -957,6 +880,9 @@ async function Build() {
   }
 
   globalThis.isBuilding = false
+  console.log(`Build complete! ${Math.round(bundleSize / 1000)}${bundleSize > 1000 ? 'kb' : 'bytes'} written to ./dist`)
+  bundleSize = 0;
+  return true
 }
 import { watch } from "fs";
 
@@ -970,44 +896,22 @@ Vader.js v1.3.3
 - Watching for changes in ./src
 - Watching for changes in ./public
 `)
-    Build()
+    !globalThis.isBuilding ? Build() : null
 
-    const watcher = watch(
-      process.cwd() + '/pages',
-      { recursive: true },
-      (event, filename) => {
-        if (event == 'change'
-          && !globalThis.isBuilding
-        ) {
-          Build()
-        }
-      },
-    );
-    const watcher2 = watch(
-      process.cwd() + '/src',
-      { recursive: true },
-      (event, filename) => {
-        if (event == 'change'
-          && !globalThis.isBuilding
-        ) {
-          Build()
-        }
-      },
-    );
-    const watcher3 = watch(
-      process.cwd() + '/public',
-      { recursive: true },
-      (event, filename) => {
-        if (event == 'change'
-          && !globalThis.isBuilding
-        ) {
-          Build()
-        }
-      },
-    );
-    watcher2.on('error', (err) => console.log(err))
-    watcher.on('error', (err) => console.log(err))
-    watcher3.on('error', (err) => console.log(err))
+
+    Array.from(Array(3).keys()).forEach((i) => {
+      let p = `${process.cwd()}${i == 0 ? '/pages/' : i == 1 ? '/src/' : '/public/'}`
+
+      watch(p
+        , { recursive: true }, (event, filename) => {
+          if (event == 'change'
+            && !globalThis.isBuilding
+          ) {
+            Build()
+          }
+        }).on('error', (err) => console.log(err))
+    })
+
 
     break;
   case process.argv.includes('--build'):
