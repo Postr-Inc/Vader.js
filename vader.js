@@ -21,12 +21,14 @@ let dirs = {
 
 Object.keys(dirs).map((key, index) => {
   if (!dirs[key]) {
-    fs.mkdirSync('./' + key)
+    fs.mkdirSync(process.cwd() + '/' + key)
   }
 }).filter(Boolean)[0]
 
-
-
+if(process.env.isCloudflare){
+  let htmlFile = fs.readFileSync(process.cwd() + "/node_modules/vaderjs/runtime/index.html", 'utf8')
+  fs.writeFileSync(process.cwd() + "/dist/index.html", htmlFile)
+}
 
 function Compiler(func, file) {
   let string = func;
@@ -557,7 +559,9 @@ function Compiler(func, file) {
     if (line.includes('import')) {
       // Regular expression for matching import() statements
       let asyncimportMatch = line.match(/import\s*\((.*)\)/gs);
-      let regularimportMatch = line.match(/import\s+([\w\s{},]*)\s*from\s*(['"][^'"]+['"])(?![^<]*>)/gs);
+      // handle named imports and unnamed import 'path'
+      let regularimportMatch = line.match(/import\s*([a-zA-Z0-9_-]+)?\s*from\s*('(.*)'|"(.*)")|import\s*('(.*)'|"(.*)")/gs);
+    
 
       if (asyncimportMatch) {
         asyncimportMatch.forEach(async (match) => {
@@ -607,16 +611,21 @@ function Compiler(func, file) {
 
       if (regularimportMatch) {
         for (let match of regularimportMatch) {
-          let beforeimport = match
-          let path = match.split('from')[1].trim()
+          let beforeimport = match 
+          // import {name} from 'path' or import 'path'
+          let path = match.split('from')[1] ? match.split('from')[1].trim() : match.split('import')[1].trim()
           let newImport = ''
           let name = match.split('import')[1].split('from')[0].trim()
+  
+          path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
+          switch (true) {
+            case path && path.includes('json'):
+              path = path.replace(';', '')
+              newImport = `let ${name} = await fetch('${path}').then(res => res.json())`
 
-          if (path && path.includes('json')) {
-            path = path.replace(';', '')
-            newImport = `let ${name} = await fetch('${path}').then(res => res.json())`
-          } else if (path && path.includes('module.css')) {
-
+              break;
+            case path && path.includes('module.css'):
+            
             path = path.replace(';', '')
             path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
             path = path.replaceAll('.jsx', '.js');
@@ -627,36 +636,45 @@ function Compiler(func, file) {
             css = css.replaceAll('.', '') 
             newImport = `let ${name} = ${JSON.stringify(parse(css))}`
             string = string.replace(beforeimport, newImport)
-          } else {
-            let beforePath = path
-            let deep = path.split('/').length - 1
-            for (let i = 0; i < deep; i++) {
-              path = path.split('../').join('')
-              path = path.split('./').join('')
-            }
-            path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
-            // remove double / from path
-            path = path.split('//').join('/') 
-            if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src') && !path.startsWith('public')) {
-              path.includes('src') ? path.split('src')[1] : null
-              path = '/src/' + path
-            } else if (path.startsWith('src') || path.startsWith('public')) {
-              path = '/' + path
-            }
-            console.log(path)
-            path = path.replaceAll('.jsx', '.js');
-
-
-            string = string.replace(beforePath, "'" + path + "'")
+              break;
+            case path && path.endsWith('.css'): 
+               console.log(path)
+              string = string.replace(beforeimport, '')
+              newImport = ``
+              break;
+            default:
+              let beforePath = path
+              let deep = path.split('/').length - 1
+              for (let i = 0; i < deep; i++) {
+                path = path.split('../').join('')
+                path = path.split('./').join('')
+              }
+              path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
+              // remove double / from path
+              path = path.split('//').join('/') 
+              if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src') && !path.startsWith('public')) {
+                path.includes('src') ? path.split('src')[1] : null
+                path = '/src/' + path
+              } else if (path.startsWith('src') || path.startsWith('public')) {
+                path = '/' + path
+              } 
+              path = path.replaceAll('.jsx', '.js');
+  
+  
+              string = string.replace(beforePath, path)
+              break;
+              
           }
+           
           let html = fs.existsSync(process.cwd() + '/dist/index.html') ? fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8') : ''
           if (!html.includes(`<link rel="preload" href="${path.replace(/'/g, '').trim()}" as="${path.replace(/'/g, '').trim().includes('.css') ? 'style' : 'script'}">`)
-           && !path.includes('.module.css')
-          ) {
-            if (!html.includes(`</head>`)) {
-              throw new Error('Could not find </head> in index.html')
+           && !path.includes('.module.css') 
+          ) { 
+            let preload = `
+            ${
+              path.trim().includes('.css') ? `<link rel="stylesheet" href="${path.trim()}">` : ''
             }
-            let preload = `${!path.trim().includes('.css') ? `<link rel="modulepreload" href="${path.trim()}">` : ''}<link rel="preload" href="${path.trim()}" as="${path.trim().includes('.css') ? 'style' : 'script'}">`
+            ${!path.trim().includes('.css') ? `<link rel="modulepreload" href="${path.trim()}">` : ''}<link rel="preload" href="${path.trim()}" as="${path.trim().includes('.css') ? 'style' : 'script'}">`
             html = html.replace('</head>', `${preload}\n</head>`)
 
             fs.writeFileSync(process.cwd() + '/dist/index.html', html)
@@ -676,10 +694,7 @@ function Compiler(func, file) {
 
   return string
 }
-let bindings = []
-let exec = await import('child_process').then((child) => {
-  return child.exec
-})
+ 
 globalThis.isBuilding = false
 globalThis.isWriting =  null
 async function Build() {
@@ -872,7 +887,7 @@ async function Build() {
 
     scannedFiles.forEach(async (file) => {
       file = file.split(process.cwd() + '/runtime/')[1]
-
+ 
       let objCase = {
         ...file == "app.js" ? { exit: true } : null,
         ...file.includes("index.html") && fs.existsSync(process.cwd() + "/runtime/" + file) ? { exit: true } : null,
@@ -883,11 +898,11 @@ async function Build() {
         return
       }
       bundleSize += fs.statSync(process.cwd() + "/runtime/" + file).size;
-      let data = await reader(process.cwd() + "/runtime/" + file)
+      let data = await reader(process.cwd() + "/runtime/" + file) 
       await writer(process.cwd() + "/dist/" + file, data);
     });
 
-  }
+  } 
 
   globalThis.isBuilding = false
   console.log(`Build complete! ${Math.round(bundleSize / 1000)}${bundleSize > 1000 ? 'kb' : 'bytes'} written to ./dist`)
