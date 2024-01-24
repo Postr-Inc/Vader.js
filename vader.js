@@ -860,7 +860,7 @@ async function Build() {
     await writer(process.cwd() + "/dist/src/" + name, data);
   })
 
-  const scannedPublicFiles = await glob("**/**.{css,js,html}", {
+  const scannedPublicFiles = await glob("**/**.{css,js,html,.mjs,.cjs}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
     cwd: process.cwd() + '/public/',
     absolute: true,
