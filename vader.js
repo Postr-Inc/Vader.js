@@ -576,6 +576,9 @@ function Compiler(func, file) {
 
               break;
             case path && path.includes('module.css'):
+              
+               
+
               let css = await fs.readFileSync(process.cwd() + path, 'utf8')
               css = css.replaceAll('.', '')
            
@@ -618,6 +621,15 @@ function Compiler(func, file) {
           let name = match.split('import')[1].split('from')[0].trim()
   
           path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
+          let deep = path.split('/').length - 1
+          for (let i = 0; i < deep; i++) {
+            path = path.split('../').join('')
+            path = path.split('./').join('')
+          }
+          path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
+          // remove double / from path
+          path = path.split('//').join('/')
+
           switch (true) {
             case path && path.includes('json'):
               path = path.replace(';', '')
@@ -628,8 +640,7 @@ function Compiler(func, file) {
             
             path = path.replace(';', '')
             path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
-            path = path.replaceAll('.jsx', '.js');
-            path = path.replaceAll('../', '');
+            path = path.replaceAll('.jsx', '.js'); 
             
             let css = fs.readFileSync(process.cwd() + '/' + path, 'utf8')
  
@@ -637,8 +648,7 @@ function Compiler(func, file) {
             newImport = `let ${name} = ${JSON.stringify(parse(css))}`
             string = string.replace(beforeimport, newImport)
               break;
-            case path && path.endsWith('.css'): 
-               console.log(path)
+            case path && path.endsWith('.css'):  
               string = string.replace(beforeimport, '')
               newImport = ``
               break;
