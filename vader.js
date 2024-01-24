@@ -25,7 +25,7 @@ Object.keys(dirs).map((key, index) => {
   }
 }).filter(Boolean)[0]
 
-if(process.env.isCloudflare){
+if (process.env.isCloudflare) {
   let htmlFile = fs.readFileSync(process.cwd() + "/node_modules/vaderjs/runtime/index.html", 'utf8')
   fs.writeFileSync(process.cwd() + "/dist/index.html", htmlFile)
 }
@@ -33,7 +33,7 @@ if(process.env.isCloudflare){
 function Compiler(func, file) {
   let string = func;
   // Remove block comments 
- 
+
   let returns = []
   let comments = string.match(/\{\s*\/\*.*\*\/\s*}/gs)?.map((comment) => comment.trim());
 
@@ -124,9 +124,9 @@ function Compiler(func, file) {
               // remove comments
               ps = ps.match(/\/\*.*\*\//gs)
                 ? ps.replace(ps.match(/\/\*.*\*\//gs)[0], "")
-                : ps; 
+                : ps;
               functionparams.push({ ref: ref, name: name, params: ps });
-               
+
             }
           });
         });
@@ -141,16 +141,16 @@ function Compiler(func, file) {
               .split(" ")[0];
             isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
           }
-        });   
+        });
         let newvalue = attributeValue.includes('=>') ? attributeValue.split("=>").slice(1).join("=>").trim() : attributeValue.split("function").slice(1).join("function").trim()
-  
+
 
         newvalue = newvalue.trim();
 
         //remove starting {
         newvalue = newvalue.replace("{", "");
 
-       
+
         let params = attributeValue
           .split("=>")[0]
           .split("(")[1]
@@ -160,7 +160,7 @@ function Compiler(func, file) {
         // remove comments 
         params = params.match(/\/\*.*\*\//gs)
           ? params.replace(params.match(/\/\*.*\*\//gs)[0], "")
-          : params; 
+          : params;
         // split first {}
         newvalue = newvalue.trim();
 
@@ -175,28 +175,28 @@ function Compiler(func, file) {
           case newvalue.endsWith("}"):
             newvalue = newvalue.replace("}", "");
             break;
-        } 
+        }
         // replace trailing }
         newvalue = newvalue.trim();
         if (newvalue.endsWith("}")) {
           newvalue = newvalue.replace("}", "");
-        } 
-        functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null  
+        }
+        functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null
         newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
         newvalue = newvalue.replaceAll(',,', ',')
-        let paramnames = params ? params.split(',').map((e) => e.trim())  : null
+        let paramnames = params ? params.split(',').map((e) => e.trim()) : null
         paramnames = paramnames ? paramnames.filter((e) => e.length > 0) : null
         // remove comments
         paramnames = paramnames ? paramnames.map((e) => e.match(/\/\*.*\*\//gs) ? e.replace(e.match(/\/\*.*\*\//gs)[0], "") : e) : null
-        
-        let bind =  isJSXComponent ? `${attributeName}=function(${params}){${newvalue}}.bind(this)` :  `${attributeName} = "\$\{this.bind("${newvalue.replace(/\s+g/, " ")}", ${isJSXComponent}, "${ref}",   "${paramnames ?   paramnames.map((e, index)=> {
-          if(e.length < 1) return  ''
-          if(e.length > 0){
-            index == 0 ?  e : ',' + e
-         }
+
+        let bind = isJSXComponent ? `${attributeName}=function(${params}){${newvalue}}.bind(this)` : `${attributeName} = "\$\{this.bind("${newvalue.replace(/\s+g/, " ")}", ${isJSXComponent}, "${ref}",   "${paramnames ? paramnames.map((e, index) => {
+          if (e.length < 1) return ''
+          if (e.length > 0) {
+            index == 0 ? e : ',' + e
+          }
           return e
         }) : ''}" ${params ? params.split(',').map((e) => e.trim()).filter(Boolean).map((e) => `,${e}`).join('') : ''})}"`
-        bind = bind.replaceAll(/\s+/g, " "); 
+        bind = bind.replaceAll(/\s+/g, " ");
         string = string.replace(old, bind);
       }
     }
@@ -505,31 +505,31 @@ function Compiler(func, file) {
 
 
   // replace all comments
- 
+
   string = string.replaceAll('vaderjs/client', '/vader.js')
   // replace ${... with ${
-    
+
   string = string.replaceAll(/\$\{[^{]*\.{3}/gs, (match) => {
     if (match.includes('...')) {
       // Your logic for replacement goes here
       // For example, you can replace '...' with some other string
       return match.replace('...', '');
     }
-  
+
     return match;
   });
-  
+
   string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
   string = string.replaceAll("<>", "`").replaceAll("</>", "`");
   string = parseComponents(string);
 
   string = string
     .replaceAll("className", "class")
-    .replaceAll("classname", "class"); 
+    .replaceAll("classname", "class");
 
   string = string.replaceAll('../src', './src')
   string += `\n\n //wascompiled`;
-  
+
 
   string = string.replaceAll("undefined", "");
   const parse = (css) => {
@@ -559,9 +559,7 @@ function Compiler(func, file) {
     if (line.includes('import')) {
       // Regular expression for matching import() statements
       let asyncimportMatch = line.match(/import\s*\((.*)\)/gs);
-      // handle named imports and unnamed import 'path'
       let regularimportMatch = line.match(/import\s*([a-zA-Z0-9_-]+)?\s*from\s*('(.*)'|"(.*)")|import\s*('(.*)'|"(.*)")/gs);
-    
 
       if (asyncimportMatch) {
         asyncimportMatch.forEach(async (match) => {
@@ -576,17 +574,14 @@ function Compiler(func, file) {
 
               break;
             case path && path.includes('module.css'):
-              
-               
-
               let css = await fs.readFileSync(process.cwd() + path, 'utf8')
               css = css.replaceAll('.', '')
-           
+
               if (!name) {
                 throw new Error('Could not find name for css module ' + path + ' at' + beforeimport + ' file' + file)
               }
               newImport = `let ${name} = ${JSON.stringify(parse(css.replaceAll('.', '').replace(/\s+/g, " ")))}`
-            
+
               break;
             default:
               let deep = path.split('/').length - 1
@@ -598,8 +593,8 @@ function Compiler(func, file) {
               // remove double / from path
               path = path.split('//').join('/')
               if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src')
-              && !path.startsWith('/public')
-              ) { 
+                && !path.startsWith('/public')
+              ) {
                 path = '/src/' + path
               }
 
@@ -614,21 +609,12 @@ function Compiler(func, file) {
 
       if (regularimportMatch) {
         for (let match of regularimportMatch) {
-          let beforeimport = match 
-          // import {name} from 'path' or import 'path'
+          let beforeimport = match
           let path = match.split('from')[1] ? match.split('from')[1].trim() : match.split('import')[1].trim()
+
           let newImport = ''
           let name = match.split('import')[1].split('from')[0].trim()
-  
-          path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
-          let deep = path.split('/').length - 1
-          for (let i = 0; i < deep; i++) {
-            path = path.split('../').join('')
-            path = path.split('./').join('')
-          }
-          path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
-          // remove double / from path
-          path = path.split('//').join('/')
+
 
           switch (true) {
             case path && path.includes('json'):
@@ -637,18 +623,19 @@ function Compiler(func, file) {
 
               break;
             case path && path.includes('module.css'):
-            
-            path = path.replace(';', '')
-            path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
-            path = path.replaceAll('.jsx', '.js'); 
-            
-            let css = fs.readFileSync(process.cwd() + '/' + path, 'utf8')
- 
-            css = css.replaceAll('.', '') 
-            newImport = `let ${name} = ${JSON.stringify(parse(css))}`
-            string = string.replace(beforeimport, newImport)
+
+              path = path.replace(';', '')
+              path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
+              path = path.replaceAll('.jsx', '.js');
+              path = path.replaceAll('../', '');
+
+              let css = fs.readFileSync(process.cwd() + '/' + path, 'utf8')
+
+              css = css.replaceAll('.', '')
+              newImport = `let ${name} = ${JSON.stringify(parse(css))}`
+              string = string.replace(beforeimport, newImport)
               break;
-            case path && path.endsWith('.css'):  
+            case path && path.includes('.css'):
               string = string.replace(beforeimport, '')
               newImport = ``
               break;
@@ -661,30 +648,29 @@ function Compiler(func, file) {
               }
               path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
               // remove double / from path
-              path = path.split('//').join('/') 
+              path = path.split('//').join('/')
               if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src') && !path.startsWith('public')) {
                 path.includes('src') ? path.split('src')[1] : null
                 path = '/src/' + path
               } else if (path.startsWith('src') || path.startsWith('public')) {
                 path = '/' + path
-              } 
+              }
               path = path.replaceAll('.jsx', '.js');
-  
-  
-              string = string.replace(beforePath, path)
+
+
+              string = string.replace(beforePath, "'" + path + "'")
               break;
-              
+
           }
-           
+
           let html = fs.existsSync(process.cwd() + '/dist/index.html') ? fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8') : ''
           if (!html.includes(`<link rel="preload" href="${path.replace(/'/g, '').trim()}" as="${path.replace(/'/g, '').trim().includes('.css') ? 'style' : 'script'}">`)
-           && !path.includes('.module.css') 
-          ) { 
+            && !path.includes('.module.css')
+          ) {
             let preload = `
-            ${
-              path.trim().includes('.css') ? `<link rel="stylesheet" href="${path.trim()}">` : ''
-            }
-            ${!path.trim().includes('.css') ? `<link rel="modulepreload" href="${path.trim()}">` : ''}<link rel="preload" href="${path.trim()}" as="${path.trim().includes('.css') ? 'style' : 'script'}">`
+            ${path.trim().includes('.css') ? `<link rel="stylesheet" href="${path.trim().replace(/'/g, '').trim()}">` : ''
+              }
+            ${!path.trim().includes('.css') ? `<link rel="modulepreload" href="${path.trim().replace(/'/g, '').trim()}">` : ''}<link rel="preload" href="${path.trim().replace(/'/g, '').trim()}" as="${path.trim().includes('.css') ? 'style' : 'script'}">`
             html = html.replace('</head>', `${preload}\n</head>`)
 
             fs.writeFileSync(process.cwd() + '/dist/index.html', html)
@@ -704,9 +690,9 @@ function Compiler(func, file) {
 
   return string
 }
- 
+
 globalThis.isBuilding = false
-globalThis.isWriting =  null
+globalThis.isWriting = null
 async function Build() {
   globalThis.isBuilding = true
   console.log('Compiling......')
@@ -716,16 +702,16 @@ async function Build() {
   };
 
   let writer = async (file, data) => {
-    globalThis.isWriting =  file
+    globalThis.isWriting = file
     switch (true) {
       case !fs.existsSync(file):
         fs.mkdirSync(file.split('/').slice(0, -1).join('/'), { recursive: true })
         break;
     }
-    if(globalThis.isWriting !== file){
+    if (globalThis.isWriting !== file) {
       return
     }
-    await  fs.writeFileSync(file, data);
+    await fs.writeFileSync(file, data);
 
     globalThis.isWriting = null
     return { _written: true };
@@ -782,18 +768,18 @@ async function Build() {
     await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), data).then(async () => {
 
       let { minify } = await import('terser')
-      
+
       try {
         let minified = await minify(data, {
           toplevel: true,
-          ecma:2016,
-          enclose:false,
+          ecma: 2016,
+          enclose: false,
           module: true,
           compress: true,
           keep_fnames: true,
 
         })
-         
+
         await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), minified.code)
       } catch (error) {
         console.log(error)
@@ -897,7 +883,7 @@ async function Build() {
 
     scannedFiles.forEach(async (file) => {
       file = file.split(process.cwd() + '/runtime/')[1]
- 
+
       let objCase = {
         ...file == "app.js" ? { exit: true } : null,
         ...file.includes("index.html") && fs.existsSync(process.cwd() + "/runtime/" + file) ? { exit: true } : null,
@@ -908,11 +894,11 @@ async function Build() {
         return
       }
       bundleSize += fs.statSync(process.cwd() + "/runtime/" + file).size;
-      let data = await reader(process.cwd() + "/runtime/" + file) 
+      let data = await reader(process.cwd() + "/runtime/" + file)
       await writer(process.cwd() + "/dist/" + file, data);
     });
 
-  } 
+  }
 
   globalThis.isBuilding = false
   console.log(`Build complete! ${Math.round(bundleSize / 1000)}${bundleSize > 1000 ? 'kb' : 'bytes'} written to ./dist`)
@@ -935,13 +921,13 @@ Vader.js v1.3.3
 
 
     Array.from(Array(3).keys()).forEach((i) => {
-      let p = `${process.cwd()}${i == 0 ? '/pages/' : i == 1 ? '/src/' : '/public/'}` 
+      let p = `${process.cwd()}${i == 0 ? '/pages/' : i == 1 ? '/src/' : '/public/'}`
       watch(p
         , { recursive: true }, (event, filename) => {
           if (event == 'change'
             && !globalThis.isBuilding
           ) {
-             
+
             Build()
           }
         }).on('error', (err) => console.log(err))
