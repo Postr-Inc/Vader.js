@@ -716,7 +716,23 @@ async function Build() {
     globalThis.isWriting = null
     return { _written: true };
   };
+  const scannedVaderFiles = await glob("**/**.{html,js}", {
+    cwd: process.cwd() + '/node_modules/vaderjs/runtime',
+    absolute: true,
+  });
 
+  scannedVaderFiles.forEach(async (file) => {
+    file = file.replace(/\\/g, '/');
+
+
+    let name = file.split('/node_modules/vaderjs/runtime/')[1]
+    if (file.includes('index.html') && fs.existsSync(process.cwd() + "/dist/" + name)) {
+      return
+    }
+    let data = await reader(file)
+    bundleSize += fs.statSync(file).size;
+    await writer(process.cwd() + "/dist/" + name, data);
+  })
 
   const glb = await glob("**/**/**/**.{jsx,js}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
@@ -757,6 +773,14 @@ async function Build() {
       pathname: `/pages/${origin.split('pages/')[1].split('.jsx')[0].replace('.jsx', '')}.jsx`,
       fullpath: origin,
     };
+
+    if(process.cwd() + '/dist/index.html'){
+      let html = fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8')
+      if (!html.includes(`<link rel="preload" href="${obj.url}" as="script">`)) {
+        html = html.replace('</head>', `<link rel="preload" href="${obj.url}" as="script">\n</head>`)
+        fs.writeFileSync(process.cwd() + '/dist/index.html', html)
+      }
+    }
 
 
 
@@ -813,23 +837,7 @@ async function Build() {
     cwd: process.cwd() + '/src/',
     absolute: true,
   });
-  const scannedVaderFiles = await glob("**/**.{html,js}", {
-    cwd: process.cwd() + '/node_modules/vaderjs/runtime',
-    absolute: true,
-  });
-
-  scannedVaderFiles.forEach(async (file) => {
-    file = file.replace(/\\/g, '/');
-
-
-    let name = file.split('/node_modules/vaderjs/runtime/')[1]
-    if (file.includes('index.html') && fs.existsSync(process.cwd() + "/dist/" + name)) {
-      return
-    }
-    let data = await reader(file)
-    bundleSize += fs.statSync(file).size;
-    await writer(process.cwd() + "/dist/" + name, data);
-  })
+  
   scannedSourceFiles.forEach(async (file) => {
     file = file.replace(/\\/g, '/');
     let name = file.split('/src/')[1]
