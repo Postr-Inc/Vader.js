@@ -178,8 +178,7 @@ function Compiler(func, file) {
         newvalue = newvalue.trim();
         if (newvalue.endsWith("}")) {
           newvalue = newvalue.replace("}", "");
-        }
-        console.log(newvalue)
+        } 
         functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null  
         newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
         newvalue = newvalue.replaceAll(',,', ',')
@@ -518,13 +517,13 @@ function Compiler(func, file) {
     return match;
   });
   
+  string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
   string = string.replaceAll("<>", "`").replaceAll("</>", "`");
   string = parseComponents(string);
 
   string = string
     .replaceAll("className", "class")
-    .replaceAll("classname", "class");
-  string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
+    .replaceAll("classname", "class"); 
 
   string = string.replaceAll('../src', './src')
   string += `\n\n //wascompiled`;
@@ -648,7 +647,9 @@ function Compiler(func, file) {
             string = string.replace(beforePath, "'" + path + "'")
           }
           let html = fs.existsSync(process.cwd() + '/dist/index.html') ? fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8') : ''
-          if (!html.includes(`<link rel="preload" href="${path.replace(/'/g, '').trim()}" as="${path.replace(/'/g, '').trim().includes('.css') ? 'style' : 'script'}">`)) {
+          if (!html.includes(`<link rel="preload" href="${path.replace(/'/g, '').trim()}" as="${path.replace(/'/g, '').trim().includes('.css') ? 'style' : 'script'}">`)
+           && !path.includes('.module.css')
+          ) {
             if (!html.includes(`</head>`)) {
               throw new Error('Could not find </head> in index.html')
             }
@@ -746,14 +747,18 @@ async function Build() {
     await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), data).then(async () => {
 
       let { minify } = await import('terser')
+      
       try {
         let minified = await minify(data, {
-          ecma: " 2016",
+          toplevel: true,
+          ecma:2016,
+          enclose:false,
           module: true,
           compress: true,
-          mangle: true,
           keep_fnames: true,
+
         })
+         
         await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), minified.code)
       } catch (error) {
         console.log(error)
@@ -895,13 +900,13 @@ Vader.js v1.3.3
 
 
     Array.from(Array(3).keys()).forEach((i) => {
-      let p = `${process.cwd()}${i == 0 ? '/pages/' : i == 1 ? '/src/' : '/public/'}`
-
+      let p = `${process.cwd()}${i == 0 ? '/pages/' : i == 1 ? '/src/' : '/public/'}` 
       watch(p
         , { recursive: true }, (event, filename) => {
           if (event == 'change'
             && !globalThis.isBuilding
           ) {
+             
             Build()
           }
         }).on('error', (err) => console.log(err))
