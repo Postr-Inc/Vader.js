@@ -590,8 +590,10 @@ function Compiler(func, file) {
               path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
               // remove double / from path
               path = path.split('//').join('/')
-              if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src')) {
-                path = 'src/' + path
+              if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src')
+              && !path.startsWith('/public')
+              ) { 
+                path = '/src/' + path
               }
 
               path = path.replaceAll('.jsx', '.js');
@@ -634,13 +636,14 @@ function Compiler(func, file) {
             }
             path = path.replace(/'/g, '').trim().replace(/"/g, '').trim()
             // remove double / from path
-            path = path.split('//').join('/')
-            if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src')) {
+            path = path.split('//').join('/') 
+            if (!path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src') && !path.startsWith('public')) {
               path.includes('src') ? path.split('src')[1] : null
               path = '/src/' + path
-            } else if (path.startsWith('src')) {
+            } else if (path.startsWith('src') || path.startsWith('public')) {
               path = '/' + path
             }
+            console.log(path)
             path = path.replaceAll('.jsx', '.js');
 
 
@@ -678,6 +681,7 @@ let exec = await import('child_process').then((child) => {
   return child.exec
 })
 globalThis.isBuilding = false
+globalThis.isWriting =  null
 async function Build() {
   globalThis.isBuilding = true
   console.log('Compiling......')
@@ -685,14 +689,20 @@ async function Build() {
     let text = await fs.readFileSync(file, "utf8");
     return text;
   };
+
   let writer = async (file, data) => {
+    globalThis.isWriting =  file
     switch (true) {
       case !fs.existsSync(file):
         fs.mkdirSync(file.split('/').slice(0, -1).join('/'), { recursive: true })
         break;
     }
-    await fs.writeFileSync(file, data);
+    if(globalThis.isWriting !== file){
+      return
+    }
+    await  fs.writeFileSync(file, data);
 
+    globalThis.isWriting = null
     return { _written: true };
   };
 
