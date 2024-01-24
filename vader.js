@@ -777,7 +777,7 @@ async function Build() {
     if(process.cwd() + '/dist/index.html'){
       let html = fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8')
       if (!html.includes(`<link rel="preload" href="${obj.url}" as="script">`)) {
-        html = html.replace('</head>', `<link rel="preload" href="${obj.url}" as="script">\n</head>`)
+        html = html.replace('</head>', `<link rel="preload" href="./pages/${fileName.replace('.jsx', '.js')}" as="script">\n</head>`)
         fs.writeFileSync(process.cwd() + '/dist/index.html', html)
       }
     }
