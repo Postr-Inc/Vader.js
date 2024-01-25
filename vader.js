@@ -3,6 +3,9 @@ import fs from "fs";
 import { glob, globSync, globStream, globStreamSync, Glob, } from 'glob'
 import puppeteer from 'puppeteer';
 import http from 'http'
+import { WebSocketServer } from 'ws'
+import { watch } from "fs";
+let start = Date.now()
 let bundleSize = 0;
 let errorCodes = {
   "SyntaxError: Unexpected token '<'": "You forgot to enclose tags in a fragment <></>",
@@ -17,7 +20,8 @@ if(!fs.existsSync(process.cwd() + '/dist')){
 }
 
 
-if (process.env.isCloudflare || !process.cwd() + '/dist/index.html') {
+
+if (typeof process.env.isCloudflare !== "undefined" || !fs.existsSync(process.cwd() + '/dist/index.html')) { 
   let htmlFile = fs.readFileSync(process.cwd() + "/node_modules/vaderjs/runtime/index.html", 'utf8')
   fs.writeFileSync(process.cwd() + "/dist/index.html", htmlFile)
 }
@@ -88,8 +92,7 @@ function Compiler(func, file) {
       /\s*([a-zA-Z0-9_-]+)(\s*=\s*("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}|(?:\([^)]*\)|\{[^}]*\}|()=>\s*(?:\{[^}]*\})?)|\[[^\]]*\]))?/gs;
 
     // only return elements with attribute {()=>{}} or if it also has parameters ex: onclick={(event)=>{console.log(event)}} also get muti line functions
-    const functionAttributeRegex =
-      /\s*([a-zA-Z0-9_-]+)(\s*=\s*{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*})/gs;
+    const functionAttributeRegex = /\s*([a-zA-Z0-9_-]+)(\s*=\s*{(.*?)}|\s*=\s*function\s*(.*?))(?=\s*[a-zA-Z0-9_-]+\s*=|\s*>)/gs;
 
     let attributesList = [];
 
@@ -97,7 +100,7 @@ function Compiler(func, file) {
     let functionAttributes = [];
     let functionMatch;
     while ((functionMatch = functionAttributeRegex.exec(code)) !== null) {
-      let [, attributeName, attributeValue] = functionMatch;
+      let [, attributeName, attributeValue] = functionMatch; 
       let attribute = {};
 
       if (attributeValue && attributeValue.includes("=>") || attributeValue && attributeValue.includes("function")) {
@@ -134,14 +137,19 @@ function Compiler(func, file) {
             isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
           }
         });
+        // add ; after newlines  
+         
+
         let newvalue = attributeValue.includes('=>') ? attributeValue.split("=>").slice(1).join("=>").trim() : attributeValue.split("function").slice(1).join("function").trim()
 
+         
 
         newvalue = newvalue.trim();
 
         //remove starting {
-        newvalue = newvalue.replace("{", "");
-
+        newvalue = newvalue.replace("{", "")
+ 
+         
 
         let params = attributeValue
           .split("=>")[0]
@@ -156,39 +164,38 @@ function Compiler(func, file) {
         // split first {}
         newvalue = newvalue.trim();
 
-        if (newvalue.startsWith("{")) {
-          newvalue = newvalue.split("{")[1];
-        }
+       
 
-        switch (true) {
-          case newvalue.endsWith("}}"):
-            newvalue = newvalue.replace("}}", "");
-            break;
-          case newvalue.endsWith("}"):
-            newvalue = newvalue.replace("}", "");
-            break;
-        }
-        // replace trailing }
+            newvalue = newvalue.replace(/}\s*$/, '');
+
+ 
+         
         newvalue = newvalue.trim();
-        if (newvalue.endsWith("}")) {
-          newvalue = newvalue.replace("}", "");
-        }
-        functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null
-        newvalue = newvalue.split('\n').map(line => line.trim() ? line.trim() + ';' : line).join('\n');
+
+        // remmove trailing }
+
+        newvalue = newvalue.trim();   
+         newvalue = newvalue.replace(/}\s*$/, '');
+        
+
+    
+        functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null 
+ 
         newvalue = newvalue.replaceAll(',,', ',')
         let paramnames = params ? params.split(',').map((e) => e.trim()) : null
         paramnames = paramnames ? paramnames.filter((e) => e.length > 0) : null
         // remove comments
         paramnames = paramnames ? paramnames.map((e) => e.match(/\/\*.*\*\//gs) ? e.replace(e.match(/\/\*.*\*\//gs)[0], "") : e) : null
+        newvalue = newvalue.replaceAll(/\s+/g, " ")
 
-        let bind = isJSXComponent ? `${attributeName}=function(${params}){${newvalue}}.bind(this)` : `${attributeName} = "\$\{this.bind("${newvalue.replace(/\s+g/, " ")}", ${isJSXComponent}, "${ref}",   "${paramnames ? paramnames.map((e, index) => {
+        let bind = isJSXComponent ? `${attributeName}=function(${params}){${newvalue}}.bind(this)` : `${attributeName}="\$\{this.bind("${newvalue.replace(/\s+g/, " ")}", ${isJSXComponent}, "${ref}",   "${paramnames ? paramnames.map((e, index) => {
           if (e.length < 1) return ''
           if (e.length > 0) {
             index == 0 ? e : ',' + e
           }
           return e
         }) : ''}" ${params ? params.split(',').map((e) => e.trim()).filter(Boolean).map((e) => `,${e}`).join('') : ''})}"`
-        bind = bind.replaceAll(/\s+/g, " ");
+     
         string = string.replace(old, bind);
       }
     }
@@ -710,6 +717,7 @@ async function Build() {
   let appjs = '';
   let hasWritten = []
   function ssg(routes = []) {
+    globalThis.isBuilding = true
     console.log(`Generating html files for ${routes.length} routes`)
     routes.forEach(async (route) => {
       if(route.url.includes(':')){
@@ -724,7 +732,7 @@ async function Build() {
            if(url&&route.url === url){
              return  e
            }else{
-              return null
+              return  null
             
            }
         }
@@ -734,6 +742,9 @@ async function Build() {
       <!DOCTYPE html>
       <html lang="en">
       <head>
+          <script>
+          window.routes = JSON.parse('${JSON.stringify(routes)}')
+          </script>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width,initial-scale=1.0">
           <script type="module" id="meta">
@@ -791,7 +802,7 @@ async function Build() {
           <div id="root"></div>
       </body>  
       
-      <script type="module">
+      <script type="module" id="router">
         import VaderRouter from '/router.js' 
         const router = new VaderRouter('${route.url}', 3000)
         router.get('${route.url}', async (req, res) => {
@@ -799,9 +810,7 @@ async function Build() {
           res.render(module, req, res, module.$metadata)
         }) 
         ${equalparamroute.length > 0 ? equalparamroute.map((e) => { 
-        let folderName =  '/' + e.url.split('/')[1] 
-        
-        e.url = e.url.replace(folderName, '') 
+         
 
         return `router.get('${e.url}', async (req, res) => {
            let module = await import('/${e.fileName.replace('.jsx', '.js')}')
@@ -809,13 +818,14 @@ async function Build() {
         })\n`
         }): ''}
         router.listen(3000)
+         
     </script> 
       </html>
     `;
   
     let port = Math.floor(Math.random() * 10000) + 1;
      
-      const server = http.createServer((req, res) => { 
+      const server = http.createServer((req, res) => {  
         if (req.url === '/') {
           // Respond with the generated HTML
           res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -830,7 +840,7 @@ async function Build() {
               res.end('File not found');
             } else {
               res.writeHead(200, { 'Content-Type': filePath.includes('js') ? 'text/javascript' : 'text/html' });
-              res.end(data);
+              res.end(data); 
             }
           });
         }
@@ -845,7 +855,7 @@ async function Build() {
     }).then(async (browser) => {
         
         // remove /: from route
-        route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')  
+        route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')   
         const page = await browser.newPage(); 
         await page.goto(`http://localhost:${port}` + '#' + route.url, { waitUntil: 'networkidle2' });
         await page.waitForSelector('#root');  
@@ -858,13 +868,15 @@ async function Build() {
         await writer(process.cwd() + '/dist/' + (isBasePath ? 'index.html' : `${route.url}/` + 'index.html'), html)
         await browser.close();
          // close http
-          server.close()
-          console.log(`Generated html file for route ${route.url}`)
+          server.close() 
       })
      
     })
-     
-    console.log('Done')
+      
+    let timeout =  setTimeout(() => {
+      globalThis.isBuilding = false
+      clearTimeout(timeout)
+    }, 1000)
   }
  
   globalThis.routes = []
@@ -927,11 +939,10 @@ async function Build() {
 
 
      
-    globalThis.routes.push({fileName:fileName, url:obj.url})
+    globalThis.routes.push({fileName:fileName, url:obj.url, html:'/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html')})
  
 
-
-
+ 
   }
 
   ssg(globalThis.routes)
@@ -1030,11 +1041,87 @@ async function Build() {
   }
 
   globalThis.isBuilding = false
-  console.log(`Build complete! ${Math.round(bundleSize / 1000)}${bundleSize > 1000 ? 'kb' : 'bytes'} written to ./dist`)
+  console.log(`Build completed in ${Date.now() - start}ms with ${Math.round(bundleSize / 1000)}kb`)
+ 
   bundleSize = 0;
   return true
+} 
+const s = ()=>{
+  
+  const server = http.createServer((req, res) => {
+       
+    if(!req.url.endsWith('.js') && !req.url.endsWith('.css') && !req.url.endsWith('.mjs') && !req.url.endsWith('.cjs') && !req.url.endsWith('.html') && !req.url.endsWith('.json')){
+      req.url = req.url !== '/' ? req.url.split('/')[1] : req.url 
+      req.url = process.cwd() + '/dist/' + req.url + '/index.html'
+    }else{ 
+      req.url = process.cwd() + '/dist/' + req.url
+    } 
+     
+    const filePath =  req.url  
+
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            res.writeHead(404, { 'Content-Type': 'text/html' });
+            res.end(fs.existsSync(process.cwd() + '/dist/404') ? fs.readFileSync(process.cwd() + '/dist/404/index.html') : '404');
+        } else {
+            const contentType = getContentType(filePath);
+          switch(true){
+            case contentType === 'text/html' && globalThis.devMode:
+              data = data.toString() + `<script type="module">
+               let ws = new WebSocket('ws://localhost:3000')
+                ws.onmessage = (e) => {
+                  if(e.data === 'reload'){
+                    console.log('Reloading page...')
+                    window.route.hydrate()
+                  }
+                }
+              </script>
+              `
+          }
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(data);
+        }
+    });
+});
+
+ 
+const ws = new WebSocketServer({ server });
+ws.on('connection', (socket) => {
+    console.log('Client connected');
+    socket.on('close', () => console.log('Client disconnected'));
+});
+
+
+function getContentType(filePath) {
+    if (filePath.includes('js')) {
+        return 'text/javascript';
+    } else if (filePath.includes('.css')) {
+        return 'text/css';
+    } else {
+        return 'text/html';
+    }
 }
-import { watch } from "fs";
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+}); 
+let i = 
+setInterval(() => {
+  if (globalThis.isBuilding && globalThis.devMode) {
+     // reload page
+      console.log('Reloading page...')
+      ws.clients.forEach((client) => {
+        client.send('reload')
+        console.log('Reloaded page')
+      })
+  } else{
+    clearInterval(i)
+  }
+},120)
+  
+}
+ 
 
 switch (true) {
   case process.argv.includes('--watch'):
@@ -1061,7 +1148,10 @@ Vader.js v1.3.3
           }
         }).on('error', (err) => console.log(err))
     })
-
+    
+    s()
+ 
+  globalThis.listen = true; 
 
     break;
   case process.argv.includes('--build'):
@@ -1069,8 +1159,20 @@ Vader.js v1.3.3
     console.log(`
 Vader.js v1.3.3 
 Building to ./dist
-`)
+`) 
     Build()
+    
+    break;
+  case process.argv.includes('--serve'):
+    let port = process.argv[process.argv.indexOf('--serve') + 1] || 3000
+    process.env.PORT = port
+    globalThis.devMode = false
+    console.log(`
+Vader.js v1.3.3 
+Serving ./dist on port ${port}
+url: http://localhost:${port}
+    `)
+    s()
     break;
   default:
     console.log(`
@@ -1079,9 +1181,11 @@ Vader.js is a reactive framework for building interactive applications for the w
 Usage: vader <command> 
 
 Commands:
-  --watch     Watch the pages folder for changes and recompile 
+  --watch     Watch the pages folder for changes with hot reloading
 
   --build     Build the project
+
+  --serve     Serve the project on a given port
 Learn more about vader:           https://vader-js.pages.dev/
     
 `)

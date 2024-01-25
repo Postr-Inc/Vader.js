@@ -23,12 +23,6 @@
    npm i vaderjs@latest
  ```
 
-3. Install five server - recommended to watch the index.html file as you edit your code
-
-[Vscode 5 Server](https://marketplace.visualstudio.com/items?itemName=yandeu.five-server)
-
-> When running the server ensure the root is the dist folder and not the main workspace folder
-
 4.  Create Proper Folders
 
 Create a pages folder - which allows you to have nextjs page like routing via buns file based router
