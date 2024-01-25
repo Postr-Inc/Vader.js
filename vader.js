@@ -713,9 +713,10 @@ async function Build() {
     console.log(`Generating html files for ${routes.length} routes`)
     routes.forEach(async (route) => {
       if(route.url.includes(':')){
-        let url = route.url.split('/:')[0]
-        route.url = url
+        console.log('Route ' + route.url + ' is a dynamic route and will not be generated')
+         return
       }
+      console.log('Generating html file for route ' + route.url)
       let equalparamroute = routes.map((e) => {
         
         if (e.url.includes(':')) {
@@ -751,11 +752,28 @@ async function Build() {
            document.head.innerHTML += '<meta name="author" content="' + metadata.author + '">'
          }
          if(metadata && metadata.image){
-           document.head.innerHTML += '<meta property="og:image" content="' + metadata.image + '">'
+            let image = metadata.image.file
+            let type = metadata.image.type
+            
+            document.head.innerHTML += '<meta property="og:image" content="' + image + '">'
+            document.head.innerHTML += '<meta property="og:image:type" content="' + type + '">'
          }
          if(metadata && metadata.url){
            document.head.innerHTML += '<meta property="og:url" content="' + metadata.url + '">'
          } 
+          
+         if(metadata && metadata.robot){
+            document.head.innerHTML += '<meta name="robots" content="' + metadata.robot + '">'
+         }
+         if(metadata && metadata.manifest){
+            document.head.innerHTML += '<link rel="manifest" href="' + metadata.manifest + '">'
+         }
+         if(metadata && metadata.tags){
+            metadata.tags.forEach(tag => {
+              document.head.innerHTML += tag
+            })
+         }
+
          if(metadata && metadata.styles){
            metadata.styles.forEach(style => {
              style = style.replaceAll('./', '/')
@@ -841,6 +859,7 @@ async function Build() {
         await browser.close();
          // close http
           server.close()
+          console.log(`Generated html file for route ${route.url}`)
       })
      
     })
