@@ -126,7 +126,7 @@ export default function(req, res){
 
 ### ServerSide Site Generation (SSG)
 
-Vader compiles all code to a static index.html page so your visitors will never have to wait for the page to load
+Vader compiles all code to a static index.html page so your visitors will never have to wait for the page to load, it then rehydrates the page reapplying functionality!
 
 We can define some metadata to be used at compile
 
@@ -141,7 +141,7 @@ export const $metadata = {
 }
 
 ```
-Vader will take the metadata and place it inside of the compiled html fil
+Vader will take the metadata and place it inside of the compiled html file.
  
 ### Styling
 
