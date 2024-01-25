@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import fs from "fs";
 import { glob, globSync, globStream, globStreamSync, Glob, } from 'glob'
+import puppeteer from 'puppeteer';
+import http from 'http'
 let bundleSize = 0;
 let errorCodes = {
   "SyntaxError: Unexpected token '<'": "You forgot to enclose tags in a fragment <></>",
@@ -8,24 +10,14 @@ let errorCodes = {
 /**
  * define directories
  */
-let dirs = {
-  ...fs.existsSync(process.cwd() + '/pages') ? { pages: true } : { pages: false },
-  ...fs.existsSync(process.cwd() + '/src') ? { components: true } : { components: false },
-  ...fs.existsSync(process.cwd() + '/public') ? { public: true } : { public: false },
-  ...fs.existsSync(process.cwd() + '/dist') ? { dist: true } : { dist: false },
-  ...fs.existsSync(process.cwd() + '/dist/pages') ? { distpages: true } : { distpages: false },
-  ...fs.existsSync(process.cwd() + '/dist/src') ? { distcomponents: true } : { distcomponents: false },
-  ...fs.existsSync(process.cwd() + '/dist/public') ? { distpublic: true } : { distpublic: false },
+ 
+
+if(!fs.existsSync(process.cwd() + '/dist')){
+  fs.mkdirSync(process.cwd() + '/dist')
 }
 
 
-Object.keys(dirs).map((key, index) => {
-  if (!dirs[key]) {
-    fs.mkdirSync(process.cwd() + '/' + key)
-  }
-}).filter(Boolean)[0]
-
-if (process.env.isCloudflare) {
+if (process.env.isCloudflare || !process.cwd() + '/dist/index.html') {
   let htmlFile = fs.readFileSync(process.cwd() + "/node_modules/vaderjs/runtime/index.html", 'utf8')
   fs.writeFileSync(process.cwd() + "/dist/index.html", htmlFile)
 }
@@ -663,18 +655,7 @@ function Compiler(func, file) {
 
           }
 
-          let html = fs.existsSync(process.cwd() + '/dist/index.html') ? fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8') : ''
-          if (!html.includes(`<link rel="preload" href="${path.replace(/'/g, '').trim()}" as="${path.replace(/'/g, '').trim().includes('.css') ? 'style' : 'script'}">`)
-            && !path.includes('.module.css')
-          ) {
-            let preload = `
-            ${path.trim().includes('.css') ? `<link rel="stylesheet" href="${path.trim().replace(/'/g, '').trim()}">` : ''
-              }
-            ${!path.trim().includes('.css') ? `<link rel="modulepreload" href="${path.trim().replace(/'/g, '').trim()}">` : ''}<link rel="preload" href="${path.trim().replace(/'/g, '').trim()}" as="${path.trim().includes('.css') ? 'style' : 'script'}">`
-            html = html.replace('</head>', `${preload}\n</head>`)
-
-            fs.writeFileSync(process.cwd() + '/dist/index.html', html)
-          }
+           
           if (newImport) {
             string = string.replace(beforeimport, newImport)
           }
@@ -716,23 +697,7 @@ async function Build() {
     globalThis.isWriting = null
     return { _written: true };
   };
-  const scannedVaderFiles = await glob("**/**.{html,js}", {
-    cwd: process.cwd() + '/node_modules/vaderjs/runtime',
-    absolute: true,
-  });
 
-  scannedVaderFiles.forEach(async (file) => {
-    file = file.replace(/\\/g, '/');
-
-
-    let name = file.split('/node_modules/vaderjs/runtime/')[1]
-    if (file.includes('index.html') && fs.existsSync(process.cwd() + "/dist/" + name)) {
-      return
-    }
-    let data = await reader(file)
-    bundleSize += fs.statSync(file).size;
-    await writer(process.cwd() + "/dist/" + name, data);
-  })
 
   const glb = await glob("**/**/**/**.{jsx,js}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
@@ -744,12 +709,146 @@ async function Build() {
   // Process files in the 'pages' directory
   let appjs = '';
   let hasWritten = []
-  const writejs = () => {
+  function ssg(routes = []) {
+    console.log(`Generating html files for ${routes.length} routes`)
+    routes.forEach(async (route) => {
+      if(route.url.includes(':')){
+        let url = route.url.split('/:')[0]
+        route.url = url
+      }
+      let equalparamroute = routes.map((e) => {
+        
+        if (e.url.includes(':')) {
+           let url = e.url.split('/:')[0]    
+           if(url&&route.url === url){
+             return  e
+           }else{
+              return null
+            
+           }
+        }
+        return null
+      }).filter(Boolean)  
+      let document = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1.0">
+          <script type="module" id="meta">
+          window.module = await import('/${route.fileName.replace('.jsx', '.js')}')
+          let metadata = await module.$metadata 
+          if(metadata && metadata.title){
+            document.head.innerHTML += '<title>' + metadata.title + '</title>'
+         } 
+         if(metadata && metadata.description){
+           document.head.innerHTML += '<meta name="description" content="' + metadata.description + '">'
+         }
+         if(metadata && metadata.keywords){
+           document.head.innerHTML += '<meta name="keywords" content="' + metadata.keywords + '">'
+         }
+         if(metadata && metadata.author){
+           document.head.innerHTML += '<meta name="author" content="' + metadata.author + '">'
+         }
+         if(metadata && metadata.image){
+           document.head.innerHTML += '<meta property="og:image" content="' + metadata.image + '">'
+         }
+         if(metadata && metadata.url){
+           document.head.innerHTML += '<meta property="og:url" content="' + metadata.url + '">'
+         } 
+         if(metadata && metadata.styles){
+           metadata.styles.forEach(style => {
+             style = style.replaceAll('./', '/')
+             style = style.replaceAll('../', '/')
+             style = style.replace("'", '')
+             document.head.innerHTML += '<link rel="stylesheet" href="' + style + '">'
+           })
+         }
+         if(metadata && metadata.icon){
+           document.head.innerHTML += '<link rel="icon" href="' + metadata.icon + '">'
+         }
+         </script>
+      </head>
+      <body>
+          <div id="root"></div>
+      </body>  
+      
+      <script type="module">
+        import VaderRouter from '/router.js' 
+        const router = new VaderRouter('${route.url}', 3000)
+        router.get('${route.url}', async (req, res) => {
+          let module = await import('/${route.fileName.replace('.jsx', '.js')}')
+          res.render(module, req, res, module.$metadata)
+        }) 
+        ${equalparamroute.length > 0 ? equalparamroute.map((e) => { 
+        let folderName =  '/' + e.url.split('/')[1] 
+        
+        e.url = e.url.replace(folderName, '') 
 
-    writer(process.cwd() + '/dist/app.js', appjs)
+        return `router.get('${e.url}', async (req, res) => {
+           let module = await import('/${e.fileName.replace('.jsx', '.js')}')
+           res.render(module, req, res, module.$metadata)
+        })\n`
+        }): ''}
+        router.listen(3000)
+    </script> 
+      </html>
+    `;
+  
+    let port = Math.floor(Math.random() * 10000) + 1;
+     
+      const server = http.createServer((req, res) => { 
+        if (req.url === '/') {
+          // Respond with the generated HTML
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end(document);
+        } else {
+          // Serve static files (adjust the file paths based on your project structure)
+          const filePath =  process.cwd() +  '/dist/' + req.url
+           
+          fs.readFile(filePath, (err, data) => {
+            if (err) {
+              res.writeHead(404, { 'Content-Type':  filePath.includes('js') ? 'text/javascript' : 'text/html' });
+              res.end('File not found');
+            } else {
+              res.writeHead(200, { 'Content-Type': filePath.includes('js') ? 'text/javascript' : 'text/html' });
+              res.end(data);
+            }
+          });
+        }
+      });
+  
+      server.listen(port)
+  
+      globalThis.listen = true;
+
+      puppeteer.launch({ headless:  "new", args: ['--no-sandbox', '--disable-setuid-sandbox'], 
+     warning: false,
+    }).then(async (browser) => {
+        
+        // remove /: from route
+        route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')  
+        const page = await browser.newPage(); 
+        await page.goto(`http://localhost:${port}` + '#' + route.url, { waitUntil: 'networkidle2' });
+        await page.waitForSelector('#root');  
+        await page.evaluate(() => {
+          document.getElementById('meta').remove()
+        })
+        const html = await page.content();
+        await page.close(); 
+        let isBasePath = route.url === '/' ? true : false
+        await writer(process.cwd() + '/dist/' + (isBasePath ? 'index.html' : `${route.url}/` + 'index.html'), html)
+        await browser.close();
+         // close http
+          server.close()
+      })
+     
+    })
+     
+    console.log('Done')
   }
-
-
+ 
+  globalThis.routes = []
 
   for await (let file of glb) {
     // Normalize file paths
@@ -774,22 +873,14 @@ async function Build() {
       fullpath: origin,
     };
 
-    if(process.cwd() + '/dist/index.html'){
-      let html = fs.readFileSync(process.cwd() + '/dist/index.html', 'utf8')
-      if (!html.includes(`<link rel="preload" href="${obj.url}" as="script">`)) {
-        html = html.replace('</head>', `<link rel="preload" href="./pages/${fileName.replace('.jsx', '.js')}" as="script">\n</head>`)
-        fs.writeFileSync(process.cwd() + '/dist/index.html', html)
-      }
-    }
-
 
 
     let data = await fs.readFileSync(origin, "utf8");
     data = Compiler(data, origin);
+   
 
 
-
-    await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), data).then(async () => {
+    await writer(process.cwd() + "/dist/" + fileName.replace('.jsx', '.js'), data).then(async () => {
 
       let { minify } = await import('terser')
 
@@ -804,7 +895,9 @@ async function Build() {
 
         })
 
-        await writer(process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js'), minified.code)
+        minified.code += `\n\n window.params = ${JSON.stringify(obj.url.split('/').filter((e) => e.includes(':')).map((e) => e.split(':')[1]))}`
+
+        await writer(process.cwd() + "/dist/" + fileName.replace('.jsx', '.js'), minified.code)
       } catch (error) {
         console.log(error)
       }
@@ -814,22 +907,15 @@ async function Build() {
     obj.compiledPath = process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js')
 
 
-    // Generate routing logic
-    let js = `
-      router.get('${obj.url}', async (req, res) => {
-        res.render(await import('./pages/${fileName.replace('.jsx', '.js')}'), req, res)
-      }) 
-      //@desc ${obj.pathname}
-    ` + '\n';
-    appjs += js
-
-    writejs()
-
+     
+    globalThis.routes.push({fileName:fileName, url:obj.url})
+ 
 
 
 
   }
 
+  ssg(globalThis.routes)
 
 
   const scannedSourceFiles = await glob("**/**.{jsx,js,json}", {
@@ -837,7 +923,23 @@ async function Build() {
     cwd: process.cwd() + '/src/',
     absolute: true,
   });
-  
+  const scannedVaderFiles = await glob("**/**.{html,js}", {
+    cwd: process.cwd() + '/node_modules/vaderjs/runtime',
+    absolute: true,
+  });
+
+  scannedVaderFiles.forEach(async (file) => {
+    file = file.replace(/\\/g, '/');
+
+
+    let name = file.split('/node_modules/vaderjs/runtime/')[1]
+    if (file.includes('index.html') && fs.existsSync(process.cwd() + "/dist/" + name)) {
+      return
+    }
+    let data = await reader(file)
+    bundleSize += fs.statSync(file).size;
+    await writer(process.cwd() + "/dist/" + name, data);
+  })
   scannedSourceFiles.forEach(async (file) => {
     file = file.replace(/\\/g, '/');
     let name = file.split('/src/')[1]
@@ -868,7 +970,7 @@ async function Build() {
     await writer(process.cwd() + "/dist/src/" + name, data);
   })
 
-  const scannedPublicFiles = await glob("**/**.{css,js,html,mjs,cjs,umd.js}", {
+  const scannedPublicFiles = await glob("**/**.{css,js,html,mjs,cjs}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
     cwd: process.cwd() + '/public/',
     absolute: true,
@@ -894,15 +996,15 @@ async function Build() {
 
       let objCase = {
         ...file == "app.js" ? { exit: true } : null,
-        ...file.includes("index.html") && fs.existsSync(process.cwd() + "/runtime/" + file) ? { exit: true } : null,
+        ...file.includes("index.html") && fs.existsSync(process.cwd() + "/dist/" + file) ? { exit: true } : null,
 
       }
       if (objCase.exit) {
         console.log('exiting')
-        return
+        return true
       }
-      bundleSize += fs.statSync(process.cwd() + "/runtime/" + file).size;
-      let data = await reader(process.cwd() + "/runtime/" + file)
+      bundleSize += fs.statSync(process.cwd() + "/node_modules/vaderjs/runtime/" + file).size;
+      let data = await reader(process.cwd() + "/node_modules/vaderjs/runtime/" + file)
       await writer(process.cwd() + "/dist/" + file, data);
     });
 
