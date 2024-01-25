@@ -123,6 +123,25 @@ export default function(req, res){
 }
 
 ```
+
+### ServerSide Site Generation (SSG)
+
+Vader compiles all code to a static index.html page so your visitors will never have to wait for the page to load
+
+We can define some metadata to be used at compile
+
+```jsx
+
+export const $metadata = {
+    title: "Malik Whitten - Home",
+    styles:['/public/css/styles.css'],
+    description: "Malik Whitten's personal website", 
+    icon: "https://avatars.githubusercontent.com/u/123524260?s=200&v=4",
+    tags:[`cutom tags to place in head`]
+}
+
+```
+Vader will take the metadata and place it inside of the compiled html fil
  
 ### Styling
 
