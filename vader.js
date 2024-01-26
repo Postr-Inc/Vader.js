@@ -21,10 +21,13 @@ if (!fs.existsSync(process.cwd() + '/dist')) {
 
 
 
+
 if (typeof process.env.isCloudflare !== "undefined" || !fs.existsSync(process.cwd() + '/dist/index.html')) {
   let htmlFile = fs.readFileSync(process.cwd() + "/node_modules/vaderjs/runtime/index.html", 'utf8')
   fs.writeFileSync(process.cwd() + "/dist/index.html", htmlFile)
 }
+
+ 
 
 function Compiler(func, file) {
   let string = func;
@@ -723,13 +726,10 @@ async function Build() {
       if (route.url.includes(':')) {
         console.log('Route ' + route.url + ' is a dynamic route and will not be generated')
         return
-      }
-      console.log('Generating html file for route ' + route.url)
-      let equalparamroute = routes.map((e) => {
-        console.log(e.url, route.url)
+      } 
+      let equalparamroute = routes.map((e) => { 
         if (e.url.includes(':')) {
-          let url = e.url.split('/:')[0]
-          console.log(url, route.url)
+          let url = e.url.split('/:')[0] 
           if (url && route.url === url) {
             return e
           } else {
@@ -749,6 +749,7 @@ async function Build() {
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width,initial-scale=1.0">
           <script type="module" id="meta">
+          window.history.pushState({}, '', '${route.url}')
           window.module = await import('/${route.fileName.replace('.jsx', '.js')}')
           let metadata = await module.$metadata 
           if(metadata && metadata.title){
@@ -829,8 +830,8 @@ async function Build() {
       let port = Math.floor(Math.random() * (65535 - 49152 + 1) + 49152)
 
       const server = http.createServer((req, res) => {
-        if (req.url === '/') {
-          // Respond with the generated HTML
+        
+        if (req.url === '/') { 
           res.writeHead(200, { 'Content-Type': 'text/html' });
           res.end(document);
         } else {
@@ -854,14 +855,14 @@ async function Build() {
       globalThis.listen = true;
 
       puppeteer.launch({
-        headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        headless:  "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
         warning: false,
       }).then(async (browser) => {
 
         // remove /: from route
         route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')
-        const page = await browser.newPage();
-        await page.goto(`http://localhost:${port}` + '#' + route.url, { waitUntil: 'networkidle2' });
+        const page = await browser.newPage(); 
+        await page.goto(`http://localhost:${port}/`  , { waitUntil: 'networkidle2' });
         await page.waitForSelector('#root');
         await page.evaluate(() => {
           document.getElementById('meta').remove()
@@ -957,7 +958,7 @@ async function Build() {
     cwd: process.cwd() + '/src/',
     absolute: true,
   });
-  const scannedVaderFiles = await glob("**/**.{html,js}", {
+  const scannedVaderFiles = await glob("**/**.{html,js,json}", {
     cwd: process.cwd() + '/node_modules/vaderjs/runtime',
     absolute: true,
   });
