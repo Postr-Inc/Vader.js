@@ -13,15 +13,15 @@ let errorCodes = {
 /**
  * define directories
  */
- 
 
-if(!fs.existsSync(process.cwd() + '/dist')){
+
+if (!fs.existsSync(process.cwd() + '/dist')) {
   fs.mkdirSync(process.cwd() + '/dist')
 }
 
 
 
-if (typeof process.env.isCloudflare !== "undefined" || !fs.existsSync(process.cwd() + '/dist/index.html')) { 
+if (typeof process.env.isCloudflare !== "undefined" || !fs.existsSync(process.cwd() + '/dist/index.html')) {
   let htmlFile = fs.readFileSync(process.cwd() + "/node_modules/vaderjs/runtime/index.html", 'utf8')
   fs.writeFileSync(process.cwd() + "/dist/index.html", htmlFile)
 }
@@ -100,7 +100,7 @@ function Compiler(func, file) {
     let functionAttributes = [];
     let functionMatch;
     while ((functionMatch = functionAttributeRegex.exec(code)) !== null) {
-      let [, attributeName, attributeValue] = functionMatch; 
+      let [, attributeName, attributeValue] = functionMatch;
       let attribute = {};
 
       if (attributeValue && attributeValue.includes("=>") || attributeValue && attributeValue.includes("function")) {
@@ -138,18 +138,18 @@ function Compiler(func, file) {
           }
         });
         // add ; after newlines  
-         
+
 
         let newvalue = attributeValue.includes('=>') ? attributeValue.split("=>").slice(1).join("=>").trim() : attributeValue.split("function").slice(1).join("function").trim()
 
-         
+
 
         newvalue = newvalue.trim();
 
         //remove starting {
         newvalue = newvalue.replace("{", "")
- 
-         
+
+
 
         let params = attributeValue
           .split("=>")[0]
@@ -164,23 +164,23 @@ function Compiler(func, file) {
         // split first {}
         newvalue = newvalue.trim();
 
-       
 
-            newvalue = newvalue.replace(/}\s*$/, '');
 
- 
-         
+        newvalue = newvalue.replace(/}\s*$/, '');
+
+
+
         newvalue = newvalue.trim();
 
         // remmove trailing }
 
-        newvalue = newvalue.trim();   
-         newvalue = newvalue.replace(/}\s*$/, '');
-        
+        newvalue = newvalue.trim();
+        newvalue = newvalue.replace(/}\s*$/, '');
 
-    
-        functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null 
- 
+
+
+        functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null
+
         newvalue = newvalue.replaceAll(',,', ',')
         let paramnames = params ? params.split(',').map((e) => e.trim()) : null
         paramnames = paramnames ? paramnames.filter((e) => e.length > 0) : null
@@ -195,7 +195,7 @@ function Compiler(func, file) {
           }
           return e
         }) : ''}" ${params ? params.split(',').map((e) => e.trim()).filter(Boolean).map((e) => `,${e}`).join('') : ''})}"`
-     
+
         string = string.replace(old, bind);
       }
     }
@@ -662,7 +662,7 @@ function Compiler(func, file) {
 
           }
 
-           
+
           if (newImport) {
             string = string.replace(beforeimport, newImport)
           }
@@ -720,24 +720,25 @@ async function Build() {
     globalThis.isBuilding = true
     console.log(`Generating html files for ${routes.length} routes`)
     routes.forEach(async (route) => {
-      if(route.url.includes(':')){
+      if (route.url.includes(':')) {
         console.log('Route ' + route.url + ' is a dynamic route and will not be generated')
-         return
+        return
       }
       console.log('Generating html file for route ' + route.url)
       let equalparamroute = routes.map((e) => {
-        
+        console.log(e.url, route.url)
         if (e.url.includes(':')) {
-           let url = e.url.split('/:')[0]    
-           if(url&&route.url === url){
-             return  e
-           }else{
-              return  null
-            
-           }
+          let url = e.url.split('/:')[0]
+          console.log(url, route.url)
+          if (url && route.url === url) {
+            return e
+          } else {
+            return null
+
+          }
         }
         return null
-      }).filter(Boolean)  
+      }).filter(Boolean)
       let document = `
       <!DOCTYPE html>
       <html lang="en">
@@ -809,77 +810,79 @@ async function Build() {
           let module = await import('/${route.fileName.replace('.jsx', '.js')}')
           res.render(module, req, res, module.$metadata)
         }) 
-        ${equalparamroute.length > 0 ? equalparamroute.map((e) => { 
-         
+        ${equalparamroute.length > 0 ? equalparamroute.map((e) => {
+
+
 
         return `router.get('${e.url}', async (req, res) => {
            let module = await import('/${e.fileName.replace('.jsx', '.js')}')
            res.render(module, req, res, module.$metadata)
         })\n`
-        }): ''}
+      }) : ''}
         router.listen(3000)
          
     </script> 
       </html>
     `;
-  
-    // generate random but common ports
-    let port =  Math.floor(Math.random() * (65535 - 49152 + 1) + 49152)
-     
-      const server = http.createServer((req, res) => {  
+
+      // generate random but common ports
+      let port = Math.floor(Math.random() * (65535 - 49152 + 1) + 49152)
+
+      const server = http.createServer((req, res) => {
         if (req.url === '/') {
           // Respond with the generated HTML
           res.writeHead(200, { 'Content-Type': 'text/html' });
           res.end(document);
         } else {
           // Serve static files (adjust the file paths based on your project structure)
-          const filePath =  process.cwd() +  '/dist/' + req.url
-           
+          const filePath = process.cwd() + '/dist/' + req.url
+
           fs.readFile(filePath, (err, data) => {
             if (err) {
-              res.writeHead(404, { 'Content-Type':  filePath.includes('js') ? 'text/javascript' : 'text/html' });
+              res.writeHead(404, { 'Content-Type': filePath.includes('js') ? 'text/javascript' : 'text/html' });
               res.end('File not found');
             } else {
               res.writeHead(200, { 'Content-Type': filePath.includes('js') ? 'text/javascript' : 'text/html' });
-              res.end(data); 
+              res.end(data);
             }
           });
         }
       });
-  
+
       server.listen(port)
-  
+
       globalThis.listen = true;
 
-      puppeteer.launch({ headless:  "new", args: ['--no-sandbox', '--disable-setuid-sandbox'], 
-     warning: false,
-    }).then(async (browser) => {
-        
+      puppeteer.launch({
+        headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        warning: false,
+      }).then(async (browser) => {
+
         // remove /: from route
-        route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')   
-        const page = await browser.newPage(); 
+        route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')
+        const page = await browser.newPage();
         await page.goto(`http://localhost:${port}` + '#' + route.url, { waitUntil: 'networkidle2' });
-        await page.waitForSelector('#root');  
+        await page.waitForSelector('#root');
         await page.evaluate(() => {
           document.getElementById('meta').remove()
         })
         const html = await page.content();
-        await page.close(); 
+        await page.close();
         let isBasePath = route.url === '/' ? true : false
         await writer(process.cwd() + '/dist/' + (isBasePath ? 'index.html' : `${route.url}/` + 'index.html'), html)
         await browser.close();
-         // close http
-          server.close() 
+        // close http
+        server.close()
       })
-     
+
     })
-      
-    let timeout =  setTimeout(() => {
+
+    let timeout = setTimeout(() => {
       globalThis.isBuilding = false
       clearTimeout(timeout)
     }, 1000)
   }
- 
+
   globalThis.routes = []
 
   for await (let file of glb) {
@@ -909,7 +912,7 @@ async function Build() {
 
     let data = await fs.readFileSync(origin, "utf8");
     data = Compiler(data, origin);
-   
+
 
 
     await writer(process.cwd() + "/dist/" + fileName.replace('.jsx', '.js'), data).then(async () => {
@@ -939,11 +942,11 @@ async function Build() {
     obj.compiledPath = process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js')
 
 
-     
-    globalThis.routes.push({fileName:fileName, url:obj.url, html:'/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html')})
- 
 
- 
+    globalThis.routes.push({ fileName: fileName, url: obj.url, html: '/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html') })
+
+
+
   }
 
   ssg(globalThis.routes)
@@ -1043,32 +1046,32 @@ async function Build() {
 
   globalThis.isBuilding = false
   console.log(`Build completed in ${Date.now() - start}ms with ${Math.round(bundleSize / 1000)}kb`)
- 
+
   bundleSize = 0;
   return true
-} 
-const s = ()=>{
-  
+}
+const s = () => {
+
   const server = http.createServer((req, res) => {
-       
-    if(!req.url.endsWith('.js') && !req.url.endsWith('.css') && !req.url.endsWith('.mjs') && !req.url.endsWith('.cjs') && !req.url.endsWith('.html') && !req.url.endsWith('.json')){
-      req.url = req.url !== '/' ? req.url.split('/')[1] : req.url 
+
+    if (!req.url.endsWith('.js') && !req.url.endsWith('.css') && !req.url.endsWith('.mjs') && !req.url.endsWith('.cjs') && !req.url.endsWith('.html') && !req.url.endsWith('.json')) {
+      req.url = req.url !== '/' ? req.url.split('/')[1] : req.url
       req.url = process.cwd() + '/dist/' + req.url + '/index.html'
-    }else{ 
+    } else {
       req.url = process.cwd() + '/dist/' + req.url
-    } 
-     
-    const filePath =  req.url  
+    }
+
+    const filePath = req.url
 
     fs.readFile(filePath, (err, data) => {
-        if (err) {
-            res.writeHead(404, { 'Content-Type': 'text/html' });
-            res.end(fs.existsSync(process.cwd() + '/dist/404') ? fs.readFileSync(process.cwd() + '/dist/404/index.html') : '404');
-        } else {
-            const contentType = getContentType(filePath);
-          switch(true){
-            case contentType === 'text/html' && globalThis.devMode:
-              data = data.toString() + `<script type="module">
+      if (err) {
+        res.writeHead(404, { 'Content-Type': 'text/html' });
+        res.end(fs.existsSync(process.cwd() + '/dist/404') ? fs.readFileSync(process.cwd() + '/dist/404/index.html') : '404');
+      } else {
+        const contentType = getContentType(filePath);
+        switch (true) {
+          case contentType === 'text/html' && globalThis.devMode:
+            data = data.toString() + `<script type="module">
                let ws = new WebSocket('ws://localhost:3000')
                 ws.onmessage = (e) => {
                   if(e.data === 'reload'){
@@ -1078,51 +1081,51 @@ const s = ()=>{
                 }
               </script>
               `
-          }
-            res.writeHead(200, { 'Content-Type': contentType });
-            res.end(data);
         }
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(data);
+      }
     });
-});
+  });
 
- 
-const ws = new WebSocketServer({ server });
-ws.on('connection', (socket) => {
+
+  const ws = new WebSocketServer({ server });
+  ws.on('connection', (socket) => {
     console.log('Client connected');
     socket.on('close', () => console.log('Client disconnected'));
-});
+  });
 
 
-function getContentType(filePath) {
+  function getContentType(filePath) {
     if (filePath.includes('js')) {
-        return 'text/javascript';
+      return 'text/javascript';
     } else if (filePath.includes('.css')) {
-        return 'text/css';
+      return 'text/css';
     } else {
-        return 'text/html';
+      return 'text/html';
     }
+  }
+
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+  let i =
+    setInterval(() => {
+      if (globalThis.isBuilding && globalThis.devMode) {
+        // reload page
+        console.log('Reloading page...')
+        ws.clients.forEach((client) => {
+          client.send('reload')
+          console.log('Reloaded page')
+        })
+      } else {
+        clearInterval(i)
+      }
+    }, 120)
+
 }
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-}); 
-let i = 
-setInterval(() => {
-  if (globalThis.isBuilding && globalThis.devMode) {
-     // reload page
-      console.log('Reloading page...')
-      ws.clients.forEach((client) => {
-        client.send('reload')
-        console.log('Reloaded page')
-      })
-  } else{
-    clearInterval(i)
-  }
-},120)
-  
-}
- 
 
 switch (true) {
   case process.argv.includes('--watch'):
@@ -1149,10 +1152,10 @@ Vader.js v1.3.3
           }
         }).on('error', (err) => console.log(err))
     })
-    
+
     s()
- 
-  globalThis.listen = true; 
+
+    globalThis.listen = true;
 
     break;
   case process.argv.includes('--build'):
@@ -1160,9 +1163,9 @@ Vader.js v1.3.3
     console.log(`
 Vader.js v1.3.3 
 Building to ./dist
-`) 
+`)
     Build()
-    
+
     break;
   case process.argv.includes('--serve'):
     let port = process.argv[process.argv.indexOf('--serve') + 1] || 3000
