@@ -823,7 +823,8 @@ async function Build() {
       </html>
     `;
   
-    let port = Math.floor(Math.random() * 10000) + 1;
+    // generate random but common ports
+    let port =  Math.floor(Math.random() * (65535 - 49152 + 1) + 49152)
      
       const server = http.createServer((req, res) => {  
         if (req.url === '/') {
@@ -1181,11 +1182,9 @@ Vader.js is a reactive framework for building interactive applications for the w
 Usage: vader <command> 
 
 Commands:
-  --watch     Watch the pages folder for changes with hot reloading
+  --watch     Watch the pages folder for changes and recompile 
 
   --build     Build the project
-
-  --serve     Serve the project on a given port
 Learn more about vader:           https://vader-js.pages.dev/
     
 `)
