@@ -652,4 +652,5 @@ window.Vader = {
     useReducer,
     useState,
     strictMount,  
+    Link
   }
