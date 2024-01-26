@@ -946,7 +946,7 @@ async function Build() {
 
 
     obj.compiledPath = process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js')
-    let providerRedirects = {cloudflare: '_redirect', vercel: 'vercel.json', netlify:'_redirects'}
+    let providerRedirects = {cloudflare: '_redirects', vercel: 'vercel.json', netlify:'_redirects'}
     switch(true){
       case config && config.host && !config.host['_redirect']:
         let host = config.host.provider
