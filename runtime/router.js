@@ -1,1 +1,445 @@
-import{Component}from"./vader.js";let middlewares=[];class VaderRouter{constructor(e,t){this.routes=[],this.middlewares=[],this.errorMiddlewares=[],this.listeners=[],this.basePath=e}get(e,t){this.routes.push({path:e,handler:t,method:"get"})}use(e){this.middlewares.push(e)}listen(e,t){e||(e=Math.random().toString(36).substring(7)),window.onpopstate=async e=>{let t=window.location.pathname,r=`/${t.split("/")[1]}`;this.checkroute(t)||window.devMode||(t="/404");let n=(new DOMParser).parseFromString(await fetch(r,{cache:"reload"}).then((e=>e.text())),"text/html").documentElement;document.querySelector("#root").innerHTML=n.querySelector("#root").innerHTML,document.title=n.querySelector("title").innerHTML,document.querySelector('script[id="router"]').remove();let o=document.createElement("script");o.id="router",o.innerHTML=n.querySelector('script[id="router"]').innerHTML,o.setAttribute("type","module"),document.body.appendChild(o)},this.listeners.push(e),1===this.listeners.length?this.handleRoute(window.location.pathname):this.listeners.pop(),t&&t()}extractParams(e,t){const r=e.split("/").filter((e=>""!==e)),n=t.split("/").filter((e=>""!==e)),o={};return r.forEach(((e,t)=>{if(e.startsWith(":")){const r=e.slice(1);o[r]=n[t]}else if(e.startsWith("*")){n.slice(t).forEach(((e,t)=>{o[t]=e}))}})),o}extractQueryParams(e){const t=e.split("?")[1];if(!t)return{};const r={};return t.split("&").forEach((e=>{const[t,n]=e.split("=");r[t]=n})),r}checkroute(e){return this.routes.find((t=>{if(t.path===e)return!0;if(""===e&&"/"===t.path)return!0;if(e.includes("?")&&(e=e.split("?")[0]),t.path.includes("*")||t.path.includes(":")){const r=t.path.split("/").filter((e=>""!==e)),n=e.split("/").filter((e=>""!==e));if(r.length!==n.length&&!t.path.endsWith("*"))return!1;for(let e=0;e<r.length;e++){const t=r[e],o=n[e];if(!t.startsWith(":")&&!t.startsWith("*")&&t!==o)return!1}return!0}const r=this.extractParams(t.path,e);return Object.keys(r).length>0}))}handleRoute(e){let t=200,r=e,n=this.checkroute(e);n||(n=window.routes.find((e=>!e.url.includes("/404")||this.error||window.devMode?!(this.error||!e.url.includes("/404"))||void 0:(window.history.pushState({},"","/404"),window.dispatchEvent(new Event("popstate")),this.error=!0,!1))),t=n?200:404);const o=this.extractQueryParams(r),s=n&&n.path?this.extractParams(n.path,r):{};Object.keys(s).forEach((e=>{s[e]=s[e].split("?")?s[e].split("?")[0]:s[e]}));const i={headers:{},params:s,query:o,path:e,fileUrl:window.location.href.split(window.location.origin)[1],url:window.location.href,method:n?n.method:"get",pause:!1,timestamp:Date.now()};window.$CURRENT_URL=i.path,window.$FULL_URL=window.location.href.replace("#","");const a={status:t,log:e=>{void 0===e?console.log(`${i.path} ${i.method} ${a.status} ${i.timestamp}`):console.table({"Request Path":i.path,"Request Method":n.method,"Response Status":a.status,"Request Timestamp":i.timestamp})},refresh:()=>{this.handleRoute(window.location.pathname)},redirect:e=>{!e.startsWith("/")&&(e=`/${e}`),window.history.pushState({},"",e),window.dispatchEvent(new Event("popstate"))},render:async(e,t,r,n)=>{function i(e){return"function"==typeof e&&/^class\s/.test(Function.prototype.toString.call(e))}try{let n=new Component;if(i(e.default)){let t=new e.default;n.state=t.state,n=t}else{if(e.default.toString().includes("this.key"))throw new Error('Using this.key is not supported in functional components use the attribute key="a value" instead');n.key=e.default.toString().split('key="')[1]?e.default.toString().split('key="')[1].split('"')[0]:null;let i={key:n.key,render:()=>e.default.apply(n,[t,r]),request:t,response:r,params:s,queryParams:o,reset:n.reset.bind(n),onMount:n.onMount.bind(n),useState:null,router:{use:n.router.use.bind(n)},bindMount:n.bindMount.bind(n),memoize:n.memoize.bind(n),createComponent:n.createComponent.bind(n),isChild:!1,useState:n.useState.bind(n),parseStyle:n.parseStyle.bind(n),bind:n.bind.bind(n),useRef:n.useRef.bind(n),useReducer:n.useReducer.bind(n),onMount:n.onMount.bind(n),onUnmount:n.onUnmount.bind(n),hydrate:n.hydrate.bind(n)};n.render=i.render,n=i}if(!document.querySelector("#root"))throw new Error("Root element not found, please add an element with id root");n.reset(),n.components={},n.request=t,n.response=r,n.router.use&&!n.isChild?await new Promise((async o=>{if(i(e.default))if(i(e.default))switch(await n.router.use(t,r),t.pause){case!0:console.log("pausing",t.pause);let e=setInterval((()=>{t.pause?console.log("still pausing",t.pause):(clearInterval(e),o())}),1e3);break;case!1:o()}else o();else switch(await e.default.apply(n,[t,r]),await n.router.use(t,r),t.pause){case!0:let e=setInterval((()=>{t.pause?console.log("still pausing  request",t.url):(clearInterval(e),o())}),1e3);break;case!1:o()}})):n.router.use&&n.isChild&&console.warn("Router.use() is not supported in child components");const a=await n.render();document.querySelector("#root").innerHTML!==a&&(document.querySelector("#root").innerHTML=a),n.bindMount(),n.onMount()}catch(e){console.error(e)}},setQuery:e=>{let t="";Object.keys(e).forEach(((r,n)=>{t+=`${0===n?"?":"&"}${r}=${e[r]}`}));let r=window.location.hash.split("?")[0];t=t.replace("/","-").replaceAll("/","-"),window.location.hash=`${r}${t}`},send:e=>{document.querySelector("#root").innerHTML=e},json:e=>{const t=document.querySelector("#root");t.innerHTML="";const r=document.createElement("pre");r.textContent=JSON.stringify(e,null,2),t.appendChild(r)}};middlewares.forEach((e=>{e(i,a)})),n&&n.handler(i,a)}}window.VaderRouter=VaderRouter;export default VaderRouter;
+import { Component } from "./vader.js";
+
+let middlewares = [];
+
+ 
+
+/**
+ * @class VaderRouter
+ * @description  - creates an instance of Vader Express Router
+ *  
+ * @param {String} path
+ * @param {Function} handler
+ * @param {object} req  request object
+ * @param {object} res  response object
+ * @returns {Object} Express
+ *  
+ */
+class VaderRouter{
+    /**
+     * @constructor
+     * @param {*} basePath 
+     *  
+     */
+    constructor(/**@type {string}**/basePath, /**@type {number}**/port) {
+      this.routes = [];
+      this.middlewares = [];
+      this.errorMiddlewares = [];
+      this.listeners = [];
+       
+      this.basePath = basePath;
+       
+     
+    }
+  
+    /**
+     * @method get
+     * @param {String} path
+     * @param {Function} handler
+     * @param {{a:b}} req  request object
+     * @description This method is used to register a get route
+     * @returns {void}
+     * @memberof Express
+     */
+    get(path,  handler) { 
+      this.routes.push({
+        path,
+        handler,
+        method: 'get',
+      });
+       
+    }
+    /**
+     * @method use
+     * @description This method allows you to use middlewares
+     * @param {Function} middleware 
+     */
+  
+    use(/* path, */ middleware) { 
+      this.middlewares.push(middleware);
+    }
+  
+    /**
+     * @method listen
+     * @param {String} port - unique id for the listener
+     * @param {Function} callback - callback function
+     * @description This method is used to start listening to the routes
+     * @returns {void}
+     * 
+     */
+  
+    listen(port, callback) {
+      if(!port){
+       port = Math.random().toString(36).substring(7);
+      }
+       window.onpopstate = async (e) => {   
+        let route = window.location.pathname  
+        let baseRoute = `/${route.split('/')[1]}` 
+        if(!routes.find((route)=>route.url === baseRoute)){ 
+          console.error(`Route ${route} not found`);
+        }
+        let html =  new DOMParser().parseFromString(await fetch(baseRoute, {
+          cache: 'reload'
+        }).then((res)=>res.text()), 'text/html').documentElement 
+        
+
+        document.querySelector('#root').innerHTML = html.querySelector('#root').innerHTML;
+        document.title = html.querySelector('title').innerHTML; 
+        document.querySelector('script[id="router"]').remove();
+        let newscript = document.createElement('script');
+        newscript.id = 'router';
+        newscript.innerHTML = html.querySelector('script[id="router"]').innerHTML;
+        newscript.setAttribute('type', 'module'); 
+        document.body.appendChild(newscript);  
+      }
+      
+      this.listeners.push(port);
+      if (this.listeners.length === 1) { 
+        this.handleRoute(window.location.pathname);
+      }else{
+        this.listeners.pop();
+      }
+      if (callback) {
+        callback();
+      } 
+    
+    }
+    /**
+     * @method extractParams
+     * @description This method is used to extract parameters from the route path
+     * @param {*} routePath
+     * @param {*} hash 
+     * @returns  {Object} params
+     * @memberof Express
+     */
+  
+    extractParams(routePath, hash) { 
+      const routeParts = routePath.split('/').filter((part) => part !== '');
+      const hashParts = hash.split('/').filter((part) => part !== ''); 
+      const params = {};
+      routeParts.forEach((part, index) => {
+        if (part.startsWith(':')) {
+          const paramName = part.slice(1);
+          params[paramName] = hashParts[index];
+        }else if(part.startsWith('*')){ 
+          let array = hashParts.slice(index)
+          array.forEach((i, index)=>{
+            params[index] = i
+          })
+        };
+      });
+      return params;
+    }
+    extractQueryParams(hash){
+      
+      const queryParams = hash.split('?')[1];
+      if(!queryParams){
+        return {};
+      }
+      const params = {};
+      queryParams.split('&').forEach((param)=>{
+        const [key, value] = param.split('=');
+        params[key] = value;
+      })
+      return params;
+    }
+  
+    checkroute(hash){ 
+      let route = this.routes.find((route) => { 
+        if (route.path === hash) { 
+          return true;
+        }
+
+        if(hash === '' && route.path === '/'){
+          return true
+        }
+    
+        if(hash.includes('?')){
+           hash = hash.split('?')[0]
+        } 
+        if (route.path.includes('*') || route.path.includes(':')) {
+          const routeParts = route.path.split('/').filter((part) => part !== '');
+          const hashParts = hash.split('/').filter((part) => part !== '');  
+          if (routeParts.length !== hashParts.length && !route.path.endsWith('*')) { 
+            return false;
+          }
+    
+          for (let index = 0; index < routeParts.length; index++) {
+            const routePart = routeParts[index];
+            const hashPart = hashParts[index];
+             
+    
+            if (routePart.startsWith(':') || routePart.startsWith('*')) {
+               
+              continue;
+            }
+    
+            if (routePart !== hashPart) { 
+              return false;
+            }
+          } 
+    
+          return true;
+        }  
+        const params = this.extractParams(route.path, hash);
+        return Object.keys(params).length > 0;
+      });  
+
+      return route;
+    
+    }
+    /**
+     * @method handleRoute
+     * @param {String} hash
+     * @description This method is used to handle the route
+     */
+  
+    handleRoute(hash) {   
+      let status = 200;
+      let paramsCatchall = {}
+      let hashBefore = hash; 
+       
+      let route = this.checkroute(hash);   
+      if (!route) {
+        route = window.routes.find((errorRoute) => {
+          if (errorRoute.url.includes('/404') && !this.error && !window.devMode) {   
+            console.error(`Route ${hash} not found`);
+            this.error = true;  
+            return false
+            
+          } else if (!this.error && errorRoute.url.includes('/404')){
+             return true
+          }
+          
+        });
+    
+        status = route ? 200 : 404; 
+      }
+     
+      const queryParams = this.extractQueryParams(hashBefore); 
+      const params =  route && route.path ? this.extractParams(route.path, hashBefore) : paramsCatchall;
+    
+     
+      // remove queryparams fromparam
+      Object.keys(params).forEach((key)=>{
+        params[key] = params[key].split('?') ? params[key].split('?')[0] : params[key];
+      })
+      const req = {
+        headers: {},
+        params: params,
+        query: queryParams,
+        path: hash,
+        fileUrl: window.location.href.split(window.location.origin)[1],
+        url: window.location.href,
+        method: route ? route.method : 'get',
+        pause: false,
+        timestamp: Date.now(),
+      }; 
+     
+      // @ts-ignore
+      window.$CURRENT_URL = req.path
+     
+      // @ts-ignore
+      window.$FULL_URL = window.location.href.replace('#', '')
+     
+      const res = {
+        status: status,
+        /**
+         * @method log
+         * @param {String} type 
+         * @description This method is used to log the request and response
+         */
+        log: (type) => {
+          if(type === undefined){
+            console.log(`${req.path} ${req.method} ${res.status} ${req.timestamp}`);
+          }else{
+            console.table({
+              'Request Path': req.path,
+              'Request Method': route.method,
+              'Response Status': res.status,
+              'Request Timestamp': req.timestamp,
+            });
+          }
+        },
+        refresh: () => {
+           this.handleRoute(window.location.pathname)
+        },
+        redirect: (path) => { 
+          !path.startsWith('/') ? path = `/${path}` : null;
+          window.history.pushState({}, '', path);
+          window.dispatchEvent(new Event('popstate'));
+        },
+        render: async (/**@type {Component} */ component, req, res, metadata) => {
+          function isClass(funcOrClass) {
+            return typeof funcOrClass === 'function' &&
+              /^class\s/.test(Function.prototype.toString.call(funcOrClass));
+          } 
+          
+          try {
+              let c  = new Component();
+              if(!isClass(component.default)){
+                 let render = component.default.toString(); 
+                 if(render.includes('this.key')){
+                    throw new Error('Using this.key is not supported in functional components use the attribute key="a value" instead')
+                 } 
+                 
+                
+                 
+                c.key =  component.default.toString().split('key="')[1] ? component.default.toString().split('key="')[1].split('"')[0] : null;
+                
+                let comp =  {
+                   key: c.key,
+                   render:  () => { 
+                        return component.default.apply(c, [req, res])
+                    },
+                   request: req,
+                   response: res,
+                   params: params,
+                   queryParams: queryParams,
+                   reset: c.reset.bind(c), 
+                   onMount: c.onMount.bind(c),
+                   useState: null,
+                   router: {
+                     use: c.router.use.bind(c),
+                   },
+                   bindMount: c.bindMount.bind(c),
+                   memoize: c.memoize.bind(c),
+                   createComponent: c.createComponent.bind(c),
+                   isChild: false, 
+                   useState: c.useState.bind(c),
+                   parseStyle: c.parseStyle.bind(c),
+                   bind: c.bind.bind(c),
+                   useRef: c.useRef.bind(c),
+                   useReducer: c.useReducer.bind(c),
+                   onMount: c.onMount.bind(c),
+                   onUnmount: c.onUnmount.bind(c),
+                   hydrate: c.hydrate.bind(c), 
+                } 
+                c.render = comp.render;
+                c = comp; 
+                 
+              }else{
+                let comp = new component.default(); 
+                c.state = comp.state; 
+                c = comp;
+              }
+            
+          
+          
+            
+              
+              
+           
+        
+      
+              // Check if the root element exists
+              if (!document.querySelector('#root')) {
+                  throw new Error('Root element not found, please add an element with id root');
+              }
+       
+              c.reset();
+              c.components = {};
+              c.request = req;
+              c.response = res; 
+              if (c.router.use && !c.isChild) {  
+                  await new Promise(async (resolve) => {   
+                    if(!isClass(component.default) ){ 
+                      await component.default.apply(c, [req, res]) 
+                      await c.router.use(req, res)
+                      switch(req.pause){
+                        case true: 
+                          let timer = setInterval(() => {
+                            if (!req.pause) { 
+                              clearInterval(timer);
+                              resolve();
+                            }else{
+                              console.log('still pausing  request', req.url)
+                            }
+                          }, 1000);
+                          break;
+                        case false: 
+                          resolve();
+                          break;
+                      }
+                    }else if(isClass(component.default)){
+                        
+                      await c.router.use(req, res) 
+                      switch(req.pause){
+                        case true:
+                          console.log('pausing', req.pause)
+                          let timer = setInterval(() => {
+                            if (!req.pause) { 
+                              clearInterval(timer);
+                              resolve();
+                            }else{
+                              console.log('still pausing', req.pause)
+                            }
+                          }, 1000);
+                          break;
+                        case false:
+                          resolve();
+                          break;
+                      }
+                    }else{
+                        resolve();
+                    }
+                  });
+                  
+                 
+              } else if (c.router.use && c.isChild) {
+                  console.warn('Router.use() is not supported in child components');
+              }  
+                  const renderedContent = await c.render();
+                  if( document.querySelector('#root').innerHTML !== renderedContent){ 
+                    document.querySelector('#root').innerHTML = renderedContent;
+                  } 
+                  c.bindMount();
+                  c.onMount();
+             
+          } catch (error) {
+              console.error(error);
+          }
+      },
+        setQuery: (query) => {
+          let queryString = '';
+          Object.keys(query).forEach((key, index) => {
+            queryString += `${index === 0 ? '?' : '&'}${key}=${query[key]}`;
+          }); 
+          let route = window.location.hash.split('?')[0];
+          queryString = queryString.replace('/', '-').replaceAll('/', '-')
+          window.location.hash = `${route}${queryString}`;
+        },
+        send: (data) => {
+          document.querySelector('#root').innerHTML = data;
+        },
+        json: (data) => {
+          const rootElement = document.querySelector('#root');
+        
+          // Clear existing content in #root
+          rootElement.innerHTML = '';
+        
+          // Create a <pre> element
+          const preElement = document.createElement('pre');
+        
+          // Set the text content of the <pre> element with formatted JSON
+          preElement.textContent = JSON.stringify(data, null, 2);
+        
+          // Append the <pre> element to the #root element
+          rootElement.appendChild(preElement);
+        }
+        
+      }; 
+      middlewares.forEach((middleware) => { 
+        middleware(req, res);
+      });
+    
+      route ? route.handler(req, res) : null;
+    }
+    
+    
+  }
+ 
+  window.VaderRouter = VaderRouter;
+  
+  export default VaderRouter;
+   

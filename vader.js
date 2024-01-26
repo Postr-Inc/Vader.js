@@ -4,7 +4,11 @@ import { glob, globSync, globStream, globStreamSync, Glob, } from 'glob'
 import puppeteer from 'puppeteer';
 import http from 'http'
 import { WebSocketServer } from 'ws'
-import { watch } from "fs";
+import { watch } from "fs"; 
+import path from 'path'
+let config =  await import('file://' + process.cwd() + '/vader.config.js').then((e) => e.default || e)
+console.log(config)
+
 let start = Date.now()
 let bundleSize = 0;
 let errorCodes = {
@@ -891,6 +895,7 @@ async function Build() {
     let origin = file.replace(/\\/g, '/');
     let fileName = origin.split('/pages/')[1].split('.jsx')[0].replace('.jsx', '') + '.jsx';
     let isBasePath = fileName === 'index.jsx';
+    let isParamRoute = fileName.includes('[') && fileName.includes(']') ? true : false
 
     // Extract all dynamic parameters from the file path [param1]/[param2]/[param3
     let aburl = origin.split('/pages')[1].split('.jsx')[0].replace('.jsx', '').split('[').join(':').split(']').join('');
@@ -941,9 +946,51 @@ async function Build() {
 
 
     obj.compiledPath = process.cwd() + "/dist/pages/" + fileName.replace('.jsx', '.js')
+    let providerRedirects = {cloudflare: '_redirect', vercel: 'vercel.json', netlify:'_redirects'}
+    switch(true){
+      case config && config.host && !config.host['_redirect']:
+        let host = config.host.provider
+      
+        let provider = providerRedirects[host] 
+        if(provider){ 
+         
+          let redirectFile =  fs.existsSync(process.cwd() + '/dist/' + provider) ? fs.readFileSync(process.cwd() + '/dist/' + provider, 'utf8') : ''
+          let type = provider === '_redirect' ? 'text/plain' : 'application/json'
+          let root = isParamRoute ? obj.url.split('/:')[0] : obj.url 
+        
+          switch(true){
+            case root === '/':
+              break;
+            case 'text/plain' && !redirectFile.includes(root):
+               
+              redirectFile += `\n${root}/* ${root} 200`
+              fs.writeFileSync(process.cwd() + '/dist/' + provider, redirectFile)
+              console.log(`Added ${root}/* ${root} 200 to ${provider}`)
+              break;
+            case 'application/json' && !redirectFile.includes(root):
+              let json = JSON.parse(redirectFile) || {}
+              let isVercel = provider === 'vercel.json' ? true : false
+              if(isVercel){
+                json['rewrites'] = json['rewrites'] || []
+                json['rewrites'].push({ "source": `${root}/*`, "destination": `/${root}` })
+              }
+              fs.writeFileSync(process.cwd() + '/dist/' + provider, JSON.stringify(json))
+              console.log(`Added ${root}/* ${root} 200 to ${provider}`)
+          }
+        }
+        break;
+      case config && config.host && config.host['_redirect']:
+        let file =  config.host['_redirect']  
+        file = file.split('./').join('')
+        let redirectFile =  fs.existsSync(process.cwd() + '/' + file) ? fs.readFileSync(process.cwd() + '/' + file, 'utf8') : '' 
+        fs.writeFileSync(process.cwd() + '/dist/' + file, redirectFile)
+        console.log(`Using ${file} for redirects`)
+      default:
+        break;
 
-
-
+    }
+ 
+    
     globalThis.routes.push({ fileName: fileName, url: obj.url, html: '/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html') })
 
 
