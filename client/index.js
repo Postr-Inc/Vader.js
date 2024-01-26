@@ -417,10 +417,28 @@ export const useRef = (initialState) => {
   };
 };
 
+/**
+ * @method Link
+ * @param {string} href
+ * @param {string} children
+ * @returns {string} - The rendered content.
+ * @description  This method allows you to create passive links without reloading the page
+ */
+class Link extends Component{
+  constructor(props){
+    super(props)
+    this.props = props
+  }
+  render(){
+    return  
+  }
+}
+
 export default {
   Component,  
   useRef,
   useReducer,
   useState,
   strictMount, 
+  Link
 }
