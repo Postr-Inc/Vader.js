@@ -646,11 +646,11 @@ window.Vader = {
      
   }
   
+  console.log(Link)
   export default {
     Component,  
     useRef,
     useReducer,
     useState,
-    strictMount,  
-    Link
+    strictMount 
   }
