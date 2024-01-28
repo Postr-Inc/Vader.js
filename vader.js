@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import fs from "fs";
 import { glob, globSync, globStream, globStreamSync, Glob, } from 'glob'
+import dotenv from 'dotenv'
+dotenv.config()
 import puppeteer from 'puppeteer';
 import http from 'http'
 import { WebSocketServer } from 'ws'
@@ -248,6 +250,14 @@ function Compiler(func, file) {
     }
   }
 
+  // take all elements in string and put them straight 
+  let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
+  elementMatch?.forEach((element) => {
+     let before = element;
+     element  = element.trim().replace(/\s+/g, " ");
+     string = string.replace(before, `${element}`);
+  });
+
   let outerReturn = extractOuterReturn(string);
   let contents = "";
   let updatedContents = "";
@@ -285,26 +295,27 @@ function Compiler(func, file) {
         let value = attributes[key];
         let oldvalue = value;
         if (value && !value.new) {
-          if (value && value.includes("={")) {
+          if (value && value.includes("={`")) {
+            value = value.replace("=", "");
+  
+            value = `="\$${value}",`; 
+            string = string.replace(oldvalue, value);
+
+          }
+          else if (value && value.includes("={")) {
             value = value.replace("=", "");
             value == "undefined" ? (value = '"') : (value = value);
 
             key == 'style'
               && value.includes("{{")
               ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
-
+ 
 
 
             value = `="\$${value}",`;
             string = string.replace(oldvalue, value);
 
-          } else if (value && value.includes("={`")) {
-            value = value.replace("=", "");
-
-            value = `"\$${value}",`;
-            string = string.replace(oldvalue, value);
-
-          }
+          }  
         } else if (value && value.new) {
           string = string.replace(oldvalue, value.new);
         }
@@ -439,10 +450,14 @@ function Compiler(func, file) {
 
             prop = prop.replace('="', ':').replace('}"', '}')
             if (prop.includes('${')) {
+              
               prop = prop.replace('="', ':')
               prop = prop.replace('${', '')
-              prop = prop.replace('}', '')
-
+               
+              if(prop.endsWith('}')){
+                let index = prop.lastIndexOf('}')
+                prop = prop.substring(0, index) + prop.substring(index + 1);
+              }
             }
             if (prop.includes('="${{')) {
               prop = prop.replace('${{', '{')
@@ -1155,7 +1170,7 @@ async function Build() {
     await writer(process.cwd() + "/dist/src/" + name, data);
   })
 
-  const scannedPublicFiles = await glob("**/**.{css,js,html,mjs,cjs}", {
+  const scannedPublicFiles = await glob("**/**.{css,js,html,mjs,cjs,json,png,jpg,jpeg,gif,svg,mp4,webm,ogg}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
     cwd: process.cwd() + '/public/',
     absolute: true,
@@ -1283,8 +1298,8 @@ const s = () => {
         return 'application/octet-stream';
     }
   }
-
-  const PORT = process.env.PORT || 3000;
+  
+  const PORT = process.env.PORT ? process.env.PORT : 3000;
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
@@ -1344,8 +1359,7 @@ Building to ./dist
 
     break;
   case process.argv.includes('--serve') && !process.argv.includes('--watch') && !process.argv.includes('--build'):
-    let port = process.argv[process.argv.indexOf('--serve') + 1] || 3000
-    process.env.PORT = port
+    let port = process.argv[process.argv.indexOf('--serve') + 1] ||  process.env.PORT || 3000
     globalThis.devMode = false
     console.log(`
 Vader.js v1.3.3 
@@ -1365,7 +1379,7 @@ Commands:
 
   --build     Build the project to ./dist
 
-  --serve     Serve the project on a port (default 3000)
+  --serve 4000     Serve the project on a port (default 3000)
   
 Learn more about vader:           https://vader-js.pages.dev/
     
