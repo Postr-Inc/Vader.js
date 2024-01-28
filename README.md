@@ -66,56 +66,27 @@ vader's compiler automatically handles routing so you wont need to! - it uses a 
 For pages that have [params] you can derive it using this.request
  
 
-### Simplified Component Creation
+# Usage
 
-Class based components
-
+ 
 ```jsx
 // pages/home.jsx
 import  {Component, useState, useRef} = from 'vaderjs/client'
 import Mycomponent from './src/mycomponent.jsx' 
 
-export default class extends Component {
-  constructor() {
-    super();
-    this.key = 2 // you can explicitly set key
-  }
-  render() {
-    return  <>
-    ${/**
-    or set it directly to the element and hydration will grab it
-  **/}
-      <div key={2}>
-        <p>Hello World</p>
-      </div>
-      <Mycomponent ..props />
-    </>
-  }
-}
+ 
+export default function(req, res){
+   let counterRef = useRef(null)
+   let [count, setCount] = useState(0)
 
+   return <>
+    <h1>${count}</h1>
+    <button onClick={(count, setCount)=>{setCount(count + 1)}}>
+   </>
+}
  
 
-```
-
-Function based components
-
-```jsx
-import Mycomponent from './src/mycomponent.jsx' 
-// function components have direct access to request and response both param way and using this.request or this.response!
-export default function(req, res){
-  this.key = '' // you can explicitly set key
-  
-  return <>
-  ${/**
-    or set it directly to the element and hydration will grab it
-  **/}
-  <div key="somevalue">  
-   <h1>hello world</>
-   <Mycomponent {...props }/>
-   </div>
-  </>
-}
-
+ 
 ```
 
 # ServerSide Site Generation (SSG)
