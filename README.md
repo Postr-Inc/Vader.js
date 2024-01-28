@@ -125,13 +125,37 @@ Vader compiles all code to a static index.html page so your visitors will never 
 We can define some metadata to be used at compile
 
 ```jsx
+ // src/layout.tsx
+export function Layout({title, keywords, description, children}){
+  return <>
+   <Html lang="en-us">
+        <Head>
+            <title>${title}</title>
+            <meta charset="utf-8" />
+            <meta name="description" content={description} /> 
+            <meta name="robots" content="index, follow" />
+            <meta name="author" content="Malik Whitten" />
+            <meta name="keywords" content={keywords} />
+            <meta name="url" content="https://malikwhitten.com" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <link rel="icon" href={logo} /> 
+            <script src="/src/theme.js" eager> </script>
+            <link rel="stylesheet" href="/public/css/styles.css" />
+        </Head>
 
-export const $metadata = {
-    title: "Malik Whitten - Home",
-    styles:['/public/css/styles.css'],
-    description: "Malik Whitten's personal website", 
-    icon: "https://avatars.githubusercontent.com/u/123524260?s=200&v=4",
-    tags:[`cutom tags to place in head`]
+        ${children}
+    </Html>
+    </>
+}
+
+// pages/index.jsx
+
+export default function (req, res){
+  return <>
+   <Layout {...{title:'home', description:'home page', keywords:'vader.js', logo:''}}>
+   <h1> Hello World</h1>
+   </Layout>
+  </>
 }
 
 ```
