@@ -418,10 +418,14 @@ function Compiler(func, file) {
       let myChildrens = [];
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
-      // some components will have props that have html inside of them we need to only get the props ex: <Header title={<h1>hello</h1>}></Header> -> title={<h1>hello</h1>} also functions
-      let dynamicAttributesRegex = /(\w+)(?:="([^"]*)")?(?:='([^']*)')?(?:=\{([^}]*)\})?(?:=\{(.*?)\})?(?:={([^}]*)})?/gs;
+      // some components will have props that have html inside of them we need to only get the props ex: <Header title={<h1>hello</h1>}></Header> -> title={<h1>hello</h1>}  // also spread props ex: <Header {...props}></Header> -> {...props} or {...props, title: 'hello'} or {...props, color:{color: 'red'}}
+      // grab ...( spread props ) 
+      const dynamicAttributesRegex = /(\w+)(?:="([^"]*)")?(?:='([^']*)')?(?:=\{([^}]*)\})?(?:=\{(.*?)\})?(?:={([^}]*)})?(?:{([^}]*)})?|(\{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\})/gs;
 
 
+
+
+  
       let props = component.match(dynamicAttributesRegex)
      
   let filteredProps = [];
@@ -429,21 +433,43 @@ function Compiler(func, file) {
   let componentName = name
   
   for (let prop of props) {
+     
     if (prop.includes(componentName)) {
       // If the component is encountered, start collecting props
       isWithinComponent = true;
       filteredProps.push(prop);
     } else if (isWithinComponent && prop.includes('=')) {
+       
+      if(prop.includes('${')){
+        // if it has  an object inside of it then we should just do soemting:object else we should do something: `${object}`
+        
+        prop = prop.replace('="', ':').replace('}"', '}')
+        if(prop.includes('${')){
+          prop = prop.replace('="',':')
+          prop = prop.replace('${', '')
+          prop = prop.replace('}', '')
+          
+        } 
+        if(prop.includes('="${{')){ 
+          prop = prop.replace('${{', '{')
+          prop = prop.replace('}}', '}')
+          prop = prop.replace('="', ':')
+          prop = prop.replace('}"', '}')
+        } 
+
+      } 
       if(prop.startsWith('={')){
-        prop = prop.replace('={', ':`')
-        prop.replace('} ', '`')
+        prop = prop.replace('={', ':`${')
+        prop.replace('} ', '}`') 
       }
+       
        if(prop.includes('function')){
         // parse 'function' to function 
         prop = prop.replace("'", '')
         
         if(prop.endsWith("}'")){
           prop = prop.replace("}'", '}')
+          console
           
         }
         
@@ -453,7 +479,59 @@ function Compiler(func, file) {
       filteredProps.push(prop);
   
        
-    }else{
+    } 
+    else if (isWithinComponent && prop.includes('...')) {
+ 
+      
+    
+      // Check if spread props are within curly braces
+      if (prop.startsWith('{') && prop.endsWith('}')) { 
+        const spreadObject = prop
+        const hasOtherObjects = spreadObject.split(',').filter((e) => e.includes(':')).length > 0;
+      
+        const isValidSpread = spreadObject.includes('...');
+      
+        let processedSpreadObject = '';
+        if (isValidSpread) {
+          // Split the spreadObject by commas and process each part individually
+          const parts = spreadObject.split(',').map((part) => { 
+            if (part.trim().startsWith('{') && part.trim().endsWith('}')) {
+              // Handle nested spreads within the object
+              const nestedParts = part
+                .trim()
+                .slice(1, -1) // Remove outer {}
+                .split(',')
+                .map((nestedPart) => {
+                  return nestedPart.includes('...') ? nestedPart.trim().replace(/\.\.\./, '') : `...${nestedPart.trim()}`;
+                });
+              return `{${nestedParts.join(',')}}`;
+            } else {  
+              return part.includes('...') ? part.trim() :  part.trim().startsWith('{') ? `...${part.trim()}` : `${part.trim()}`;
+            }
+          });      
+          if(!parts.join(',').includes('{(')){
+             
+          processedSpreadObject = `${parts.join(',')}` 
+
+          }else{
+            let prop = parts.join(',')
+            prop = prop.replaceAll('{(', '(')
+            prop = prop.replaceAll(')}', ')')
+            processedSpreadObject = prop
+          }
+       
+        
+        } else {
+          // Process nested structures within the object
+          processedSpreadObject = `{...${spreadObject}}`;
+        } 
+      
+        const $propsKey = `$props_${Math.random().toString(36).substring(2)}`;
+        filteredProps.push(`${$propsKey}:${processedSpreadObject}`);
+      }  
+    }
+    
+    else{
       isWithinComponent = false;
     }
   }
@@ -462,6 +540,7 @@ function Compiler(func, file) {
       let children = new RegExp(`<${name}[^>]*>(.*?)<\/${name}>`, "gs").exec(component) ? new RegExp(`<${name}[^>]*>(.*?)<\/${name}>`, "gs").exec(component)[1] : null;
        
       props = filteredProps.join(',')
+    
       let savedname = name;
       
       
@@ -497,13 +576,14 @@ function Compiler(func, file) {
        props  = props.replaceAll(`,${savedname}`, '').replaceAll(savedname, '')
        if(props.startsWith(',')){
           props = props.replace(',', '')
-       }
+       } 
        props = props .replaceAll("='", ":'")
        .replaceAll('=`', ':`')
         .replaceAll('="', ':"')
        .replaceAll(`={\``, ':`')
        .replaceAll('`}', '`')
        .replaceAll('={', ":`") 
+    
 
       /**
        * @memoize - memoize a component to be remembered on each render and replace the old jsx
@@ -537,6 +617,7 @@ function Compiler(func, file) {
 
   string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
   string = string.replaceAll("<>", "`").replaceAll("</>", "`");
+  string = string.replaceAll(".jsx", ".js");
   string = parseComponents(string);
 
   string = string
@@ -872,17 +953,27 @@ async function Build() {
       });
 
       server.listen(port)
+      server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          console.log(`Port ${port} is in use, trying another port...`);
+          setTimeout(() => {
+            server.close();
+            server.listen(++port);
+          }, 1000);
+        }
+      })
 
       globalThis.listen = true;
 
-      puppeteer.launch({
+      const browser  = await puppeteer.launch({
         headless:  "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
         warning: false,
-      }).then(async (browser) => {
+      })
 
-        // remove /: from route
+      try {
+        
         route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')
-        const page = await browser.newPage(); 
+        let page = await browser.newPage();
         await page.goto(`http://localhost:${port}/`  , { waitUntil: 'networkidle2' });
         await page.waitForSelector('#root');
         await page.evaluate(() => {
@@ -893,13 +984,19 @@ async function Build() {
           }
         })
         const html = await page.content();
+        
         await page.close();
-        let isBasePath = route.url === '/' ? true : false
-        await writer(process.cwd() + '/dist/' + (isBasePath ? 'index.html' : `${route.url}/` + 'index.html'), html)
+        await writer(process.cwd() + '/dist/' + (route.url === '/' ? 'index.html' : `${route.url}/` + 'index.html'), html)
         await browser.close();
-        // close http
+      } catch (error) {
+        console.log(error)
+        await browser.close();
+      }
+      finally{
+        await browser.close();
         server.close()
-      })
+      }
+      
 
     })
 
@@ -1115,7 +1212,7 @@ async function Build() {
   }
 
   globalThis.isBuilding = false
-  console.log(`Build completed in ${Date.now() - start}ms with ${Math.round(bundleSize / 1000)}kb`)
+  console.log(`📦 Build completed: Build Size -> ${Math.round(bundleSize / 1000)}kb`)
 
   bundleSize = 0;
   return true
@@ -1138,15 +1235,14 @@ const s = () => {
         res.writeHead(404, { 'Content-Type': 'text/html' });
         res.end(fs.existsSync(process.cwd() + '/dist/404') ? fs.readFileSync(process.cwd() + '/dist/404/index.html') : '404');
       } else {
-        const contentType = getContentType(filePath);
+        const contentType = getContentType(filePath); 
         switch (true) {
           case contentType === 'text/html' && globalThis.devMode:
             data = data.toString() + `<script type="module">
                let ws = new WebSocket('ws://localhost:3000')
                 ws.onmessage = (e) => {
-                  if(e.data === 'reload'){
-                    console.log('Reloading page...')
-                    window.route.hydrate()
+                  if(e.data === 'reload'){ 
+                    window.rehydrate()
                   }
                 }
               </script>
@@ -1184,14 +1280,13 @@ const s = () => {
     setInterval(() => {
       if (globalThis.isBuilding && globalThis.devMode) {
         // reload page
+        console.log(globalThis.isBuilding)
         console.log('Reloading page...')
         ws.clients.forEach((client) => {
           client.send('reload')
           console.log('Reloaded page')
         })
-      } else {
-        clearInterval(i)
-      }
+      } 
     }, 120)
 
 }
@@ -1258,6 +1353,9 @@ Commands:
   --watch     Watch the pages folder for changes and recompile 
 
   --build     Build the project
+
+  --serve     Serve the project on a port (default 3000)
+  
 Learn more about vader:           https://vader-js.pages.dev/
     
 `)
