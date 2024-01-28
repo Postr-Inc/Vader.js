@@ -111,7 +111,7 @@ export default function(req, res){
   **/}
   <div key="somevalue">  
    <h1>hello world</>
-   <Mycomponent ...props />
+   <Mycomponent {...props }/>
    </div>
   </>
 }
@@ -122,6 +122,11 @@ export default function(req, res){
 
 Vader compiles all code to a static index.html page so your visitors will never have to wait for the page to load, it then rehydrates the page reapplying functionality!
 
+you can always opt out of ssg using:  
+
+```js
+export const $prerender = false;
+```
 We can define some metadata to be used at compile
 
 ```jsx
