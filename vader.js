@@ -7,7 +7,7 @@ import { WebSocketServer } from 'ws'
 import { watch } from "fs"; 
 import path from 'path'
 let config =  await import('file://' + process.cwd() + '/vader.config.js').then((e) => e.default || e)
-console.log(config)
+ 
 
 let start = Date.now()
 let bundleSize = 0;
@@ -99,7 +99,7 @@ function Compiler(func, file) {
       /\s*([a-zA-Z0-9_-]+)(\s*=\s*("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}|(?:\([^)]*\)|\{[^}]*\}|()=>\s*(?:\{[^}]*\})?)|\[[^\]]*\]))?/gs;
 
     // only return elements with attribute {()=>{}} or if it also has parameters ex: onclick={(event)=>{console.log(event)}} also get muti line functions
-    const functionAttributeRegex = /\s*([a-zA-Z0-9_-]+)(\s*=\s*{(.*?)}|\s*=\s*function\s*(.*?))(?=\s*[a-zA-Z0-9_-]+\s*=|\s*>)/gs;
+    const functionAttributeRegex = /\s*([a-zA-Z0-9_-]+)(\s*=\s*{((?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*)})/gs;
 
     let attributesList = [];
 
@@ -143,7 +143,7 @@ function Compiler(func, file) {
               .split(" ")[0];
             isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
           }
-        });
+        }); 
         // add ; after newlines  
 
 
@@ -194,15 +194,15 @@ function Compiler(func, file) {
         // remove comments
         paramnames = paramnames ? paramnames.map((e) => e.match(/\/\*.*\*\//gs) ? e.replace(e.match(/\/\*.*\*\//gs)[0], "") : e) : null
         newvalue = newvalue.replaceAll(/\s+/g, " ")
-
-        let bind = isJSXComponent ? `${attributeName}=function(${params}){${newvalue}}.bind(this)` : `${attributeName}="\$\{this.bind("${newvalue.replace(/\s+g/, " ")}", ${isJSXComponent}, "${ref}",   "${paramnames ? paramnames.map((e, index) => {
+ 
+        let bind = isJSXComponent ? `${attributeName}='function(${params}){${newvalue}}'` : `${attributeName}="\$\{this.bind("${newvalue.replace(/\s+g/, " ")}", ${isJSXComponent}, "${ref}",   "${paramnames ? paramnames.map((e, index) => {
           if (e.length < 1) return ''
           if (e.length > 0) {
             index == 0 ? e : ',' + e
           }
           return e
         }) : ''}" ${params ? params.split(',').map((e) => e.trim()).filter(Boolean).map((e) => `,${e}`).join('') : ''})}"`
-
+ 
         string = string.replace(old, bind);
       }
     }
@@ -403,40 +403,75 @@ function Compiler(func, file) {
   string = string.replaceAll('../src', './src')
 
   function parseComponents(body, isChild) {
-    let componentRegex =
-      /<([A-Z][a-zA-Z0-9_-]+)([^>]*)\/>|<([A-Z][a-zA-Z0-9_-]+)([^>]*)>(.*?)<\/\3>/gs;
+    let componentRegex = /<([A-Z][A-Za-z0-9_-]+)([^>]*)>(.*?)<\/\1>|<([A-Z][A-Za-z0-9_-]+)([^]*?)\/>/gs;
 
     let componentMatch = body.match(componentRegex);
     let topComponent = "";
     componentMatch?.forEach(async (component) => {
+    
       let [, element, attributes] = component;
+      
 
       !isChild ? (topComponent = component) : null;
-      let before = component;
-      component = component.trim().replace(/\s+/g, " ");
+      let before = component; 
 
       let myChildrens = [];
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
-      let props = component.split(`<${name}`)[1].split(">")[0].trim()
+      // some components will have props that have html inside of them we need to only get the props ex: <Header title={<h1>hello</h1>}></Header> -> title={<h1>hello</h1>} also functions
+      let dynamicAttributesRegex = /(\w+)(?:="([^"]*)")?(?:='([^']*)')?(?:=\{([^}]*)\})?(?:=\{(.*?)\})?(?:={([^}]*)})?/gs;
 
 
+      let props = component.match(dynamicAttributesRegex)
+     
+  let filteredProps = [];
+  let isWithinComponent = false;
+  let componentName = name
+  
+  for (let prop of props) {
+    if (prop.includes(componentName)) {
+      // If the component is encountered, start collecting props
+      isWithinComponent = true;
+      filteredProps.push(prop);
+    } else if (isWithinComponent && prop.includes('=')) {
+      if(prop.startsWith('={')){
+        prop = prop.replace('={', ':`')
+        prop.replace('} ', '`')
+      }
+       if(prop.includes('function')){
+        // parse 'function' to function 
+        prop = prop.replace("'", '')
+        
+        if(prop.endsWith("}'")){
+          prop = prop.replace("}'", '}')
+          
+        }
+        
+        prop = prop.replace('=function', ':function') 
+       }
+
+      filteredProps.push(prop);
+  
+       
+    }else{
+      isWithinComponent = false;
+    }
+  }
+
+      // get inner content of <Component>inner content</Component>
+      let children = new RegExp(`<${name}[^>]*>(.*?)<\/${name}>`, "gs").exec(component) ? new RegExp(`<${name}[^>]*>(.*?)<\/${name}>`, "gs").exec(component)[1] : null;
+       
+      props = filteredProps.join(',')
       let savedname = name;
-      let children = props
-        ? component
-          .split(`<${name}`)[1]
-          .split(`${props}`)[1]
-          .split(`</${name}>`)[0]
-          .trim()
-          .replace(">", "")
-        : component.split(`<${name}`)[1].split(`</${name}>`)[0].trim().replace(">", "");
+      
+      
+
       name = name + Math.random().toString(36).substring(2);
       if (children && children.match(componentRegex)) {
         children = parseComponents(children, true);
         childs.push({ parent: name, children: children });
       } else {
-
-        children = `\`${children}\`,`;
+   
         children ? childs.push({ parent: name, children: children }) : null;
       }
 
@@ -458,49 +493,24 @@ function Compiler(func, file) {
 
 
 
-      /**
-       * @prop {string} props
-       * @description replace any given possible value in props and parse the string to a valid JSON object
-       */
-      props = props
-        .replaceAll('"', "'")
-
-
-        .replaceAll(",,", ',')
-        .replaceAll("className", "class")
-        .replaceAll("classname", "class")
-        .replaceAll("'${", "")
-        .replaceAll("}'", "")
-        .split("$:")
-        .join("")
-        // replace / with '' at the end of the string
-        .replace(/\/\s*$/, "")
-
-        .replace(/,\s*$/, "")
+ 
+       props  = props.replaceAll(`,${savedname}`, '').replaceAll(savedname, '')
+       if(props.startsWith(',')){
+          props = props.replace(',', '')
+       }
+       props = props .replaceAll("='", ":'")
+       .replaceAll('=`', ':`')
         .replaceAll('="', ':"')
-        .replaceAll("='", ":'")
-        .replaceAll('=`', ':`')
-        .replaceAll(`={\``, ':`')
-        .replaceAll('`}', '`')
-        .replaceAll(",,", ',')
-        .replaceAll(/=(?=(?:(?:[^"']*["'][^"']*['"])*[^"']*$))/g, ':');
-
-      props = props.replace(/:('[^']*'|"[^"]*")/g, ':$1,');
-      // ANY VALUE NUMBER BOOLEAN OR STRING
-      props = props.replace(/=(\d+)/g, ':$1,');
-      props = props.replaceAll(',,', ',')
-
+       .replaceAll(`={\``, ':`')
+       .replaceAll('`}', '`')
+       .replaceAll('={', ":`") 
 
       /**
        * @memoize - memoize a component to be remembered on each render and replace the old jsx
        */
 
-      let replace = "";
-      replace = isChild
-        ? `this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, ${props}, [${myChildrens.length > 0 ? myChildrens.join(",") : ""
-        }])),`
-        : `\${this.memoize(this.createComponent(${savedname.replaceAll('/', '')}, {${props}}, [${myChildrens.length > 0 ? myChildrens.join(",") : ""
-        }]))}`;
+      let replace = ""; 
+      replace = `\${this.memoize(this.createComponent(${savedname}, {${props}}, [\`${myChildrens.join(" ")}\`]))}`;
 
       body = body.replace(before, replace);
     });
@@ -750,6 +760,9 @@ async function Build() {
           <script>
           window.routes = JSON.parse('${JSON.stringify(routes)}')
           </script>
+          <script id="isServer">
+          window.isServer = true
+          </script>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width,initial-scale=1.0">
           <script type="module" id="meta">
@@ -803,30 +816,34 @@ async function Build() {
            document.head.innerHTML += '<link rel="icon" href="' + metadata.icon + '">'
          }
          </script>
+         <script type="module" id="router">
+         import VaderRouter from '/router.js' 
+         const router = new VaderRouter('${route.url}', 3000)
+         router.get('${route.url}', async (req, res) => {
+           let module = await import('/${route.fileName.replace('.jsx', '.js')}')
+           if(Object.keys(module).includes('$prerender') && !module.$prerender){
+             document.head.setAttribute('prerender', 'false')
+           }
+           res.render(module, req, res, module.$metadata)
+         }) 
+         ${equalparamroute.length > 0 ? equalparamroute.map((e) => {
+ 
+ 
+ 
+         return `router.get('${e.url}', async (req, res) => {
+            let module = await import('/${e.fileName.replace('.jsx', '.js')}')
+            res.render(module, req, res, module.$metadata)
+         })\n`
+       }) : ''}
+         router.listen(3000)
+          
+     </script> 
       </head>
       <body>
           <div id="root"></div>
       </body>  
       
-      <script type="module" id="router">
-        import VaderRouter from '/router.js' 
-        const router = new VaderRouter('${route.url}', 3000)
-        router.get('${route.url}', async (req, res) => {
-          let module = await import('/${route.fileName.replace('.jsx', '.js')}')
-          res.render(module, req, res, module.$metadata)
-        }) 
-        ${equalparamroute.length > 0 ? equalparamroute.map((e) => {
-
-
-
-        return `router.get('${e.url}', async (req, res) => {
-           let module = await import('/${e.fileName.replace('.jsx', '.js')}')
-           res.render(module, req, res, module.$metadata)
-        })\n`
-      }) : ''}
-        router.listen(3000)
-         
-    </script> 
+      
       </html>
     `;
 
@@ -870,6 +887,10 @@ async function Build() {
         await page.waitForSelector('#root');
         await page.evaluate(() => {
           document.getElementById('meta').remove()
+          document.querySelector('#isServer').innerHTML = 'window.isServer = false'
+          if(document.head.getAttribute('prerender') === 'false'){
+            document.querySelector('#root').innerHTML = ''
+          }
         })
         const html = await page.content();
         await page.close();
@@ -955,19 +976,20 @@ async function Build() {
         if(provider){ 
          
           let redirectFile =  fs.existsSync(process.cwd() + '/dist/' + provider) ? fs.readFileSync(process.cwd() + '/dist/' + provider, 'utf8') : ''
-          let type = provider === '_redirect' ? 'text/plain' : 'application/json'
-          let root = isParamRoute ? obj.url.split('/:')[0] : obj.url 
-        
+          let type = provider === '_redirects' ? 'text/plain' : 'application/json' 
+
+          let root =  obj.url.includes(':') ? obj.url.split(':')[0] : obj.url
           switch(true){
             case root === '/':
               break;
-            case 'text/plain' && !redirectFile.includes(root):
-               
-              redirectFile += `\n${root}/* ${root} 200`
-              fs.writeFileSync(process.cwd() + '/dist/' + provider, redirectFile)
-              console.log(`Added ${root}/* ${root} 200 to ${provider}`)
+            case type === 'text/plain' && !redirectFile.includes(obj.url) && obj.url.includes(':'):
+              let page = obj.pathname.split('/pages/')[1].replace('.jsx', '.js')
+              redirectFile += `\n/${page} /${page} 200\n${obj.url} ${root} 200\n`
+              !redirectFile.includes('/404') ? redirectFile += `\n/404 /404 404` : null
+              fs.writeFileSync(process.cwd() + '/dist/' + provider, redirectFile) 
+              console.log(`Added ${obj.url} ${obj.url} 200 to ${provider}`)
               break;
-            case 'application/json' && !redirectFile.includes(root):
+            case  type === 'application/json' && !redirectFile.includes(root):
               let json = JSON.parse(redirectFile) || {}
               let isVercel = provider === 'vercel.json' ? true : false
               if(isVercel){

@@ -7,6 +7,47 @@
 export const strictMount = (key, callback) => {
    
 };
+
+/**
+ * @method $metdata
+ * @description  This method allows you to set the metadata for the current page
+ * @param {string} title
+ * @param {string} styles
+ * @param {string} description
+ * @param {string} keywords
+ * @param {string} author
+ * @param {string} image
+ * @param {string} url
+ * @param {string} robot
+ * @param {string} manifest
+ * @param {Array} tags
+ * @returns {Object} - The rendered content.
+ * 
+ */
+
+export const $metdata = {
+  title:'',
+  styles,
+  description:'',
+  keywords:'',
+  author:'',
+  image:'',
+  url:'',
+  robot:'',
+  manifest:'',
+  tags: []
+
+}
+
+/**
+ * @method $prerender
+ * @description  This method disables the prerendering of the current page
+ */
+export const $prerender = {
+
+}
+
+
  
  
  
@@ -417,28 +458,248 @@ export const useRef = (initialState) => {
   };
 };
 
-/**
- * @method Link
- * @param {string} href
- * @param {string} children
- * @returns {string} - The rendered content.
- * @description  This method allows you to create passive links without reloading the page
+ /**
+ * @class Link
+ * @description Link component
+ * @extends Component
+ * @example
+ * <Link href="/some-path" class="custom-link" style="color: blue;">Click me!</Link>
  */
-class Link extends Component{
-  constructor(props){
-    super(props)
-    this.props = props
+export class Link extends Component {
+  /**
+   * @constructor
+   * @param {object} props - Component props
+   * @param {string} props.href - URL for the link 
+   * @param {string} props.className - CSS class for the link
+   * @param {string} props.title - Title for the link
+   * @param {string} props.key - Unique identifier for the link
+   * @param {string} props.style - Inline CSS style for the link
+   * @param {string} props.children - Content to be displayed inside the link
+   */
+  constructor(props) {
+    super(props);
+
+    /**
+     * @type {object}
+     * @property {string} href - URL for the link
+     * @property {string} [class] - CSS class for the link
+     * @property {string} [style] - Inline CSS style for the link
+     * @property {string} [children] - Content to be displayed inside the link
+     */
+    this.props = props;
+
+    /**
+     * @type {HTMLAnchorElement}
+     */
+    this.link = document.createElement('a');
+
+    /**
+     * @type {string}
+     */
+    this.key = props.href + Math.random();
   }
-  render(){
-    return  
+
+  /**
+   * @function
+   * @returns {string} - Rendered HTML for the Link component
+   */
+  render() {
+    
+    return this.link.outerHTML;
   }
 }
 
+
+
+ /**
+ * @class Image
+ * @description Image component
+ * @extends Component
+ * @example
+ * <Image src="https://via.placeholder.com/150"  alt="image" />
+ */
+export class Image extends Component {
+  /**
+   * @constructor
+   * @param {object} props - Component props
+   * @param {string} props.src - Image source URL
+   * @param {string} props.class - CSS class for the image
+   * @param {string} props.style - Inline CSS style for the image
+   * @param {number} props.blur - Blur value for the image (optional)
+   * @param {number} props.width - Width of the image (optional)
+   * @param {number} props.height - Height of the image (optional)
+   * @param {boolean} props.optimize - Optimize the image (optional, default: true)
+   * @param {boolean} props.loader - Show a placeholder loader (optional, default: true)
+   * @param {string} props.alt - Alt text for the image (optional, default: 'image')
+   */
+  constructor(props) {
+    super(props);
+
+    /**
+     * @type {object}
+     * @property {string} src - Image source URL 
+     * @property {string} [class] - CSS class for the image
+     * @property {string} [style] - Inline CSS style for the image
+     * @property {number} [blur] - Blur value for the image (optional)
+     * @property {number} [width] - Width of the image (optional)
+     * @property {number} [height] - Height of the image (optional)
+     * @property {boolean} [optimize] - Optimize the image (optional, default: true)
+     * @property {boolean} [loader] - Show a placeholder loader (optional, default: true)
+     * @property {string} [alt] - Alt text for the image (optional, default: 'image')
+     * @property {string} [children] - Content to be displayed inside the image
+     * @property {string} [key] - Unique identifier for the image
+     * @property {string} [onLoad] - Function to be called when the image is loaded
+     */
+    this.props = {
+      src: props.src,
+      class: props.class,
+      style: props.style,
+      blur: props.blur,
+      width: props.width,
+      height: props.height,
+      optimize: props.optimize || true,
+      loader: props.loader || true,
+      alt: props.alt || 'image',
+    };
+
+    /**
+     * @type {string}
+     */
+    this.key = props.src + Math.random();
+
+    /**
+     * @type {HTMLImageElement}
+     * @private
+     */
+    this.img = document.createElement('img');
+
+    /**
+     * @type {HTMLDivElement}
+     * @private
+     */
+    this.placeholder = document.createElement('div');
+  }
+
+  /**
+   * @function
+   * @returns {string} - Rendered JSX for the Image component
+   */
+  render() {
+    // adjust width and height to the user's screen size
+   
+
+    return this.img.outerHTML;
+  }
+}
+
+export class Head extends Component {
+   /**
+   * @constructor
+   * @param {object} props - Component props
+   * @param {string} props.children - Content to be displayed inside the head
+   */
+  constructor(props) {
+    super(props);
+    this.props = {
+      children: props.children, 
+    }
+    this.key = 'head';
+    this.head = document.createElement('head');
+  }
+
+    
+
+  render() {
+    this.head.innerHTML = this.props.children;
+    return   this.head.outerHTML;
+  }
+
+  onMount() {
+    document.head.innerHTML = this.head.innerHTML;
+    document.body.querySelector(`[key="${this.key}"]`).remove();
+  }
+}
+
+export class Script extends Component {
+    /**
+    * @constructor
+    * @param {object} props - Component props
+    * @param {string} props.children - Content to be displayed inside the script
+    */
+    constructor(props) {
+      super(props);
+      this.props = {
+        children: props.children, 
+      }
+      this.key = 'script';
+      this.script = document.createElement('script');
+    }
+  
+      
+  
+    render() {
+      this.script.innerHTML = this.props.children.split('\n').join(';\n');
+      return   this.script.outerHTML;
+    }
+  
+    onMount() {
+      document.head.appendChild(this.script);
+      document.body.querySelector(`[key="${this.key}"]`).remove();
+    }
+  
+}
+
+/**
+ * @class HTML
+ * @description HTML component 
+ * @extends Component
+ */
+export class Html extends Component {
+  /**
+   * @constructor
+   * @param {object} props - Component props
+   * @param {string} props.children - Content to be displayed inside the HTML
+   * @param {string} props.lang - Language for the HTML
+   */
+  constructor(props) {
+    super(props);
+    /**
+     * @type {object}
+     * @property {string} children - Content to be displayed inside the HTML
+     * @property {string} lang - Language for the HTML
+     * @property {object} attributes - Attributes for the HTML
+     */
+    this.props = {
+      children: props.children,
+      lang: props.lang || 'en',
+      attributes: props.attributes || {},
+    }
+    this.key = 'html';
+    this.html = document.createElement('html');
+  }
+
+  render() {
+    this.html.innerHTML = this.props.children;
+    return this.html.outerHTML;
+  }
+
+  onMount() {
+    if (window.isServer) {
+      document.documentElement.innerHTML = this.html.outerHTML;
+    }
+    console.log('Document Has Been Mounted')
+  }
+
+}
 export default {
   Component,  
   useRef,
   useReducer,
   useState,
   strictMount, 
-  Link
+  Link,
+  Image,
+  Head,
+  Html,
+  
 }
