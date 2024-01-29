@@ -47,18 +47,7 @@ function Compiler(func, file) {
  
   
  
-
-  // get all Obj({}) and parse to JSON.stringify
-
-  let objects = string.match(/Obj\({.*}\)/gs);
-
-  objects && objects.forEach((obj) => {
-    let key = obj.split("Obj")[1].split("(")[1].split(")")[0].trim();
-    let newobj = obj.replaceAll(`Obj(${key})`, `${key}`);
-    // let newobj = obj.replaceAll(`Obj(${key})`, `JSON.parse('${key}')`)
-    string = string.replaceAll(obj, `this.handleObject('${newobj}')`);
-  });
-
+ 
 
   let childs = [];
 
@@ -96,6 +85,8 @@ function Compiler(func, file) {
           e = e.replace(/:(.*)/gs, '={$1.join(" ")}')
           break;
         default:
+          e = e.replace(/:(.*)/gs, '=$1')
+          break;
       }
 
       return e.trim()
@@ -118,11 +109,9 @@ function Compiler(func, file) {
     const attributeRegex =
       /\s*([a-zA-Z0-9_-]+)(\s*=\s*("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}|(?:\([^)]*\)|\{[^}]*\}|()=>\s*(?:\{[^}]*\})?)|\[[^\]]*\]))?/gs;
 
-    // <div $={{color: 'red'}}></div> 
+    
 
-
-
-    // only return elements with attribute {()=>{}} or if it also has parameters ex: onclick={(event)=>{console.log(event)}} also get muti line functions or onClick=()=>{} 
+ 
     const functionAttributeRegex = /\s*([a-zA-Z0-9_-]+)(\s*=\s*{((?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*)})/gs;
 
     let attributesList = [];
@@ -1074,6 +1063,7 @@ async function Build() {
 
 
     let data = await fs.readFileSync(origin, "utf8");
+    console.log(`Compiling ${fileName}...`)
     data = Compiler(data, origin);
 
 
