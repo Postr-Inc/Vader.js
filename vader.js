@@ -101,6 +101,51 @@ function Compiler(func, file) {
 
   let childs = [];
 
+  const spreadAttributeRegex = /\s*([a-zA-Z0-9_-]+)(\s*\$\s*=\s*{{((?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*)}})/gs;
+  let spreadMatch;
+  while ((spreadMatch = spreadAttributeRegex.exec(string)) !== null) {
+    let [, element, spread] = spreadMatch;
+    let isJSXComponent = element.match(/[A-Z]/) ? true : false;
+    if (isJSXComponent) {
+      continue
+
+    }
+    let old = spread;
+
+    // turn spread into attributes 
+    spread = spread.replace(/\s*$\s*=\s*/, "");
+    spread = spread.replace(/{{/, "");
+    spread = spread.replace(/}}/, "");
+    spread = spread.replace(/\$\s*=\s*/, "");
+
+    // turn : into =
+
+    // do not split inner Objects ex: {color: 'red', background: {color: 'blue'}} -> {color: 'red', background: {color: 'blue'}}
+    let splitByCommas = spread.split(/,(?![^{]*})/g);
+    splitByCommas = splitByCommas.map((e) => e.trim())
+    splitByCommas = splitByCommas.map((e) => {
+      switch (true) {
+        case e.includes('function') || e.includes('=>'):
+          e = e.replace(/:(.*)/gs, '={$1}')
+          break;
+        case e.includes('style'):
+          e = e.replace(/:(.*)/gs, '="${this.parseStyle($1)}"')
+          break;
+        case e.includes('[') && e.includes(']'):
+          e = e.replace(/:(.*)/gs, '={$1.join(" ")}')
+          break;
+        default:
+      }
+
+      return e.trim()
+    })
+
+    let newSpread = `\t` + splitByCommas.join(' ') + `\t`
+
+    string = string.replace(old, newSpread);
+
+  }
+
 
 
   function extractAttributes(code) {
@@ -112,20 +157,38 @@ function Compiler(func, file) {
     const attributeRegex =
       /\s*([a-zA-Z0-9_-]+)(\s*=\s*("([^"\\]*(\\.[^"\\]*)*)"|'([^'\\]*(\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}|(?:\([^)]*\)|\{[^}]*\}|()=>\s*(?:\{[^}]*\})?)|\[[^\]]*\]))?/gs;
 
-    // only return elements with attribute {()=>{}} or if it also has parameters ex: onclick={(event)=>{console.log(event)}} also get muti line functions
+    // <div $={{color: 'red'}}></div> 
+
+
+
+    // only return elements with attribute {()=>{}} or if it also has parameters ex: onclick={(event)=>{console.log(event)}} also get muti line functions or onClick=()=>{} 
     const functionAttributeRegex = /\s*([a-zA-Z0-9_-]+)(\s*=\s*{((?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*)})/gs;
 
     let attributesList = [];
 
-    // handle functions
+    let spreadAttributes = [];
+    let spreadMatch;
+    /**
+     * @search - handle spread for html elements
+     * @keywords - spread, spread attributes, spread props, spread html attributes
+     */
+
+
+    /**
+     * @search - handle function parsing for html elements
+     * @keywords - function, function attributes, function props, function html attributes
+     * 
+     */
     let functionAttributes = [];
     let functionMatch;
     while ((functionMatch = functionAttributeRegex.exec(code)) !== null) {
-      let [, attributeName, attributeValue] = functionMatch;
 
+      let [, attributeName, attributeValue] = functionMatch;
       let attribute = {};
 
-      if (attributeValue && attributeValue.includes("=>") || attributeValue && attributeValue.includes("function")) {
+      if (attributeValue && attributeValue.includes("=>") || attributeValue && attributeValue.includes("function")
+        && !spreadFunctions.includes(attributeValue)
+      ) {
         let functionparams = [];
         // ref with no numbers
         let ref = Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join('')
@@ -200,7 +263,6 @@ function Compiler(func, file) {
         newvalue = newvalue.replace(/}\s*$/, '');
 
 
-
         functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null
 
         newvalue = newvalue.replaceAll(',,', ',')
@@ -224,6 +286,10 @@ function Compiler(func, file) {
       }
     }
 
+    /**
+     * @search - handle attributes for html elements
+     * @keywords - attributes, props, html attributes
+     */
     let match;
     while ((match = elementRegex.exec(code)) !== null) {
       let [, element, attributes] = match;
@@ -265,6 +331,10 @@ function Compiler(func, file) {
   let outerReturn = extractOuterReturn(string);
   let contents = "";
   let updatedContents = "";
+  /**
+   * @search - handle return [...]
+   * @keywords - return, return jsx, return html, return [...]
+   */
   outerReturn.forEach((returnStatement) => {
 
     let lines = returnStatement.split("\n");
@@ -278,13 +348,13 @@ function Compiler(func, file) {
     }
     let usesBraces = returnStatement.match(/return\s*\(/gs) ? true : false;
 
-    let attributes = extractAttributes(contents);
+
     // Remove trailing ']' or trailing )
     contents = contents.trim().replace(/\]$/, "")
     contents = contents.replace(/\)$/, "");
     usesBraces ? !contents.includes('<>') ? contents = `<>${contents}</>` : null : null
     updatedContents = contents;
-
+    let attributes = extractAttributes(contents);
 
     let newAttributes = [];
     let oldAttributes = [];
@@ -410,25 +480,26 @@ function Compiler(func, file) {
   string = string.replaceAll('../src', './src')
 
   function parseComponents(body, isChild) {
-    let componentRegex = /<([A-Z][A-Za-z0-9_-]+)([^>]*)>(.*?)<\/\1>|<([A-Z][A-Za-z0-9_-]+)([^]*?)\/>/gs;
+    let componentRegex = /<([A-Z][A-Za-z0-9_-]+)\s*([^>]*)>\s*([\s\S]*?)\s*<\/\1>|<([A-Z][A-Za-z0-9_-]+)([^]*?)\/>/gs;
 
     let componentMatch = body.match(componentRegex);
     let topComponent = "";
     componentMatch?.forEach(async (component) => {
 
       let [, element, attributes] = component;
-
+      let before = component;
+      component = component.trim().replace(/\s+/g, " ");
 
       !isChild ? (topComponent = component) : null;
-      let before = component;
+
 
       let myChildrens = [];
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
+      let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim();
       // some components will have props that have html inside of them we need to only get the props ex: <Header title={<h1>hello</h1>}></Header> -> title={<h1>hello</h1>}  // also spread props ex: <Header {...props}></Header> -> {...props} or {...props, title: 'hello'} or {...props, color:{color: 'red'}}
       // grab ...( spread props ) 
-      const dynamicAttributesRegex = /(\w+)(?:="([^"]*)")?(?:='([^']*)')?(?:=\{([^}]*)\})?(?:=\{(.*?)\})?(?:={([^}]*)})?(?:{([^}]*)})?|(?:{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\})|(\.{3}\{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\})/gs;
-
+      const dynamicAttributesRegex = /(\w+)(?:="([^"]*)")?(?:='([^']*)')?(?:=\{([^}]*)\})?(?:=\{(.*?)\})?(?:={([^}]*)})?(?:{([^}]*)})?|(?:{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\})|(\.{3}\{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\})|\$=\{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\}/gs;
 
 
 
@@ -439,6 +510,9 @@ function Compiler(func, file) {
       let filteredProps = [];
       let isWithinComponent = false;
       let componentName = name
+      let currentProps = []
+
+      let $_ternaryprops = []
 
       for (let prop of props) {
 
@@ -449,7 +523,19 @@ function Compiler(func, file) {
           filteredProps.push(prop);
         } else if (isWithinComponent && prop.includes('=')) {
 
-          if (prop.includes('${')) {
+          if (prop.startsWith('$=')) {
+            let old = prop
+            prop = prop.replace('$=', '$_ternary=')
+
+            // remove trailing }
+            prop = prop.replace(/}\s*$/, '')
+            component = component.replace(old, prop)
+            componentAttributes = componentAttributes.replace(old, prop)
+
+            $_ternaryprops.push(prop)
+
+          }
+          else if (prop.includes('${')) {
             // if it has  an object inside of it then we should just do soemting:object else we should do something: `${object}`
 
             prop = prop.replace('="', ':').replace('}"', '}')
@@ -467,7 +553,7 @@ function Compiler(func, file) {
             }
 
           }
-          if (prop.startsWith('={')) {
+          else if (prop.startsWith('={')) {
             prop = prop.replace('={', ':`${')
             prop.replace('} ', '}`')
           }
@@ -487,72 +573,25 @@ function Compiler(func, file) {
           filteredProps.push(prop);
 
 
+
         }
-        else if (isWithinComponent && prop.includes('...')) {
 
-
-
-          // Check if spread props are within curly braces
-          if (prop.startsWith('{') && prop.endsWith('}')) {
-            const spreadObject = prop
-            const hasOtherObjects = spreadObject.split(',').filter((e) => e.includes(':')).length > 0;
-
-            const isValidSpread = spreadObject.includes('...');
-
-            let processedSpreadObject = '';
-            if (isValidSpread) {
-              // Split the spreadObject by commas and process each part individually
-              const parts = spreadObject.split(',').map((part) => {
-                if (part.trim().startsWith('{') && part.trim().endsWith('}')) {
-                  const nestedParts = part
-                    .trim()
-                    .slice(1, -1) // Remove outer {}
-                    .split(',')
-                    .map((nestedPart) => {
-                      return nestedPart.includes('...') ? nestedPart.trim().replace(/\.\.\./, '') : `...${nestedPart.trim()}`;
-                    });
-                  return `{${nestedParts.join(',')}}`;
-                } else {
-                  return part.includes('...') ? part.trim() : part.trim().startsWith('{') ? `...${part.trim()}` : `${part.trim()}`;
-                }
-              });
-              if (!parts.join(',').includes('{(')) {
-
-                processedSpreadObject = `${parts.join(',')}`
-
-              } else {
-                let prop = parts.join(',')
-                prop = prop.replaceAll('{(', '(')
-                prop = prop.replaceAll(')}', ')')
-                processedSpreadObject = prop
-              }
-              if (prop.includes('{{')) {
-                let prop = parts.join(',')
-                prop = prop.replaceAll('{{', '{')
-                prop = prop.replaceAll('}}', '}')
-                processedSpreadObject = prop
-              }
-
-
-            } else {
-              // Process nested structures within the object
-              processedSpreadObject = `{...${spreadObject}}`;
-            }
-
-            const $propsKey = `$props_${Math.random().toString(36).substring(2)}`;
-            filteredProps.push(`${$propsKey}:${processedSpreadObject}`);
-          }
-        }
 
         else {
           isWithinComponent = false;
         }
       }
+      component = component.replaceAll(/\s+/g, " ");
 
-      // get inner content of <Component>inner content</Component>
-      let children = new RegExp(`<${name}[^>]*>(.*?)<\/${name}>`, "gs").exec(component) ? new RegExp(`<${name}[^>]*>(.*?)<\/${name}>`, "gs").exec(component)[1] : null;
+      component = component.replace(componentAttributes, '')
+      $_ternaryprops.forEach((prop) => {
+        component = component.replace(prop, '')
+      })
 
-      props = filteredProps.join(',')
+      let children = component.split(`<${name}`)[1].split(`</${name}>`)[0].trim().replace(/\s+/g, " ").trim().replace(/,$/, '').replace('>', '').replace(/\/$/, '').trim()
+
+
+      props = filteredProps.join(',').replace(/\s+/g, " ").trim().replace(/,$/, '')
 
       let savedname = name;
 
@@ -573,7 +612,7 @@ function Compiler(func, file) {
             /<([A-Z][A-Za-z0-9_-]+)([^>]*)>(.*?)<\/\1>|<([A-Z][A-Za-z0-9_-]+)([^]*?)\/>/gs
           );
           if (html) {
-            html = html.map((h) => h.trim().replace(/\s+/g, " ")).join(" "); 
+            html = html.map((h) => h.trim().replace(/\s+/g, " ")).join(" ");
             child.children = child.children.replaceAll(html, `${html}`);
             // remove duplicate quotes 
           }
@@ -599,8 +638,10 @@ function Compiler(func, file) {
        * @memoize - memoize a component to be remembered on each render and replace the old jsx
        */
 
+
       let replace = "";
-      replace = `\${this.memoize(this.createComponent(${savedname}, {${props}}, [\`${myChildrens.join(" ")}\`]))}`;
+      replace = `\${this.memoize(this.createComponent(${savedname}, {${props}}, [\`${myChildrens.join('')}\`]))}`;
+
 
       body = body.replace(before, replace);
     });
@@ -613,55 +654,55 @@ function Compiler(func, file) {
   const importRegex = /import\s*([^\s,]+|\{[^}]+\})\s*from\s*(['"])(.*?)\2/g;
   const imports = string.match(importRegex);
   let replaceMents = [];
-  
- 
-  for  (let match of imports) {
+
+
+  for (let match of imports) {
     let path = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
     switch (true) {
       case path && !path.includes('./') && !path.includes('/vader.js') && !path.includes('/vaderjs/client') && !path.startsWith('src') && !path.startsWith('public') && !path.includes('http') && !path.includes('https'):
-         let componentFolder = fs.existsSync(process.cwd() + '/node_modules/' + path) ? process.cwd() + '/node_modules/' + path : process.cwd() + '/node_modules/' + path.split('/')[0]
-         componentFolder = componentFolder.split(process.cwd())[1]
-         if(!fs.existsSync(process.cwd() + componentFolder)){
+        let componentFolder = fs.existsSync(process.cwd() + '/node_modules/' + path) ? process.cwd() + '/node_modules/' + path : process.cwd() + '/node_modules/' + path.split('/')[0]
+        componentFolder = componentFolder.split(process.cwd())[1]
+        if (!fs.existsSync(process.cwd() + componentFolder)) {
           throw new Error('Could not find ' + path + ' at ' + match + ' in file ' + file)
-         }
-        
-          if(!fs.existsSync(process.cwd() +  '/dist/src/' + componentFolder.split('/').slice(2).join('/'))){
-            fs.mkdirSync(process.cwd() +  '/dist/src/' + componentFolder.split('/').slice(2).join('/'), { recursive: true })
+        }
+
+        if (!fs.existsSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'))) {
+          fs.mkdirSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'), { recursive: true })
+        }
+
+        let baseFolder = componentFolder.split('node_modules')[1].split('/')[1]
+        let glp = globSync('**/**/**/**.{jsx,js}', {
+          cwd: process.cwd() + '/node_modules/' + baseFolder + '/',
+          absolute: true,
+          recursive: true
+        })
+        for (let file of glp) {
+          let text = fs.readFileSync(file, "utf8");
+          if (!file.endsWith('.js') && file.endsWith('.jsx')) {
+            text = Compiler(text, file);
           }
-         
-          let baseFolder = componentFolder.split('node_modules')[1].split('/')[1] 
-          let glp =   globSync('**/**/**/**.{jsx,js}', {
-            cwd: process.cwd() + '/node_modules/' + baseFolder + '/',
-            absolute: true,
-            recursive: true 
-          }) 
-          for  (let file of glp) {
-            let text = fs.readFileSync(file, "utf8");
-            if(!file.endsWith('.js') && file.endsWith('.jsx')){
-              text = Compiler(text, file);
-            } 
-            let dest = file.split('node_modules')[1] 
-            dest = dest.split(baseFolder)[1]  
-            // write to dist
-              writer(process.cwd() + '/dist/src/' + baseFolder + dest, text)
-            let importname = match.split('import')[1].split('from')[0].trim()
-            let oldImportstring = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
-            let newImport = `/src/${baseFolder + dest}` 
-            newImport = newImport.replaceAll('.jsx', '.js').replaceAll('\\', '/')
-            replaceMents.push({ match: oldImportstring, replace: newImport })
-            console.log(`📦 imported Node Package  ${baseFolder} `)
-          }  
-        
+          let dest = file.split('node_modules')[1]
+          dest = dest.split(baseFolder)[1]
+          // write to dist
+          writer(process.cwd() + '/dist/src/' + baseFolder + dest, text)
+          let importname = match.split('import')[1].split('from')[0].trim()
+          let oldImportstring = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
+          let newImport = `/src/${baseFolder + dest}`
+          newImport = newImport.replaceAll('.jsx', '.js').replaceAll('\\', '/')
+          replaceMents.push({ match: oldImportstring, replace: newImport })
+          console.log(`📦 imported Node Package  ${baseFolder} `)
+        }
+
 
         break;
       default:
         break;
     }
-  } 
- 
-  for(let replace of replaceMents){  
+  }
+
+  for (let replace of replaceMents) {
     string = string.replaceAll(replace.match, replace.replace)
-  }  
+  }
 
   string = string.replaceAll(/\$\{[^{]*\.{3}/gs, (match) => {
     if (match.includes('...')) {
@@ -716,7 +757,7 @@ function Compiler(func, file) {
       let asyncimportMatch = line.match(/import\s*\((.*)\)/gs);
       // handle import { Component } from 'vaderjs/runtime/vader.js'
       let regularimportMatch = line.match(/import\s*([A-Za-z0-9_-]+)\s*from\s*([A-Za-z0-9_-]+)|import\s*([A-Za-z0-9_-]+)\s*from\s*(".*")|import\s*([A-Za-z0-9_-]+)\s*from\s*('.*')|import\s*([A-Za-z0-9_-]+)\s*from\s*(\{.*\})/gs);
- 
+
       if (asyncimportMatch) {
         asyncimportMatch.forEach(async (match) => {
           let beforeimport = match
@@ -770,7 +811,7 @@ function Compiler(func, file) {
 
           let newImport = ''
           let name = match.split('import')[1].split('from')[0].trim()
- 
+
 
           switch (true) {
             case path && path.includes('json'):
@@ -796,9 +837,9 @@ function Compiler(func, file) {
               newImport = ``
               break;
             case path && !path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src') && !path.startsWith('public') &&
-            path.match(/^[A-Za-z0-9_-]+$/gs) && !path.includes('http') && !path.includes('https'):
-            console.log(path)
-            break;
+              path.match(/^[A-Za-z0-9_-]+$/gs) && !path.includes('http') && !path.includes('https'):
+
+              break;
             default:
               let beforePath = path
               let deep = path.split('/').length - 1
@@ -856,7 +897,7 @@ async function Build() {
     return text;
   };
 
-   
+
 
 
 
@@ -1040,17 +1081,17 @@ async function Build() {
         await writer(process.cwd() + '/dist/' + (route.url === '/' ? 'index.html' : `${route.url}/` + 'index.html'), html)
         await browser.close();
         server.close()
-        
+
       } catch (error) {
         server.close()
-        await browser.close(); 
+        await browser.close();
       }
       finally {
         await browser.close();
-        server.close() 
+        server.close()
       }
       try {
-        process.kill(browserPID )
+        process.kill(browserPID)
       } catch (error) {
       }
 
@@ -1259,7 +1300,7 @@ async function Build() {
   console.log(`📦 Build completed: Build Size -> ${Math.round(bundleSize / 1000)}kb`)
 
   bundleSize = 0;
- 
+
   return true
 }
 const s = () => {
@@ -1389,7 +1430,7 @@ Vader.js v1.3.3
           }
         }).on('error', (err) => console.log(err))
     })
-    let p = process.argv[process.argv.indexOf('--watch') + 1] ||  process.env.PORT || 3000
+    let p = process.argv[process.argv.indexOf('--watch') + 1] || process.env.PORT || 3000
 
     process.env.PORT = p
     s()

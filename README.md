@@ -126,9 +126,11 @@ export function Layout({title, keywords, description, children}){
 
 // pages/index.jsx
 
+//$= is a ternary operator used for spread like nesting
+
 export default function (req, res){
   return <>
-   <Layout {...{title:'home', description:'home page', keywords:'vader.js', logo:''}}>
+   <Layout $={{title:'home', description:'home page', keywords:'vader.js', logo:''}}>
    <h1> Hello World</h1>
    </Layout>
   </>
@@ -173,6 +175,8 @@ export default class MyApp extends Component{
   contructor(){
    super()
    this.key = 'static key for state changes'
+   // or
+   this.nokey // disable element generation 
   }
   
   render(){
@@ -215,7 +219,7 @@ return <>
 </>
 ```
  
-and lower level invokes - these operate the same just allow you to pass items from top level to lower level: ex - I have a variable named car and i want the button to log it i can pass it as a parameter to allow it to be added to the buttons function scope
+Low level invokes are considered top level and can access - any value above the scope !! 
 
 ```jsx
 let car = {
@@ -223,7 +227,7 @@ let car = {
   price: 'toomiuch'
 }
 return <>
-<button onclick={(car)=>{
+<button onclick={(event)=>{
  console.log(car.model)
 }}>Log</button>
 ```
