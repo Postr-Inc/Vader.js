@@ -426,8 +426,7 @@ function Compiler(func, file) {
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
       let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim(); 
-      const dynamicAttributesRegex = /(\w+)(?:="([^"]*)")?(?:='([^']*)')?(?:=\{([^}]*)\})?(?:=\{(.*?)\})?(?:={([^}]*)})?(?:{([^}]*)})?|(?:{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\})|(\.{3}\{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\})|\$=\{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\}/gs;
-
+      const dynamicAttributesRegex = /(\w+)(?:="([^"]*?)"|='([^']*?)'|(?:=\{([^}]*?)\})?|(?:=\{(.*?)*\})?|(?:={([^}]*?)})?|(?:{([^}]*?)})?|(?:}))?|\$=\s*\{\s*\{\s*(.*?)\s*\}\s*\}/gs;
 
 
 
@@ -448,7 +447,7 @@ function Compiler(func, file) {
           isWithinComponent = true;
           filteredProps.push(prop);
         } else if (isWithinComponent && prop.includes('=')) {
-
+ 
           if (prop.startsWith('$=')) {
             let old = prop
             prop = prop.replace('$=', '$_ternary=')
@@ -990,6 +989,7 @@ async function Build() {
         await page.on('console', msg => console.log('PAGE LOG:', msg.text()));
         await page.on('error', err => console.log('PAGE LOG:', err));
         await page.on('pageerror', err => console.log('PAGE LOG:', err));
+        await page.on('requestfailed', err => console.log(err));
         await page.evaluate(() => {
           window.onerror = function (msg, url, lineNo, columnNo, error) {
             console.log(msg, url, lineNo, columnNo, error)
