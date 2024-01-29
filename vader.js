@@ -22,16 +22,8 @@ let writer = async (file, data) => {
   globalThis.isWriting = null
   return { _written: true };
 };
-
-let start = Date.now()
-let bundleSize = 0;
-let errorCodes = {
-  "SyntaxError: Unexpected token '<'": "You forgot to enclose tags in a fragment <></>",
-}
-/**
- * define directories
- */
-
+ 
+let bundleSize = 0; 
 
 if (!fs.existsSync(process.cwd() + '/dist')) {
   fs.mkdirSync(process.cwd() + '/dist')
@@ -48,44 +40,13 @@ if (typeof process.env.isCloudflare !== "undefined" || !fs.existsSync(process.cw
 
 
 function Compiler(func, file) {
-  let string = func;
-  // Remove block comments 
-
+  let string = func; 
   let returns = []
   let comments = string.match(/\{\s*\/\*.*\*\/\s*}/gs)?.map((comment) => comment.trim());
 
-  let savedfuncnames = [];
-  let functions = string.match(
-    /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
-  )
-    ?.map((match) => match.trim());
-
-  let functionNames = [];
-
-
-  functions && functions.forEach((func) => {
-    if (
-      !func.match(
-        /(?:const|let)\s*([a-zA-Z0-9_-]+)\s*=\s*function\s*\(([^)]*)\)|function\s*([a-zA-Z0-9_-]+)\s*\(([^)]*)\)/gs
-      )
-    ) {
-      return;
-    }
-
-    let name = func.split(" ")[1].split("(")[0].trim();
-
-    let lines = string.match(/return\s*\<>.*\<\/>/gs);
-
-    if (lines) {
-      for (let i = 0; i < lines.length; i++) {
-        let line = lines[i];
-
-        if (!functionNames.includes(name)) {
-          functionNames.push(name);
-        }
-      }
-    }
-  });
+ 
+  
+ 
 
   // get all Obj({}) and parse to JSON.stringify
 
@@ -189,27 +150,10 @@ function Compiler(func, file) {
       if (attributeValue && attributeValue.includes("=>") || attributeValue && attributeValue.includes("function")
         && !spreadFunctions.includes(attributeValue)
       ) {
-        let functionparams = [];
-        // ref with no numbers
+        
         let ref = Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join('')
         let old = `${attributeName}${attributeValue}`
-        functionNames.forEach((name) => {
-          string.split("\n").forEach((line) => {
-            if (line.includes(name) && line.includes("function")) {
-              line = line.trim();
-              line = line.replace(/\s+/g, " ");
-
-              let ps = line.split("(").slice(1).join("(").split(")")[0].trim();
-
-              // remove comments
-              ps = ps.match(/\/\*.*\*\//gs)
-                ? ps.replace(ps.match(/\/\*.*\*\//gs)[0], "")
-                : ps;
-              functionparams.push({ ref: ref, name: name, params: ps });
-
-            }
-          });
-        });
+       
         let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
         let isJSXComponent = false;
         elementMatch.forEach((element) => {
@@ -263,7 +207,7 @@ function Compiler(func, file) {
         newvalue = newvalue.replace(/}\s*$/, '');
 
 
-        functionparams.length > 0 ? params = params + ',' + functionparams.map((e) => e.name).join(',') : null
+        
 
         newvalue = newvalue.replaceAll(',,', ',')
         let paramnames = params ? params.split(',').map((e) => e.trim()) : null
@@ -314,8 +258,7 @@ function Compiler(func, file) {
     let returns = code.match(/return\s*\<>.*\<\/>|return\s*\(.*\)/gs);
 
     return returns || [];
-  }
-  // throw error if return is not wrapped in <></> or
+  } 
   if (string.match(/return\s*\<>|return\s*\(.*\)/gs) && !string.match(/return\s*\<>.*\<\/>|return\s*\(.*\)/gs)
     || string.match(/return\s*\<[a-zA-Z0-9_-]+.*>/gs)
   ) {
@@ -348,8 +291,7 @@ function Compiler(func, file) {
     }
     let usesBraces = returnStatement.match(/return\s*\(/gs) ? true : false;
 
-
-    // Remove trailing ']' or trailing )
+ 
     contents = contents.trim().replace(/\]$/, "")
     contents = contents.replace(/\)$/, "");
     usesBraces ? !contents.includes('<>') ? contents = `<>${contents}</>` : null : null
@@ -433,9 +375,7 @@ function Compiler(func, file) {
           valuestate = valuestate.match(regex) ? valuestate.match(regex)[0].split("useState(")[1].split(")")[0].trim() : valuestate
 
 
-          let newState = `${varType} [${key}, ${setKey}] = this.useState('${key}', ${valuestate}
-           
-            `;
+          let newState = `${varType} [${key}, ${setKey}] = this.useState('${key}', ${valuestate}`;
           string = string.replace(line, newState);
           break;
         case line.includes("useRef") && !line.includes("import"):
@@ -496,9 +436,7 @@ function Compiler(func, file) {
       let myChildrens = [];
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
-      let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim();
-      // some components will have props that have html inside of them we need to only get the props ex: <Header title={<h1>hello</h1>}></Header> -> title={<h1>hello</h1>}  // also spread props ex: <Header {...props}></Header> -> {...props} or {...props, title: 'hello'} or {...props, color:{color: 'red'}}
-      // grab ...( spread props ) 
+      let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim(); 
       const dynamicAttributesRegex = /(\w+)(?:="([^"]*)")?(?:='([^']*)')?(?:=\{([^}]*)\})?(?:=\{(.*?)\})?(?:={([^}]*)})?(?:{([^}]*)})?|(?:{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\})|(\.{3}\{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\})|\$=\{(?:[^{}]+|\{(?:[^{}]+|\{[^}]*\})*\})*\}/gs;
 
 
@@ -517,8 +455,7 @@ function Compiler(func, file) {
       for (let prop of props) {
 
         if (prop === componentName) {
-
-          // If the component is encountered, start collecting props
+ 
           isWithinComponent = true;
           filteredProps.push(prop);
         } else if (isWithinComponent && prop.includes('=')) {
@@ -535,8 +472,7 @@ function Compiler(func, file) {
             $_ternaryprops.push(prop)
 
           }
-          else if (prop.includes('${')) {
-            // if it has  an object inside of it then we should just do soemting:object else we should do something: `${object}`
+          else if (prop.includes('${')) { 
 
             prop = prop.replace('="', ':').replace('}"', '}')
             if (prop.includes('${')) {
@@ -618,6 +554,7 @@ function Compiler(func, file) {
           }
 
           myChildrens.push(child.children);
+          childs = childs.filter((e) => e.parent !== name);
         }
       });
 
@@ -680,6 +617,7 @@ function Compiler(func, file) {
           let text = fs.readFileSync(file, "utf8");
           if (!file.endsWith('.js') && file.endsWith('.jsx')) {
             text = Compiler(text, file);
+
           }
           let dest = file.split('node_modules')[1]
           dest = dest.split(baseFolder)[1]
@@ -897,14 +835,7 @@ async function Build() {
     return text;
   };
 
-
-
-
-
-
-  // Process files in the 'pages' directory
-  let appjs = '';
-  let hasWritten = []
+ 
   function ssg(routes = []) {
     globalThis.isBuilding = true
     console.log(`Generating html files for ${routes.length} routes`)
@@ -1060,21 +991,30 @@ async function Build() {
         headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
         warning: false,
       })
-
+ 
       const browserPID = browser.process().pid
       try {
 
         route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')
         let page = await browser.newPage();
         await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle2' });
+        await page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+        await page.on('error', err => console.log('PAGE LOG:', err));
+        await page.on('pageerror', err => console.log('PAGE LOG:', err));
+        await page.evaluate(() => {
+          window.onerror = function (msg, url, lineNo, columnNo, error) {
+            console.log(msg, url, lineNo, columnNo, error)
+          }
+        })
         await page.waitForSelector('#root', { timeout: 10000 })
         await page.evaluate(() => {
           document.getElementById('meta').remove()
           document.querySelector('#isServer').innerHTML = 'window.isServer = false'
           if (document.head.getAttribute('prerender') === 'false') {
             document.querySelector('#root').innerHTML = ''
+            console.log(`Disabled prerendering for ${window.location.pathname}`)
           }
-        })
+        }) 
         const html = await page.content();
 
         await page.close();
@@ -1135,7 +1075,6 @@ async function Build() {
 
     let data = await fs.readFileSync(origin, "utf8");
     data = Compiler(data, origin);
-
 
 
     await writer(process.cwd() + "/dist/" + fileName.replace('.jsx', '.js'), data).then(async () => {
