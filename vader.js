@@ -1,15 +1,27 @@
 #!/usr/bin/env node
 import fs from "fs";
 import { glob, globSync, globStream, globStreamSync, Glob, } from 'glob'
-import dotenv from 'dotenv'
-dotenv.config()
 import puppeteer from 'puppeteer';
 import http from 'http'
 import { WebSocketServer } from 'ws'
 import { watch } from "fs";
 import path from 'path'
 let config = await import('file://' + process.cwd() + '/vader.config.js').then((e) => e.default || e)
+let writer = async (file, data) => {
+  globalThis.isWriting = file
+  switch (true) {
+    case !fs.existsSync(file):
+      fs.mkdirSync(file.split('/').slice(0, -1).join('/'), { recursive: true })
+      break;
+  }
+  if (globalThis.isWriting !== file) {
+    return
+  }
+  await fs.writeFileSync(file, data);
 
+  globalThis.isWriting = null
+  return { _written: true };
+};
 
 let start = Date.now()
 let bundleSize = 0;
@@ -250,14 +262,6 @@ function Compiler(func, file) {
     }
   }
 
-  // take all elements in string and put them straight 
-  let elementMatch = string.match(/<([a-zA-Z0-9_-]+)([^>]*)>/gs);
-  elementMatch?.forEach((element) => {
-     let before = element;
-     element  = element.trim().replace(/\s+/g, " ");
-     string = string.replace(before, `${element}`);
-  });
-
   let outerReturn = extractOuterReturn(string);
   let contents = "";
   let updatedContents = "";
@@ -295,27 +299,26 @@ function Compiler(func, file) {
         let value = attributes[key];
         let oldvalue = value;
         if (value && !value.new) {
-          if (value && value.includes("={`")) {
-            value = value.replace("=", "");
-  
-            value = `="\$${value}",`; 
-            string = string.replace(oldvalue, value);
-
-          }
-          else if (value && value.includes("={")) {
+          if (value && value.includes("={")) {
             value = value.replace("=", "");
             value == "undefined" ? (value = '"') : (value = value);
 
             key == 'style'
               && value.includes("{{")
               ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
- 
+
 
 
             value = `="\$${value}",`;
             string = string.replace(oldvalue, value);
 
-          }  
+          } else if (value && value.includes("={`")) {
+            value = value.replace("=", "");
+
+            value = `"\$${value}",`;
+            string = string.replace(oldvalue, value);
+
+          }
         } else if (value && value.new) {
           string = string.replace(oldvalue, value.new);
         }
@@ -439,7 +442,8 @@ function Compiler(func, file) {
 
       for (let prop of props) {
 
-        if (prop.includes(componentName)) {
+        if (prop === componentName) {
+
           // If the component is encountered, start collecting props
           isWithinComponent = true;
           filteredProps.push(prop);
@@ -450,14 +454,10 @@ function Compiler(func, file) {
 
             prop = prop.replace('="', ':').replace('}"', '}')
             if (prop.includes('${')) {
-              
               prop = prop.replace('="', ':')
               prop = prop.replace('${', '')
-               
-              if(prop.endsWith('}')){
-                let index = prop.lastIndexOf('}')
-                prop = prop.substring(0, index) + prop.substring(index + 1);
-              }
+              prop = prop.replace('}', '')
+
             }
             if (prop.includes('="${{')) {
               prop = prop.replace('${{', '{')
@@ -570,11 +570,10 @@ function Compiler(func, file) {
       childs.forEach((child) => {
         if (child.parent == name) {
           let html = child.children.match(
-            /<([a-zA-Z0-9_-]+)([^>]*)>(.*?)<\/\1>/gs
+            /<([A-Z][A-Za-z0-9_-]+)([^>]*)>(.*?)<\/\1>|<([A-Z][A-Za-z0-9_-]+)([^]*?)\/>/gs
           );
           if (html) {
-            html = html.map((h) => h.trim().replace(/\s+/g, " ")).join(" ");
-            let before = child.children;
+            html = html.map((h) => h.trim().replace(/\s+/g, " ")).join(" "); 
             child.children = child.children.replaceAll(html, `${html}`);
             // remove duplicate quotes 
           }
@@ -609,12 +608,60 @@ function Compiler(func, file) {
     return body;
   }
 
-
-
-  // replace all comments
-
   string = string.replaceAll('vaderjs/client', '/vader.js')
-  // replace ${... with ${
+
+  const importRegex = /import\s*([^\s,]+|\{[^}]+\})\s*from\s*(['"])(.*?)\2/g;
+  const imports = string.match(importRegex);
+  let replaceMents = [];
+  
+ 
+  for  (let match of imports) {
+    let path = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
+    switch (true) {
+      case path && !path.includes('./') && !path.includes('/vader.js') && !path.includes('/vaderjs/client') && !path.startsWith('src') && !path.startsWith('public') && !path.includes('http') && !path.includes('https'):
+         let componentFolder = fs.existsSync(process.cwd() + '/node_modules/' + path) ? process.cwd() + '/node_modules/' + path : process.cwd() + '/node_modules/' + path.split('/')[0]
+         componentFolder = componentFolder.split(process.cwd())[1]
+         if(!fs.existsSync(process.cwd() + componentFolder)){
+          throw new Error('Could not find ' + path + ' at ' + match + ' in file ' + file)
+         }
+        
+          if(!fs.existsSync(process.cwd() +  '/dist/src/' + componentFolder.split('/').slice(2).join('/'))){
+            fs.mkdirSync(process.cwd() +  '/dist/src/' + componentFolder.split('/').slice(2).join('/'), { recursive: true })
+          }
+         
+          let baseFolder = componentFolder.split('node_modules')[1].split('/')[1] 
+          let glp =   globSync('**/**/**/**.{jsx,js}', {
+            cwd: process.cwd() + '/node_modules/' + baseFolder + '/',
+            absolute: true,
+            recursive: true 
+          }) 
+          for  (let file of glp) {
+            let text = fs.readFileSync(file, "utf8");
+            if(!file.endsWith('.js') && file.endsWith('.jsx')){
+              text = Compiler(text, file);
+            } 
+            let dest = file.split('node_modules')[1] 
+            dest = dest.split(baseFolder)[1]  
+            // write to dist
+              writer(process.cwd() + '/dist/src/' + baseFolder + dest, text)
+            let importname = match.split('import')[1].split('from')[0].trim()
+            let oldImportstring = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
+            let newImport = `/src/${baseFolder + dest}` 
+            newImport = newImport.replaceAll('.jsx', '.js').replaceAll('\\', '/')
+            replaceMents.push({ match: oldImportstring, replace: newImport })
+            console.log(`📦 imported Node Package  ${baseFolder} `)
+          }  
+        
+
+        break;
+      default:
+        break;
+    }
+  } 
+ 
+  for(let replace of replaceMents){  
+    string = string.replaceAll(replace.match, replace.replace)
+  }  
 
   string = string.replaceAll(/\$\{[^{]*\.{3}/gs, (match) => {
     if (match.includes('...')) {
@@ -667,8 +714,9 @@ function Compiler(func, file) {
     if (line.includes('import')) {
       // Regular expression for matching import() statements
       let asyncimportMatch = line.match(/import\s*\((.*)\)/gs);
-      let regularimportMatch = line.match(/import\s*([a-zA-Z0-9_-]+)?\s*from\s*('(.*)'|"(.*)")|import\s*('(.*)'|"(.*)")/gs);
-
+      // handle import { Component } from 'vaderjs/runtime/vader.js'
+      let regularimportMatch = line.match(/import\s*([A-Za-z0-9_-]+)\s*from\s*([A-Za-z0-9_-]+)|import\s*([A-Za-z0-9_-]+)\s*from\s*(".*")|import\s*([A-Za-z0-9_-]+)\s*from\s*('.*')|import\s*([A-Za-z0-9_-]+)\s*from\s*(\{.*\})/gs);
+ 
       if (asyncimportMatch) {
         asyncimportMatch.forEach(async (match) => {
           let beforeimport = match
@@ -722,7 +770,7 @@ function Compiler(func, file) {
 
           let newImport = ''
           let name = match.split('import')[1].split('from')[0].trim()
-
+ 
 
           switch (true) {
             case path && path.includes('json'):
@@ -747,6 +795,10 @@ function Compiler(func, file) {
               string = string.replace(beforeimport, '')
               newImport = ``
               break;
+            case path && !path.startsWith('./') && !path.includes('/vader.js') && !path.startsWith('src') && !path.startsWith('public') &&
+            path.match(/^[A-Za-z0-9_-]+$/gs) && !path.includes('http') && !path.includes('https'):
+            console.log(path)
+            break;
             default:
               let beforePath = path
               let deep = path.split('/').length - 1
@@ -804,21 +856,7 @@ async function Build() {
     return text;
   };
 
-  let writer = async (file, data) => {
-    globalThis.isWriting = file
-    switch (true) {
-      case !fs.existsSync(file):
-        fs.mkdirSync(file.split('/').slice(0, -1).join('/'), { recursive: true })
-        break;
-    }
-    if (globalThis.isWriting !== file) {
-      return
-    }
-    await fs.writeFileSync(file, data);
-
-    globalThis.isWriting = null
-    return { _written: true };
-  };
+   
 
 
 
@@ -982,12 +1020,13 @@ async function Build() {
         warning: false,
       })
 
+      const browserPID = browser.process().pid
       try {
 
         route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')
         let page = await browser.newPage();
         await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle2' });
-        await page.waitForSelector('#root');
+        await page.waitForSelector('#root', { timeout: 10000 })
         await page.evaluate(() => {
           document.getElementById('meta').remove()
           document.querySelector('#isServer').innerHTML = 'window.isServer = false'
@@ -1000,13 +1039,19 @@ async function Build() {
         await page.close();
         await writer(process.cwd() + '/dist/' + (route.url === '/' ? 'index.html' : `${route.url}/` + 'index.html'), html)
         await browser.close();
+        server.close()
+        
       } catch (error) {
-        console.log(error)
-        await browser.close();
+        server.close()
+        await browser.close(); 
       }
       finally {
         await browser.close();
-        server.close()
+        server.close() 
+      }
+      try {
+        process.kill(browserPID )
+      } catch (error) {
       }
 
 
@@ -1170,7 +1215,7 @@ async function Build() {
     await writer(process.cwd() + "/dist/src/" + name, data);
   })
 
-  const scannedPublicFiles = await glob("**/**.{css,js,html,mjs,cjs,json,png,jpg,jpeg,gif,svg,mp4,webm,ogg}", {
+  const scannedPublicFiles = await glob("**/**.{css,js,html,mjs,cjs}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
     cwd: process.cwd() + '/public/',
     absolute: true,
@@ -1214,6 +1259,7 @@ async function Build() {
   console.log(`📦 Build completed: Build Size -> ${Math.round(bundleSize / 1000)}kb`)
 
   bundleSize = 0;
+ 
   return true
 }
 const s = () => {
@@ -1298,8 +1344,8 @@ const s = () => {
         return 'application/octet-stream';
     }
   }
-  
-  const PORT = process.env.PORT ? process.env.PORT : 3000;
+
+  const PORT = process.env.PORT || 3000;
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
@@ -1343,7 +1389,9 @@ Vader.js v1.3.3
           }
         }).on('error', (err) => console.log(err))
     })
+    let p = process.argv[process.argv.indexOf('--watch') + 1] ||  process.env.PORT || 3000
 
+    process.env.PORT = p
     s()
 
     globalThis.listen = true;
@@ -1359,7 +1407,8 @@ Building to ./dist
 
     break;
   case process.argv.includes('--serve') && !process.argv.includes('--watch') && !process.argv.includes('--build'):
-    let port = process.argv[process.argv.indexOf('--serve') + 1] ||  process.env.PORT || 3000
+    let port = process.argv[process.argv.indexOf('--serve') + 1] || 3000
+    process.env.PORT = port
     globalThis.devMode = false
     console.log(`
 Vader.js v1.3.3 
@@ -1371,19 +1420,19 @@ url: http://localhost:${port}
   default:
     console.log(`
 Vader.js is a reactive framework for building interactive applications for the web built ontop of bun.js!
-
-Usage: vader <command> 
-
-Commands:
-  --watch     Watch the pages folder for changes with hot reloading
-
-  --build     Build the project to ./dist
-
-  --serve 4000     Serve the project on a port (default 3000)
-  
-Learn more about vader:           https://vader-js.pages.dev/
     
-`)
+Usage: vader <command> 
+    
+Commands:
+  --watch (port)    Watch the pages folder for changes with hot reloading
+    
+  --build     Build the project to ./dist
+    
+  --serve  (400)   Serve the project on a port (default 3000 or process.env.PORT)
+      
+Learn more about vader:           https://vader-js.pages.dev/
+        
+    `)
     break;
 
 }
