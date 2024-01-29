@@ -14,7 +14,7 @@
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Postr-Inc/Vader.js/blob/main/LICENSE) [![npm version](https://img.shields.io/npm/v/vaderjs.svg?style=flat)](https://www.npmjs.com/package/vaderjs) 
 
  
-> Do not use any alpha versions as these where changed multiple times any version under beta is considered lts and are deemed to be stable
+> Do not use any alpha versions as these where changed multiple times any version under latest is considered lts and are deemed to be stable
 ## Get Started 
 
 2. Install vaderjs
