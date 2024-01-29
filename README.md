@@ -20,7 +20,7 @@
 2. Install vaderjs
 
  ```bash
-   npm i vaderjs@beta
+   npm i vaderjs@latest
  ```
 
 4.  Create Proper Folders
