@@ -4,6 +4,7 @@ import { glob, globSync, globStream, globStreamSync, Glob, } from 'glob'
 import puppeteer from 'puppeteer';
 import http from 'http'
 import { WebSocketServer } from 'ws'
+import prettier from 'prettier'
 import { watch } from "fs";
 import path from 'path'
 let config = await import('file://' + process.cwd() + '/vader.config.js').then((e) => e.default || e)
@@ -32,9 +33,8 @@ if (!fs.existsSync(process.cwd() + '/dist')) {
 
 
 
-if (typeof process.env.isCloudflare !== "undefined" || !fs.existsSync(process.cwd() + '/dist/index.html')) {
-  let htmlFile = fs.readFileSync(process.cwd() + "/node_modules/vaderjs/runtime/index.html", 'utf8')
-  fs.writeFileSync(process.cwd() + "/dist/index.html", htmlFile)
+if (typeof process.env.isCloudflare !== "undefined" || !fs.existsSync(process.cwd() + '/dist/index.html')) { 
+  fs.writeFileSync(process.cwd() + "/dist/index.html", '')
 }
 
 
@@ -1004,8 +1004,10 @@ async function Build() {
             console.log(`Disabled prerendering for ${window.location.pathname}`)
           }
         }) 
-        const html = await page.content();
+        let html = await page.content();
 
+        html = await prettier.format(html, { parser: "html" }) 
+        
         await page.close();
         await writer(process.cwd() + '/dist/' + (route.url === '/' ? 'index.html' : `${route.url}/` + 'index.html'), html)
         await browser.close();
