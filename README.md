@@ -81,7 +81,7 @@ export default function(req, res){
 
    return <>
     <h1>${count}</h1>
-    <button onClick={(count, setCount)=>{setCount(count + 1)}}>
+    <button onClick={(event)=>{setCount(count + 1)}}>
    </>
 }
  
