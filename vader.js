@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import fs from "fs";
+import fs, { fstatSync } from "fs";
 import { glob, globSync, globStream, globStreamSync, Glob, } from 'glob'
-import puppeteer from 'puppeteer'; 
+import puppeteer from 'puppeteer';
 import http from 'http'
 import { SourceMapGenerator } from 'source-map'
 
@@ -9,19 +9,19 @@ import { WebSocketServer } from 'ws'
 import prettier from 'prettier'
 import { watch } from "fs";
 import path from 'path'
- 
+
 globalThis.compiledFiles = []
 
 const sourceMapGen = (data, code) => {
-  let { origin, fileName } = data 
+  let { origin, fileName } = data
   const sourceMap = new SourceMapGenerator({ file: '/src/' + fileName.replace('.jsx', '.js') });
 
-  const lines =  fs.readFileSync(origin, "utf8").split("\n");
+  const lines = fs.readFileSync(origin, "utf8").split("\n");
   let line = 1;
   let column = 0;
-  for (const l of lines) { 
+  for (const l of lines) {
     sourceMap.addMapping({
-      source:  origin, 
+      source: origin,
       sourceRoot: '/src',
       original: { line: line, column: 0 },
       generated: { line: line, column: 0 },
@@ -34,7 +34,7 @@ const sourceMapGen = (data, code) => {
   code = code + `\n//# sourceMappingURL=./src/maps/${fileName.replace('.jsx', '.js')}.map \n //#sourceURL=/src/maps/${fileName.replace('.jsx', '.js')}.map`
   return { code, sourceMap };
 }
- 
+
 let config = await import('file://' + process.cwd() + '/vader.config.js').then((e) => e.default || e)
 let writer = async (file, data) => {
   globalThis.isWriting = file
@@ -80,20 +80,21 @@ function Compiler(func, file) {
   let childs = [];
 
 
-  const spreadAttributeRegex = /\s*([a-zA-Z0-9_-]+)\s*(\$\s*=\s*\{\s*\{[^]*?\}\s*\})/gs;
- 
+  // or : value boolean variable etc
+  const spreadAttributeRegex = /\s*([a-zA-Z0-9_-]+)\s*(\$\s*=\s*\{\s*\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}\s*\})/gs;
+
 
 
 
   function extractAttributes(code) {
     // grab $={...} and ={...}
-    const elementRegex =  /<([a-zA-Z0-9_-]+)([^>]*)>/gs;
+    const elementRegex = /<([a-zA-Z0-9_-]+)([^>]*)>/gs;
 
     // Match attributes in an opening tag, including those with ={}
     // Match attributes in an opening tag, including those with ={...}
     const attributeRegex =
-    /\s*([a-zA-Z0-9_-]+)(\s*=\s*("(?:[^"\\]*(?:\\.[^"\\]*)*)"|'(?:[^'\\]*(?:\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}|(?:\([^)]*\)|\{[^}]*\}|()=>\s*(?:\{[^}]*\})?)|\[[^\]]*\]))?/gs;
-  
+      /\s*([a-zA-Z0-9_-]+)(\s*=\s*("(?:[^"\\]*(?:\\.[^"\\]*)*)"|'(?:[^'\\]*(?:\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}|(?:\([^)]*\)|\{[^}]*\}|()=>\s*(?:\{[^}]*\})?)|\[[^\]]*\]))?/gs;
+
 
 
     const functionAttributeRegex = /\s*([a-zA-Z0-9_-]+)\s*(=\s*{((?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*)})/gs;
@@ -101,7 +102,7 @@ function Compiler(func, file) {
     let attributesList = [];
 
     let spreadAttributes = [];
-    
+
     /**
      * @search - handle spread for html elements
      * @keywords - spread, spread attributes, spread props, spread html attributes
@@ -214,10 +215,10 @@ function Compiler(func, file) {
      * @keywords - attributes, props, html attributes
      */
     let match;
-    while ((match = elementRegex.exec(code)) !== null) {
+    while ((match = elementRegex.exec(string)) !== null) {
       let [, element, attributes] = match;
 
-     
+
       let attributesMatch;
       let elementAttributes = {};
 
@@ -229,81 +230,60 @@ function Compiler(func, file) {
 
       attributesList.push({ element, attributes: elementAttributes });
     }
-    
-  let spreadMatch;
-  while ((spreadMatch = spreadAttributeRegex.exec(string)) !== null) {
-    let [, element, spread] = spreadMatch;
 
-    let isJSXComponent = element.match(/[A-Z]/) ? true : false;
-    if (isJSXComponent) {
-      continue
-
-    } 
-    let old = spread;
-    // turn spread into attributes 
-    spread = spread.replace(/\s*$\s*=\s*/, "");
-    spread = spread.replace(/\$\s*=\s*/, "");
-    spread = spread.replace('{{', '')
-    spread = spread.replace(/,$/, '');
-
- 
- 
-            let splitByCommas = spread.split(/,(?![^{}]*})/gs).map((e) => {
-    
-  
-    
-      switch (true) {
-        case e.includes('function') || e.includes('=>'):
-          e = e.replace(/\,\s*$/, '');
-          // replace commas
-          e = e.replace(/,\s*/gs, ',');
-          // remove space between (.*) => 
-          e = e.replace(/\(\s*=>/gs, '=>');
-          e = e.replace(/\s*=>\s*\{/gs, '=>{');
-          
-          // add ; after newlines 
-          e = e.replace(/\s*(\w+)\s*=>\s*\{/gs, '$1=>{');
-          // turn (e) => {e} into  function(e){e}
-          e = e.replace(/\(([^)]*)\)\s*=>\s*\{/gs, 'function($1){\n');
-          e = e.replace(/;/g, ';\n ');
-          e = e.replace(/,\s*}\s*$/gs, '}');
-        
-
-       
-          e = e.replace(/:(.*)/gs, '="\${this.bind($1, ' + false + ', "' + Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join('') + '", "")}"');
-        
-          break;
-        case e.includes('style'): 
-        e = e.replace(/,\s*$/gs, '');
-        e = e.replace(/}\s*$/gs, '');
-        e = e.replaceAll(/{\s*$/gs, '');
-        e = e.replaceAll(/}\s*$/gs, '');
-          e = e.replace(/style:(.*)/gs, 'style="\${this.parseStyle($1)}"');
-          
-
-          break;
-        case e.includes('[') && e.includes(']'):
-          e = e.replace(/:(.*)/gs, '={$1.join(" ")}');
-          break;
-        default:
-          e = e.replace(/:(.*)/gs, '="${$1}"');
-          e = e.replace(/,\s*$/gs, '');
-          e = e.replace(/}\s*$/gs, '');
-          e = e.replaceAll(/{\s*$/gs, '');
-
-          break;
+    let spreadMatch;
+    while ((spreadMatch = spreadAttributeRegex.exec(code)) !== null) {
+      let [, element, spread] = spreadMatch;
+      let isJSXComponent = element.match(/^[A-Z]/) ? true : false;
+      if (isJSXComponent) {
+        continue;
       }
- 
-      return e.trim();
-    });
+      let old = spread;
+      spread = spread.trim().replace(/\s+/g, " "); 
+      // re,pve $={ and }
+      spread = spread.replace(/\s*\$\s*=\s*{\s*{/gs, '')
+      
+      // replace trailing }
+      spread = spread.replace(/}}\s*$/, '').replace(/}\s*}$/, '') 
+      let splitByCommas =  spread.split(/,(?![^{}]*})/gs) 
+      // remove empty strings
+      splitByCommas = splitByCommas.filter((e) => e.split(':')[0].trim().length > 0)
+      splitByCommas = splitByCommas.map((e, index) => { 
+        let key = e.split(':')[0].trim()
+        switch (true) {
+          case e.includes('function') && !e.includes('this.bind') || e && e.includes('=>') && !e.includes('this.bind'):
+            let value = e.split(':')[1].trim()
+            let ref = Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join(''); 
+            value = `this.bind(${value}, false, "${ref}", "")`
+            e = `${key}="\${${value}}"`
+            break;
+          case  e.includes('style:'):
+            let v2 = e.split('style:')[1].trim().replace(/,$/, '') 
+            v2 = v2.replace(/,$/, '') 
+            e = `${key}="\${this.parseStyle(${v2})}"`
+           break;
+           
+          default:  
+            let v = e.split(':') 
+            key = v[0].trim()
+             // remove key from v
+            v.shift()
+            v = v.join(' ')
+            e = `${key}="\${${v}}"`
 
-    let newSpread = splitByCommas.join(' ').trim().replace(/,$/, '');
-     
-    // remove trailing }
-    newSpread = newSpread.replace(/}\s*$/, '')
-    newSpread = newSpread.trim().replace(/{\s*$/gs, '')
-    string = string.replace(old, newSpread); 
-  }
+            break;
+        }
+
+
+        return e;
+      });
+ 
+
+      let newSpread = splitByCommas.join(' ').trim().replace(/,$/, '');
+
+      // remove trailing } 
+      string = string.replace(old, newSpread);
+    }
 
     return attributesList;
   }
@@ -346,12 +326,12 @@ function Compiler(func, file) {
     }
     let usesBraces = returnStatement.match(/return\s*\(/gs) ? true : false;
 
-    let attributes = extractAttributes(contents);
+    let attributes = extractAttributes(string);
     contents = contents.trim().replace(/\]$/, "")
     contents = contents.replace(/\)$/, "");
     usesBraces ? !contents.includes('<>') ? contents = `<>${contents}</>` : null : null
     updatedContents = contents;
- 
+
 
     let newAttributes = [];
     let oldAttributes = [];
@@ -371,16 +351,16 @@ function Compiler(func, file) {
         let value = attributes[key]; 
         let oldvalue = value;
         if (value && !value.new) {
-           
+
           if (value && value.includes("={")) {
-         
+
             value = value.replace("=", "");
             value == "undefined" ? (value = '"') : (value = value);
 
             key == 'style'
               && value.includes("{{")
               ? value = `{this.parseStyle({${value.split('{{')[1].split('}}')[0]}})}` : null
- 
+
 
 
             value = `="\$${value}",`;
@@ -504,7 +484,7 @@ function Compiler(func, file) {
 
 
       let props = component.match(dynamicAttributesRegex)
- 
+
       let filteredProps = [];
       let isWithinComponent = false;
       let componentName = name
@@ -519,10 +499,10 @@ function Compiler(func, file) {
           isWithinComponent = true;
           filteredProps.push(prop);
         } else if (isWithinComponent && prop.includes('=')) {
- 
+
           if (prop.startsWith('$=')) {
             let old = prop
-            prop = prop.replace(/\$\s*=\s*\{\s*\{/, '').replace(/\}\s*\}/, '')
+            prop = prop.replace(/\$\s*=\s*\{\s*\{/, '').replace(/\}\s*\}/, '}').replace(/}\s*$/, '')
  
             component = component.replace(old, prop)
             componentAttributes = componentAttributes.replace(old, prop)
@@ -531,12 +511,12 @@ function Compiler(func, file) {
 
           }
           else if (prop.includes('${')) {
-       
-            
-            prop = prop.replace('="', ':') 
-            if (prop.includes('${')) { 
+
+
+            prop = prop.replace('="', ':')
+            if (prop.includes('${')) {
               prop = prop.replace('="', ':')
-              prop = prop.replace('${', '')  
+              prop = prop.replace('${', '')
             }
             if (prop.includes('="${{')) {
               prop = prop.replace('${{', '{')
@@ -546,21 +526,21 @@ function Compiler(func, file) {
             }
 
           }
-          if (prop.includes('={')) {  
-              let value = prop.split('={') 
-              let isObj = value[1].match(/^{.*}$/gs) ? true : false
-              if (!isObj) {
-                // remove trailing }
-                value[1] = value[1].replace(/}\s*$/, '')
-              }
+          if (prop.includes('={')) {
+            let value = prop.split('={')
+            let isObj = value[1].match(/^{.*}$/gs) ? true : false
+            if (!isObj) {
+              // remove trailing }
+              value[1] = value[1].replace(/}\s*$/, '')
+            }
 
-              if(value[0] == 'style' && isObj){
-                value[1] = `this.parseStyle(${value[1]})`
-              }
-              prop = `${value[0]}:${value[1]}`
+            if (value[0] == 'style' && isObj) {
+              value[1] = `this.parseStyle(${value[1]})`
+            }
+            prop = `${value[0]}:${value[1]}`
           }
 
-          if (prop.includes('function') || prop.includes('=>')){
+          if (prop.includes('function') || prop.includes('=>')) {
             // parse 'function' to function 
             prop = prop.replace("'", '')
 
@@ -569,15 +549,15 @@ function Compiler(func, file) {
 
             }
 
-            prop = prop.replace('=function', ':function') 
+            prop = prop.replace('=function', ':function')
           }
-  
+
           filteredProps.push(prop);
 
 
 
-        }else if (isWithinComponent && prop.includes('}')) {
-            
+        } else if (isWithinComponent && prop.includes('}')) {
+
         }
 
 
@@ -598,7 +578,7 @@ function Compiler(func, file) {
 
       let savedname = name;
 
- 
+
 
       name = name + Math.random().toString(36).substring(2);
       if (children && children.match(componentRegex)) {
@@ -684,10 +664,10 @@ function Compiler(func, file) {
           let text = fs.readFileSync(file, "utf8");
           if (!file.endsWith('.js') && file.endsWith('.jsx')) {
             text = Compiler(text, file);
-            
+
           }
           let dest = file.split('node_modules')[1]
-          dest = dest.split(baseFolder)[1] 
+          dest = dest.split(baseFolder)[1]
           writer(process.cwd() + '/dist/src/' + baseFolder + dest, text)
           let importname = match.split('import')[1].split('from')[0].trim()
           let oldImportstring = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
@@ -896,7 +876,7 @@ const glb = await glob("**/**/**/**.{jsx,js}", {
 async function Build() {
   globalThis.isBuilding = true
   console.log(globalThis.isProduction ? 'Creating Optimized Production Build\n' : '')
-  let str = `Page \t\t\t\t Size\n` 
+  let str = `Page \t\t\t\t Size\n`
   globalThis.isProduction ? console.log('\x1b[32m%s\x1b[0m', str) : null
   let reader = async (file) => {
     let text = await fs.readFileSync(file, "utf8");
@@ -904,11 +884,11 @@ async function Build() {
   };
 
 
-   
+
   function ssg(routes = []) {
-    globalThis.isBuilding = true 
+    globalThis.isBuilding = true
     routes.forEach(async (route) => {
-      if (route.url.includes(':')) { 
+      if (route.url.includes(':')) {
         return
       }
       let equalparamroute = routes.map((e) => {
@@ -928,7 +908,7 @@ async function Build() {
       <html lang="en">
       <head>
           <script>
-          window.routes = JSON.parse('${JSON.stringify(routes)}')
+          window.routes = JSON.parse('${JSON.stringify(routes)}') 
           </script>
           <script id="isServer">
           window.isServer = true
@@ -936,8 +916,7 @@ async function Build() {
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width,initial-scale=1.0">
           <script type="module" id="meta">
-          window.history.pushState({}, '', '${route.url}') 
-          
+          window.history.pushState({}, '', '${route.url}')  
          </script>
          <script type="module" id="router">
          import VaderRouter from '/router.js' 
@@ -951,8 +930,16 @@ async function Build() {
             res.render(module, req, res, module.$metadata)
            }
            catch(error){
-             document.documentElement.setAttribute('error', JSON.stringify({stack: error.stack, message: error.message, at: '${route.fileName}', line: error.lineNumber}))
-             throw new Error({stack: error.stack, message: error.message})
+            let errorMessage = {
+              message: error.message,
+              name: error.name,
+              stack: error.stack, 
+              path: window.location.pathname
+            };
+          
+            
+            document.documentElement.setAttribute('error', JSON.stringify(errorMessage));
+            throw new Error(error)
            }
          }) 
          ${equalparamroute.length > 0 ? equalparamroute.map((e) => {
@@ -965,7 +952,7 @@ async function Build() {
          })\n`
       }) : ''}
          router.listen(3000)
-          
+         
      </script> 
       </head>
       <body>
@@ -1014,27 +1001,25 @@ async function Build() {
       globalThis.listen = true;
 
       const browser = await puppeteer.launch({
-        headless:  "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
         warning: false,
-      }) 
+      })
       try {
 
         route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')
         let page = await browser.newPage();
-         // Handle browser errors
-         page.on('error', (err) => {
-          console.error('BROWSER ERROR:', err);
+        // Handle browser errors
+        page.on('error', (err) => {
+          console.error('BROWSER ERROR:', JSON.parse(err));
         });
-        await page.evaluate(() => {
-          window.onerror = function (msg, url, lineNo, columnNo, error) {
-            console.log(msg, url, lineNo, columnNo, error)
-          }
-        })  
+      
         try {
           page.on('pageerror', async err => { 
-            let errorObj = await page.evaluate(() => document.documentElement.getAttribute('error')) 
-            console.log('\x1b[31m%s\x1b[0m', 'PAGE ERROR:', errorObj);
-            
+            let errorObj =  JSON.parse(await page.evaluate(() => document.documentElement.getAttribute('error')) || '{}') 
+            console.log('\x1b[31m%s\x1b[0m', 'Compiler Error:',  errorObj)
+            if(globalThis.isProduction){
+              process.exit(1)
+            }
           });
         } catch (error) {
           browser.close()
@@ -1046,14 +1031,14 @@ async function Build() {
         page.on('requestfailed', request => {
           console.error('REQUEST FAILED:', request.url(), request.failure().errorText);
         });
-       await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle2' });
-       
+        await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle2' });
 
-     
-          
 
-           
-   
+
+
+
+
+
         await page.evaluate(() => {
           document.getElementById('meta').remove()
           document.querySelector('#isServer').innerHTML = 'window.isServer = false'
@@ -1061,29 +1046,29 @@ async function Build() {
             document.querySelector('#root').innerHTML = ''
             console.log(`Disabled prerendering for ${window.location.pathname}`)
           }
-        }) 
+        })
         let html = await page.content();
 
-        html = await prettier.format(html, { parser: "html" }) 
-        
-        
+        html = await prettier.format(html, { parser: "html" })
+
+
         await writer(process.cwd() + '/dist/' + (route.url === '/' ? 'index.html' : `${route.url}/` + 'index.html'), html)
-        
+
 
       } catch (error) {
-        console.log(error) 
-      } 
+        console.log(error)
+      }
 
       finally {
         browser.close()
-        server.close() 
+        server.close()
       }
     })
 
     let timeout = setTimeout(() => {
       globalThis.isBuilding = false
       clearTimeout(timeout)
-    }, 1000) 
+    }, 1000)
   }
 
   globalThis.routes = []
@@ -1115,14 +1100,15 @@ async function Build() {
 
 
     let data = await fs.readFileSync(origin, "utf8");
-     
-   // gen sourcemap if not production
+
+    // gen sourcemap if not production
     let size = fs.statSync(origin).size;
-    if(!globalThis.isProduction){
-      let { sourceMap } = sourceMapGen({origin:origin, fileName:fileName}, await Compiler(data, origin)) 
+    if (!globalThis.isProduction) {
+      let { sourceMap } = sourceMapGen({ origin: origin, fileName: fileName }, await Compiler(data, origin))
+      data = data + `\n//# sourceMappingURL=/src/maps/${fileName.replace('.jsx', '.js.map')}\n //#sourceURL=${origin}`
       await writer(process.cwd() + "/dist/src/maps/" + fileName.replace('.jsx', '.js.map'), JSON.stringify(sourceMap, null, 2))
     }
-    await writer(process.cwd() + "/dist/" + fileName.replace('.jsx', '.js'), await Compiler(data, origin)) 
+    await writer(process.cwd() + "/dist/" + fileName.replace('.jsx', '.js'), await Compiler(data, origin))
 
     // configure routing for each page
 
@@ -1186,17 +1172,18 @@ async function Build() {
 
     globalThis.routes.push({ fileName: fileName, url: obj.url, html: '/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html') })
 
- 
-    let stats = {route: obj.url.padEnd(30),
+
+    let stats = {
+      route: obj.url.padEnd(30),
       size: Math.round(size / 1000) + 'kb',
       letParentFolder: obj.url.split('/').slice(0, -1).join('/'),
       isChildRoute: obj.url.split('/').slice(0, -1).join('/').includes(':') ? true : false,
       parentRoute: obj.url.split('/').slice(0, -1).join('/').split(':')[0],
-     
-    }   
+
+    }
     stats.isChildRoute ? stats.route = `? ${obj.url}` : null
     let string = `${isBasePath ? '+' : '+'} ${stats.route.padEnd(30)} ${stats.size}`
-     
+
     globalThis.isProduction ? console.log(string) : null
   }
 
@@ -1232,9 +1219,13 @@ async function Build() {
 
     let data = await reader(process.cwd() + "/src/" + name)
     if (name.includes('.jsx')) {
-      data = Compiler(data, process.cwd() + "/src/" + name);
-
-      await writer(process.cwd() + "/dist/src/" + name.split('.jsx').join('.js'), data)  
+      let origin = process.cwd() + "/src/" + name 
+      if (!globalThis.isProduction) {
+        let { sourceMap } = sourceMapGen({ origin: origin, fileName: name }, await Compiler(data, origin))
+        data = data + `\n//# sourceMappingURL=/src/maps/${name.replace('.jsx', '.js.map')}\n //#sourceURL=${origin}`
+        await writer(process.cwd() + "/dist/src/maps/" + name.replace('.jsx', '.js.map'), JSON.stringify(sourceMap, null, 2))
+      }
+      await writer(process.cwd() + "/dist/src/" + name.split('.jsx').join('.js'), await Compiler(data, origin))
       return
     }
     bundleSize += fs.statSync(process.cwd() + "/src/" + name).size;
@@ -1379,7 +1370,7 @@ const s = () => {
     console.log(`Server is running on port ${PORT}`);
     globalThis.ws = ws
   });
-  
+
 
 }
 
@@ -1405,7 +1396,7 @@ Vader.js v1.3.3
           if (event == 'change'
             && !globalThis.isBuilding
           ) {
-            if(globalThis.ws && !globalThis.isWriting){
+            if (globalThis.ws && !globalThis.isWriting) {
               globalThis.ws.clients.forEach((client) => {
                 console.log('Reloading...')
                 client.send('reload')
@@ -1433,7 +1424,7 @@ Vader.js v1.3.3
 Vader.js v1.3.3 
 Building to ./dist
 `)
-    if(fs.existsSync(process.cwd() + '/dist/src/maps')){
+    if (fs.existsSync(process.cwd() + '/dist/src/maps')) {
       fs.rmSync(process.cwd() + '/dist/src/maps', { recursive: true })
     }
     Build()
