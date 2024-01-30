@@ -502,10 +502,10 @@ function Compiler(func, file) {
 
           if (prop.startsWith('$=')) {
             let old = prop
-            prop = prop.replace(/\$\s*=\s*\{\s*\{/, '').replace(/\}\s*\}/, '}').replace(/}\s*$/, '')
- 
-            component = component.replace(old, prop)
-            componentAttributes = componentAttributes.replace(old, prop)
+            let match = prop.replace(/\$\s*=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs, '$1') 
+            match = match.replace('$:', '$_ternary:')
+            component = component.replace(old, '')
+            componentAttributes = componentAttributes.replace(old,  match)
 
             $_ternaryprops.push(prop)
 
@@ -908,7 +908,9 @@ async function Build() {
       <html lang="en">
       <head>
           <script>
-          window.routes = JSON.parse('${JSON.stringify(routes)}') 
+          window.routes = JSON.parse('${JSON.stringify(routes)}')
+            
+         
           </script>
           <script id="isServer">
           window.isServer = true
@@ -916,7 +918,8 @@ async function Build() {
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width,initial-scale=1.0">
           <script type="module" id="meta">
-          window.history.pushState({}, '', '${route.url}')  
+          window.history.pushState({}, '', '${route.url}') 
+          
          </script>
          <script type="module" id="router">
          import VaderRouter from '/router.js' 
@@ -933,7 +936,7 @@ async function Build() {
             let errorMessage = {
               message: error.message,
               name: error.name,
-              stack: error.stack, 
+              stack: error.stack,
               path: window.location.pathname
             };
           
@@ -1017,9 +1020,7 @@ async function Build() {
           page.on('pageerror', async err => { 
             let errorObj =  JSON.parse(await page.evaluate(() => document.documentElement.getAttribute('error')) || '{}') 
             console.log('\x1b[31m%s\x1b[0m', 'Compiler Error:',  errorObj)
-            if(globalThis.isProduction){
-              process.exit(1)
-            }
+
           });
         } catch (error) {
           browser.close()
