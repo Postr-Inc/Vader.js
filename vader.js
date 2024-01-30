@@ -479,7 +479,7 @@ function Compiler(func, file) {
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
       let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim();
-      const dynamicAttributesRegex = /(\w+)(?:="([^"]*?)"|='([^']*?)'|(?:=\{([^}]*?)\})?|(?:=\{(.*?)*\})?|(?:={([^}]*?)})?|(?:{([^}]*?)})?|(?:}))?|\$=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs;
+      const dynamicAttributesRegex = /(\w+)(?:="([^"]*?)"|='([^']*?)'|(?:=\{([^}]*?)\})?|(?:=\{(.*?)*\})?|(?:={([^}]*?)})?|(?:{([^}]*?)})?|(?:}))?|={\s*.*?\s*}/gs;
 
 
 
@@ -499,16 +499,8 @@ function Compiler(func, file) {
           isWithinComponent = true;
           filteredProps.push(prop);
         } else if (isWithinComponent && prop.includes('=')) {
-
-          if (prop.startsWith('$=')) {
-            let old = prop 
-            prop = prop.replace(/\$\s*=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs, '$1') 
-            component = component.replace(old, '')
-            componentAttributes = componentAttributes.replace(prop, '') 
-            $_ternaryprops.push(prop)
-
-          }
-          else if (prop.includes('${')) {
+ 
+       if (prop.includes('${')) {
 
 
             prop = prop.replace('="', ':')
@@ -527,14 +519,16 @@ function Compiler(func, file) {
           if (prop.includes('={')) {
             let value = prop.split('={')
             let isObj = value[1].match(/^{.*}$/gs) ? true : false
-            if (!isObj) {
-              // remove trailing }
+            if (!isObj) { 
               value[1] = value[1].replace(/}\s*$/, '')
+            }else if(!value[0].length > 0 && isObj){
+               value[0] = '$'
             }
+            
 
             if (value[0] == 'style' && isObj) {
               value[1] = `this.parseStyle(${value[1]})`
-            }
+            } 
             prop = `${value[0]}:${value[1]}`
           }
 
@@ -1239,7 +1233,7 @@ async function Build() {
   scannedPublicFiles.forEach(async (file) => {
     file = file.replace(/\\/g, '/');
     file = file.split('/public/')[1]
-    let data = await reader(process.cwd() + "/public/" + file)
+    let data = fs.readFileSync(process.cwd() + "/public/" + file);
     bundleSize += fs.statSync(process.cwd() + "/public/" + file).size;
     await writer(process.cwd() + "/dist/public/" + file, data);
   })
