@@ -501,12 +501,10 @@ function Compiler(func, file) {
         } else if (isWithinComponent && prop.includes('=')) {
 
           if (prop.startsWith('$=')) {
-            let old = prop
-            let match = prop.replace(/\$\s*=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs, '$1') 
-            match = match.replace('$:', '$_ternary:')
+            let old = prop 
+            prop = prop.replace(/\$\s*=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs, '$1') 
             component = component.replace(old, '')
-            componentAttributes = componentAttributes.replace(old,  match)
-
+            componentAttributes = componentAttributes.replace(prop, '') 
             $_ternaryprops.push(prop)
 
           }
