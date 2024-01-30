@@ -533,11 +533,10 @@ function Compiler(func, file) {
           else if (prop.includes('${')) {
        
             
-            prop = prop.replace('="', ':').replace('}"', '}')
+            prop = prop.replace('="', ':') 
             if (prop.includes('${')) { 
               prop = prop.replace('="', ':')
-              prop = prop.replace('${', '') 
-
+              prop = prop.replace('${', '')  
             }
             if (prop.includes('="${{')) {
               prop = prop.replace('${{', '{')
@@ -547,19 +546,21 @@ function Compiler(func, file) {
             }
 
           }
-          else if (prop.includes('={')) {  
-           let key = prop.split('=')[0].trim()
-           let value = prop.split('=')[1].trim()
-           if(value.startsWith('{')){
-              value = value.replace('{', '')
-           }
-            if(value.endsWith('}')){
-              value = value.slice(0, -1)
-            }
-            prop = `${key}:${value}`
+          if (prop.includes('={')) {  
+              let value = prop.split('={') 
+              let isObj = value[1].match(/^{.*}$/gs) ? true : false
+              if (!isObj) {
+                // remove trailing }
+                value[1] = value[1].replace(/}\s*$/, '')
+              }
+
+              if(value[0] == 'style' && isObj){
+                value[1] = `this.parseStyle(${value[1]})`
+              }
+              prop = `${value[0]}:${value[1]}`
           }
 
-          if (prop.includes('function')) {
+          if (prop.includes('function') || prop.includes('=>')){
             // parse 'function' to function 
             prop = prop.replace("'", '')
 
@@ -568,9 +569,9 @@ function Compiler(func, file) {
 
             }
 
-            prop = prop.replace('=function', ':function')
+            prop = prop.replace('=function', ':function') 
           }
- 
+  
           filteredProps.push(prop);
 
 
@@ -597,7 +598,7 @@ function Compiler(func, file) {
 
       let savedname = name;
 
-
+ 
 
       name = name + Math.random().toString(36).substring(2);
       if (children && children.match(componentRegex)) {
@@ -950,8 +951,8 @@ async function Build() {
             res.render(module, req, res, module.$metadata)
            }
            catch(error){
-             document.documentElement.setAttribute('error', error.message)
-             throw new Error(error.message)
+             document.documentElement.setAttribute('error', JSON.stringify({stack: error.stack, message: error.message, at: '${route.fileName}', line: error.lineNumber}))
+             throw new Error({stack: error.stack, message: error.message})
            }
          }) 
          ${equalparamroute.length > 0 ? equalparamroute.map((e) => {
@@ -1013,7 +1014,7 @@ async function Build() {
       globalThis.listen = true;
 
       const browser = await puppeteer.launch({
-        headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        headless:  "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
         warning: false,
       }) 
       try {
@@ -1033,10 +1034,10 @@ async function Build() {
           page.on('pageerror', async err => { 
             let errorObj = await page.evaluate(() => document.documentElement.getAttribute('error')) 
             console.log('\x1b[31m%s\x1b[0m', 'PAGE ERROR:', errorObj);
-            throw new Error(errorObj)
+            
           });
         } catch (error) {
-          // do nothing
+          browser.close()
         }
         // Handle page crashes
         page.on('crash', () => {
@@ -1074,7 +1075,7 @@ async function Build() {
       } 
 
       finally {
-        await browser.close();
+        browser.close()
         server.close() 
       }
     })
