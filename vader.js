@@ -143,9 +143,6 @@ function Compiler(func, file) {
             isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
           }
         });
-        if(isJSXComponent){
-          continue
-        }
         // add ; after newlines  
 
 
@@ -482,8 +479,9 @@ function Compiler(func, file) {
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
       let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim();
-      // catchall = {...}
-      const dynamicAttributesRegex = /(\w+)(?:="([^"]*?)"|='([^']*?)'|(?:=\{(.*?)\})?|(?:=\{(.*?)\})?)(?:\}|(?=\s[\w-]+=))/gs;
+      const dynamicAttributesRegex = /(\w+)(?:="([^"]*?)"|='([^']*?)'|(?:=\{([^}]*?)\})?|(?:=\{(.*?)*\})?|(?:={([^}]*?)})?|(?:{([^}]*?)})?|(?:}))?|\$=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs;
+
+
 
       let props = component.match(dynamicAttributesRegex)
 
@@ -494,7 +492,6 @@ function Compiler(func, file) {
 
       let $_ternaryprops = []
 
-     if(props){
       for (let prop of props) {
 
         if (prop === componentName) {
@@ -502,8 +499,18 @@ function Compiler(func, file) {
           isWithinComponent = true;
           filteredProps.push(prop);
         } else if (isWithinComponent && prop.includes('=')) {
- 
-       if (prop.includes('${')) {
+
+          if (prop.startsWith('$=')) {
+            let old = prop
+            let match = prop.replace(/\$\s*=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs, '$1') 
+            match = match.replace('$:', '$_ternary:')
+            component = component.replace(old, '')
+            componentAttributes = componentAttributes.replace(old,  match)
+
+            $_ternaryprops.push(prop)
+
+          }
+          else if (prop.includes('${')) {
 
 
             prop = prop.replace('="', ':')
@@ -522,16 +529,14 @@ function Compiler(func, file) {
           if (prop.includes('={')) {
             let value = prop.split('={')
             let isObj = value[1].match(/^{.*}$/gs) ? true : false
-            if (!isObj) { 
+            if (!isObj) {
+              // remove trailing }
               value[1] = value[1].replace(/}\s*$/, '')
-            }else if(!value[0].length > 0 && isObj){
-                 prop = ''
             }
-             
-            value[1] = value[1].replace(/}\s*$/, '') 
+
             if (value[0] == 'style' && isObj) {
               value[1] = `this.parseStyle(${value[1]})`
-            } 
+            }
             prop = `${value[0]}:${value[1]}`
           }
 
@@ -560,7 +565,6 @@ function Compiler(func, file) {
           isWithinComponent = false;
         }
       }
-     }
       component = component.replaceAll(/\s+/g, " ");
 
       component = component.replace(componentAttributes, '')
@@ -1229,7 +1233,7 @@ async function Build() {
     await writer(process.cwd() + "/dist/src/" + name, data);
   })
 
-  const scannedPublicFiles = await glob("**/**/**.{css,js,html,mjs,cjs,png,jpg,jpeg,gif,svg,mp4,webm,ogg}", {
+  const scannedPublicFiles = await glob("**/**.{css,js,html,mjs,cjs}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
     cwd: process.cwd() + '/public/',
     absolute: true,
@@ -1237,7 +1241,7 @@ async function Build() {
   scannedPublicFiles.forEach(async (file) => {
     file = file.replace(/\\/g, '/');
     file = file.split('/public/')[1]
-    let data = fs.readFileSync(process.cwd() + "/public/" + file);
+    let data = await reader(process.cwd() + "/public/" + file)
     bundleSize += fs.statSync(process.cwd() + "/public/" + file).size;
     await writer(process.cwd() + "/dist/public/" + file, data);
   })
@@ -1270,7 +1274,7 @@ async function Build() {
   }
 
   globalThis.isBuilding = false
-  console.log(`\nTotal bundle size: ${Math.round(bundleSize / 1000)}kb`)
+   globalThis.isProduction  ? console.log(`\nTotal bundle size: ${Math.round(bundleSize / 1000)}kb`) : null
 
   bundleSize = 0;
 
@@ -1441,7 +1445,7 @@ url: http://localhost:${port}
   default:
     // add color
     console.log(` 
-Vader.js is a reactive framework for building interactive applications for the web built ontop of bun.js!
+Vader.js is a reactive framework for building interactive applications for the web!
     
 Usage: vader <command> 
     
@@ -1459,3 +1463,4 @@ Learn more about vader:           https://vader-js.pages.dev/
     break;
 
 }
+ 
