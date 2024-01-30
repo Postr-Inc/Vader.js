@@ -143,6 +143,9 @@ function Compiler(func, file) {
             isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
           }
         });
+        if(isJSXComponent){
+          continue
+        }
         // add ; after newlines  
 
 
@@ -479,9 +482,8 @@ function Compiler(func, file) {
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
       let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim();
-      const dynamicAttributesRegex = /(\w+)(?:="([^"]*?)"|='([^']*?)'|(?:=\{([^}]*?)\})?|(?:=\{(.*?)*\})?|(?:={([^}]*?)})?|(?:{([^}]*?)})?|(?:}))?|={\s*.*?\s*}/gs;
-
-
+      // catchall = {...}
+      const dynamicAttributesRegex = /(\w+)(?:="([^"]*?)"|='([^']*?)'|(?:=\{(.*?)\})?|(?:=\{(.*?)\})?)(?:\}|(?=\s[\w-]+=))/gs;
 
       let props = component.match(dynamicAttributesRegex)
 
@@ -492,6 +494,7 @@ function Compiler(func, file) {
 
       let $_ternaryprops = []
 
+     if(props){
       for (let prop of props) {
 
         if (prop === componentName) {
@@ -522,10 +525,10 @@ function Compiler(func, file) {
             if (!isObj) { 
               value[1] = value[1].replace(/}\s*$/, '')
             }else if(!value[0].length > 0 && isObj){
-               value[0] = '$'
+                 prop = ''
             }
-            
-
+             
+            value[1] = value[1].replace(/}\s*$/, '') 
             if (value[0] == 'style' && isObj) {
               value[1] = `this.parseStyle(${value[1]})`
             } 
@@ -557,6 +560,7 @@ function Compiler(func, file) {
           isWithinComponent = false;
         }
       }
+     }
       component = component.replaceAll(/\s+/g, " ");
 
       component = component.replace(componentAttributes, '')
