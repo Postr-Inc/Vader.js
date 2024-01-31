@@ -84,7 +84,7 @@ function Compiler(func, file) {
   const spreadAttributeRegex = /\s*([a-zA-Z0-9_-]+)\s*(\$\s*=\s*\{\s*\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\})*)*\})*)*\}\s*\})/gs;
 
 
-
+  string = parseComponents(string);
 
   function extractAttributes(code) {
     // grab $={...} and ={...}
@@ -117,6 +117,82 @@ function Compiler(func, file) {
     let functionAttributes = [];
     let spreadFunctions = [];
     let functionMatch;
+ 
+    /**
+     * @search - handle attributes for html elements
+     * @keywords - attributes, props, html attributes
+     */
+    let match;
+    while ((match = elementRegex.exec(string)) !== null) {
+      let [, element, attributes] = match;
+
+
+      let attributesMatch;
+      let elementAttributes = {};
+
+      while ((attributesMatch = attributeRegex.exec(attributes)) !== null) {
+        let [, attributeName, attributeValue] = attributesMatch;
+
+        elementAttributes[attributeName] = attributeValue || null;
+      }
+
+      attributesList.push({ element, attributes: elementAttributes });
+    }
+
+    let spreadMatch;
+    while ((spreadMatch = spreadAttributeRegex.exec(code)) !== null) {
+      let [, element, spread] = spreadMatch;
+      let isJSXComponent = element.match(/^[A-Z]/) ? true : false;
+      if (isJSXComponent) {
+        continue;
+      }
+      let old = spread;
+      spread = spread.trim().replace(/\s+/g, " ");
+      // re,pve $={ and }
+      spread = spread.replace(/\s*\$\s*=\s*{\s*{/gs, '')
+
+      // replace trailing }
+      spread = spread.replace(/}}\s*$/, '').replace(/}\s*}$/, '')
+      let splitByCommas = spread.split(/,(?![^{}]*})/gs)
+      // remove empty strings
+      splitByCommas = splitByCommas.filter((e) => e.split(':')[0].trim().length > 0)
+      splitByCommas = splitByCommas.map((e, index) => {
+        let key = e.split(':')[0].trim()
+        switch (true) {
+          case e.includes('function') && !e.includes('this.bind') || e && e.includes('=>') && !e.includes('this.bind'): 
+            let value = e.split(':')[1].trim()
+            let ref = Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join('');
+            value = `this.bind(${value}, false, "${ref}", "")`
+            e = `${key}="\${${value}}"`
+            break;
+          case e.includes('style:'):
+            let v2 = e.split('style:')[1].trim().replace(/,$/, '')
+            v2 = v2.replace(/,$/, '')
+            e = `${key}="\${this.parseStyle(${v2})}"`
+            break;
+
+          default:
+            let v = e.split(':')
+            key = v[0].trim()
+            // remove key from v
+            v.shift()
+            v = v.join(' ')
+            e = `${key}="\${${v}}"`
+
+            break;
+        }
+
+
+        return e;
+      });
+
+
+      let newSpread = splitByCommas.join(' ').trim().replace(/,$/, '');
+
+      // remove trailing } 
+      string = string.replace(old, newSpread);
+    }
+
     while ((functionMatch = functionAttributeRegex.exec(code)) !== null) {
 
       let [, attributeName, attributeValue] = functionMatch;
@@ -140,17 +216,17 @@ function Compiler(func, file) {
               .split("<")[1]
               .split(">")[0]
               .split(" ")[0];
-            isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
+            isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false; 
           }
         });
-        if (isJSXComponent) {
+        if (isJSXComponent) { 
           continue
         }
         // add ; after newlines  
 
 
         let newvalue = attributeValue.includes('=>') ? attributeValue.split("=>").slice(1).join("=>").trim() : attributeValue.split("function").slice(1).join("function").trim()
-
+ 
         // add ; after newlines 
 
 
@@ -200,92 +276,18 @@ function Compiler(func, file) {
         newvalue = newvalue.replaceAll(/\n/g, ";\n")
         // remove () from newvalue
         newvalue = newvalue.replace(/\(\s*=>/gs, '=>').replace(/\function\s*\([^\)]*\)\s*\{/gs, '{')
+        newvalue = newvalue + `\n /**@id=${ref}**/ \n`
 
-        let bind = isJSXComponent ? `${attributeName}='function(${params}){${newvalue}}'` : `${attributeName}="\$\{this.bind(function(){${newvalue}}.bind(this), ${isJSXComponent}, "${ref}",   "${paramnames ? paramnames.map((e, index) => {
+        let bind = !isJSXComponent  && `${attributeName}="\$\{this.bind(function(){${newvalue}}.bind(this), ${isJSXComponent}, "${ref}",   "${paramnames ? paramnames.map((e, index) => {
           if (e.length < 1) return ''
           if (e.length > 0) {
             index == 0 ? e : ',' + e
           }
           return e
         }) : ''}" ${params ? params.split(',').map((e) => e.trim()).filter(Boolean).map((e) => `,${e}`).join('') : ''})}"`
-
-        string = string.replace(old, bind);
+   
+        string = string.replace(old, bind)
       }
-    }
-
-    /**
-     * @search - handle attributes for html elements
-     * @keywords - attributes, props, html attributes
-     */
-    let match;
-    while ((match = elementRegex.exec(string)) !== null) {
-      let [, element, attributes] = match;
-
-
-      let attributesMatch;
-      let elementAttributes = {};
-
-      while ((attributesMatch = attributeRegex.exec(attributes)) !== null) {
-        let [, attributeName, attributeValue] = attributesMatch;
-
-        elementAttributes[attributeName] = attributeValue || null;
-      }
-
-      attributesList.push({ element, attributes: elementAttributes });
-    }
-
-    let spreadMatch;
-    while ((spreadMatch = spreadAttributeRegex.exec(code)) !== null) {
-      let [, element, spread] = spreadMatch;
-      let isJSXComponent = element.match(/^[A-Z]/) ? true : false;
-      if (isJSXComponent) {
-        continue;
-      }
-      let old = spread;
-      spread = spread.trim().replace(/\s+/g, " ");
-      // re,pve $={ and }
-      spread = spread.replace(/\s*\$\s*=\s*{\s*{/gs, '')
-
-      // replace trailing }
-      spread = spread.replace(/}}\s*$/, '').replace(/}\s*}$/, '')
-      let splitByCommas = spread.split(/,(?![^{}]*})/gs)
-      // remove empty strings
-      splitByCommas = splitByCommas.filter((e) => e.split(':')[0].trim().length > 0)
-      splitByCommas = splitByCommas.map((e, index) => {
-        let key = e.split(':')[0].trim()
-        switch (true) {
-          case e.includes('function') && !e.includes('this.bind') || e && e.includes('=>') && !e.includes('this.bind'):
-            let value = e.split(':')[1].trim()
-            let ref = Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join('');
-            value = `this.bind(${value}, false, "${ref}", "")`
-            e = `${key}="\${${value}}"`
-            break;
-          case e.includes('style:'):
-            let v2 = e.split('style:')[1].trim().replace(/,$/, '')
-            v2 = v2.replace(/,$/, '')
-            e = `${key}="\${this.parseStyle(${v2})}"`
-            break;
-
-          default:
-            let v = e.split(':')
-            key = v[0].trim()
-            // remove key from v
-            v.shift()
-            v = v.join(' ')
-            e = `${key}="\${${v}}"`
-
-            break;
-        }
-
-
-        return e;
-      });
-
-
-      let newSpread = splitByCommas.join(' ').trim().replace(/,$/, '');
-
-      // remove trailing } 
-      string = string.replace(old, newSpread);
     }
 
     return attributesList;
@@ -482,8 +484,8 @@ function Compiler(func, file) {
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
       let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim(); 
-      let props = component.includes('/>')? component.split(`<`)[1].split('/>')[0] : component.split(`<`)[1].split(`>`)[1].split(`</${name}`)[0].trim()
-      props = props.replaceAll(/\s+/g, " ").trim()
+      let props = component.includes('/>')? component.split(`<`)[1].split('/>')[0] : component.split(`<`)[1].split(`>`)[0]
+          props = props.replaceAll(/\s+/g, " ").trim()
       props = props.replace(name, '').trim()
       component = component.replace(componentAttributes, '')
       const dynamicAttributesRegex = /([a-zA-Z0-9_-]+)\s*=\s*("(?:[^"\\]*(?:\\.[^"\\]*)*)"|'(?:[^'\\]*(?:\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(.*.*?)\})*)*\})*)*\}|(?:\([^)]*\)|()\s*=>\s*(?:\{.*.*\})?|\{.*\})|\[[^\]]*\])/gs;
@@ -499,14 +501,14 @@ function Compiler(func, file) {
         let str = match[0].trim().replace(/\s+/g, " ");
         if (!str.includes('=')) {
           continue
-        }  
+        }   
         
        
         str = str.replaceAll(/\s+/g, " ") 
         str = str.split('=')
         let key = str[0].trim() 
         let value = str.slice(1).join('=').trim().match(/\{.*\}/gs) ? str.slice(1).join('=').trim().match(/\{.*\}/gs)[0] : str.slice(1).join('=').trim();
-
+ 
    
         
         let isObject = value.startsWith('{{') && value.endsWith('}}')
@@ -519,8 +521,9 @@ function Compiler(func, file) {
           value = value.replace(/^{/, '').replace(/}$/, '')
           propstring += `${key}:${value},`
         }
+        propstring = propstring.replaceAll(/\s+/g, " ").trim()
          
-      }
+      } 
       component = component.replaceAll(/\s+/g, " ");
 
       component = component.replace(componentAttributes, '')
@@ -650,7 +653,7 @@ function Compiler(func, file) {
   string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
   string = string.replaceAll("<>", "`").replaceAll("</>", "`");
   string = string.replaceAll(".jsx", ".js");
-  string = parseComponents(string);
+ 
 
   string = string
     .replaceAll("className", "class")
