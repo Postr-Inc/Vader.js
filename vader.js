@@ -1390,10 +1390,9 @@ Vader.js v${fs.readFileSync(process.cwd() + '/node_modules/vaderjs/package.json'
           }
         }).on('error', (err) => console.log(err))
     })
-    let p = process.argv[process.argv.indexOf('dev') + 1] || 3000
-
-    process.env.PORT = p
-    s()
+    let p = process.argv[process.argv.indexOf('dev') + 1] ||  process.env.PORT || 3000
+ 
+    s(p)
 
     globalThis.listen = true;
 
