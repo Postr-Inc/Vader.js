@@ -2,7 +2,7 @@
   "name": "vaderjs",
   "description": "A Reactive library aimed to helping you build reactive applications inspired by react.js",
   "module": "vader.js",
-  "version": "1.3.3-7y27417d42e1",
+  "version": "1.3.3-7bn27417d42e1",
   "bin": {
     "vader": "./vader.js"
   },

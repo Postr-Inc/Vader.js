@@ -467,9 +467,7 @@ function Compiler(func, file) {
         spreadContent = spreadContent.replaceAll(/\s+/g, " ").trim()
         spreadContent = spreadContent.replace(')}', ')').replace('}}', '}')
 
-        propstring += spreadContent + ','
-        // get last most } and remove it
-        propstring = propstring.slice(0, -1)
+        propstring += spreadContent + ',' 
         hasSpread = true
 
       }
