@@ -117,7 +117,7 @@ function Compiler(func, file) {
     let functionAttributes = [];
     let spreadFunctions = [];
     let functionMatch;
- 
+
     /**
      * @search - handle attributes for html elements
      * @keywords - attributes, props, html attributes
@@ -139,59 +139,7 @@ function Compiler(func, file) {
       attributesList.push({ element, attributes: elementAttributes });
     }
 
-    let spreadMatch;
-    while ((spreadMatch = spreadAttributeRegex.exec(code)) !== null) {
-      let [, element, spread] = spreadMatch;
-      let isJSXComponent = element.match(/^[A-Z]/) ? true : false;
-      if (isJSXComponent) {
-        continue;
-      }
-      let old = spread;
-      spread = spread.trim().replace(/\s+/g, " ");
-      // re,pve $={ and }
-      spread = spread.replace(/\s*\$\s*=\s*{\s*{/gs, '')
 
-      // replace trailing }
-      spread = spread.replace(/}}\s*$/, '').replace(/}\s*}$/, '')
-      let splitByCommas = spread.split(/,(?![^{}]*})/gs)
-      // remove empty strings
-      splitByCommas = splitByCommas.filter((e) => e.split(':')[0].trim().length > 0)
-      splitByCommas = splitByCommas.map((e, index) => {
-        let key = e.split(':')[0].trim()
-        switch (true) {
-          case e.includes('function') && !e.includes('this.bind') || e && e.includes('=>') && !e.includes('this.bind'): 
-            let value = e.split(':')[1].trim()
-            let ref = Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join('');
-            value = `this.bind(${value}, false, "${ref}", "")`
-            e = `${key}="\${${value}}"`
-            break;
-          case e.includes('style:'):
-            let v2 = e.split('style:')[1].trim().replace(/,$/, '')
-            v2 = v2.replace(/,$/, '')
-            e = `${key}="\${this.parseStyle(${v2})}"`
-            break;
-
-          default:
-            let v = e.split(':')
-            key = v[0].trim()
-            // remove key from v
-            v.shift()
-            v = v.join(' ')
-            e = `${key}="\${${v}}"`
-
-            break;
-        }
-
-
-        return e;
-      });
-
-
-      let newSpread = splitByCommas.join(' ').trim().replace(/,$/, '');
-
-      // remove trailing } 
-      string = string.replace(old, newSpread);
-    }
 
     while ((functionMatch = functionAttributeRegex.exec(code)) !== null) {
 
@@ -216,17 +164,17 @@ function Compiler(func, file) {
               .split("<")[1]
               .split(">")[0]
               .split(" ")[0];
-            isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false; 
+            isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
           }
         });
-        if (isJSXComponent) { 
+        if (isJSXComponent) {
           continue
         }
         // add ; after newlines  
 
 
         let newvalue = attributeValue.includes('=>') ? attributeValue.split("=>").slice(1).join("=>").trim() : attributeValue.split("function").slice(1).join("function").trim()
- 
+
         // add ; after newlines 
 
 
@@ -278,14 +226,14 @@ function Compiler(func, file) {
         newvalue = newvalue.replace(/\(\s*=>/gs, '=>').replace(/\function\s*\([^\)]*\)\s*\{/gs, '{')
         newvalue = newvalue + `\n /**@id=${ref}**/ \n`
 
-        let bind = !isJSXComponent  && `${attributeName}="\$\{this.bind(function(){${newvalue}}.bind(this), ${isJSXComponent}, "${ref}",   "${paramnames ? paramnames.map((e, index) => {
+        let bind = !isJSXComponent && `${attributeName}="\$\{this.bind(function(){${newvalue}}.bind(this), ${isJSXComponent}, "${ref}",   "${paramnames ? paramnames.map((e, index) => {
           if (e.length < 1) return ''
           if (e.length > 0) {
             index == 0 ? e : ',' + e
           }
           return e
         }) : ''}" ${params ? params.split(',').map((e) => e.trim()).filter(Boolean).map((e) => `,${e}`).join('') : ''})}"`
-   
+
         string = string.replace(old, bind)
       }
     }
@@ -412,9 +360,15 @@ function Compiler(func, file) {
       switch (true) {
         case line.includes("useState") && !line.includes("import"):
           let varType = line.split("[")[0]
+          if (!line.split("=")[0].split(",")[1]) {
+            throw new Error('You forgot to value selector  (useState) ' + ' at ' + `${file}:${string.split(line)[0].split('\n').length}`)
+          }
           let key = line.split("=")[0].split(",")[0].trim().split('[')[1];
 
-          let setKey = line.split("=")[0].trim().split(",")[1].trim().replace("]", "");
+          if (!line.split("=")[0].split(",")[1]) {
+            throw new Error('You forgot to add a setter (useState) ' + ' at ' + `${file}:${string.split(line)[0].split('\n').length}`)
+          }
+          let setKey = line.split("=")[0].split(",")[1].trim().replace("]", "");
           key = key.replace("[", "").replace(",", "");
           let valuestate = line.split("=")[1].split("useState(")[1];
 
@@ -483,37 +437,73 @@ function Compiler(func, file) {
       let myChildrens = [];
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
-      let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim(); 
-      let props = component.includes('/>')? component.split(`<`)[1].split('/>')[0] : component.split(`<`)[1].split(`>`)[0]
-          props = props.replaceAll(/\s+/g, " ").trim()
+      let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim();
+      let props = component.includes('/>') ? component.split(`<`)[1].split('/>')[0] : component.split(`<`)[1].split(`>`)[0]
+      props = props.replaceAll(/\s+/g, " ").trim()
       props = props.replace(name, '').trim()
       component = component.replace(componentAttributes, '')
-      const dynamicAttributesRegex = /([a-zA-Z0-9_-]+)\s*=\s*("(?:[^"\\]*(?:\\.[^"\\]*)*)"|'(?:[^'\\]*(?:\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(.*.*?)\})*)*\})*)*\}|(?:\([^)]*\)|()\s*=>\s*(?:\{.*.*\})?|\{.*\})|\[[^\]]*\])/gs;
+      // or spread attributes {...{}, ...{}}
+      const dynamicAttributesRegex = /([a-zA-Z0-9_-]+)\s*=\s*("(?:[^"\\]*(?:\\.[^"\\]*)*)"|'(?:[^'\\]*(?:\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(.*.*?)\})*)*\})*)*\}|(?:\([^)]*\)|()\s*=>\s*(?:\{.*.*\})?|\{.*\})|\[[^\]]*\])|\${\{.*\}}/gs;
 
       const attributeObject = {};
- 
+      let propstring = ''
       let $_ternaryprops = []
+      let spreadRegex = /\$\{.*\}/gs;
+      let spreadMatch;
+      let hasSpread = false;
+      while ((spreadMatch = spreadRegex.exec(props)) !== null) {
+        let spread = spreadMatch[0].trim().replace(/\s+/g, " ");
+        if (!spread.includes('...')) {
+          continue
+        }
+        let old = spread;
+        spread = spread.trim().replace(/\s+/g, " ");
+        //${...( loaded ? { title: "Malik Whitten - Blog" } : { title: "Loading" } )} -> ...( loaded ? { title: "Malik Whitten - Blog" } : { title: "Loading" } )
+
+        let spreadContent = spread.match(/\$\{.*\}/gs) ? spread.match(/\$\{.*.*\}/gs)[0] : null
+        spreadContent = spread.split('${')[1]
+
+        spreadContent = spread.replace(/\${/, '')
+        spreadContent = spreadContent.replaceAll(/\s+/g, " ").trim()
+        spreadContent = spreadContent.replace(')}', ')').replace('}}', '}')
+
+        propstring += spreadContent + ','
+        // get last most } and remove it
+        propstring = propstring.slice(0, -1)
+        hasSpread = true
+
+      }
 
       let match;
-      let propstring = ''
+
       // props right now is just a string with all of them on one line and a space between each
       while ((match = dynamicAttributesRegex.exec(props)) !== null) {
         let str = match[0].trim().replace(/\s+/g, " ");
         if (!str.includes('=')) {
           continue
-        }   
-        
-       
-        str = str.replaceAll(/\s+/g, " ") 
+        }
+
+        if (hasSpread) {
+
+          console.log('\x1b[33m', '🚨 Code confliction detected', '\x1b[0m')
+          let line = string.split(match[0])[0].split('\n').length
+          try {
+            throw new Error('You cannot use spread props and named props\n on the same component at ' + match[0] + ' at ' + `${file}:${line}`)
+          } catch (error) {
+            console.error(error)
+            process.exit(1)
+          }
+        }
+
+        str = str.replaceAll(/\s+/g, " ")
         str = str.split('=')
-        let key = str[0].trim() 
+        let key = str[0].trim()
         let value = str.slice(1).join('=').trim().match(/\{.*\}/gs) ? str.slice(1).join('=').trim().match(/\{.*\}/gs)[0] : str.slice(1).join('=').trim();
- 
-   
-        
+
+
         let isObject = value.startsWith('{{') && value.endsWith('}}')
-        if (isObject) { 
-          value = value.split('{{')[1].split('}}')[0].trim() 
+        if (isObject) {
+          value = value.split('{{')[1].split('}}')[0].trim()
           value = `{${value}}`
           propstring += `${key}:${value},`
         } else {
@@ -522,8 +512,8 @@ function Compiler(func, file) {
           propstring += `${key}:${value},`
         }
         propstring = propstring.replaceAll(/\s+/g, " ").trim()
-         
-      } 
+
+      }
       component = component.replaceAll(/\s+/g, " ");
 
       component = component.replace(componentAttributes, '')
@@ -590,7 +580,7 @@ function Compiler(func, file) {
   let replaceMents = [];
 
 
-  if(imports){
+  if (imports) {
     for (let match of imports) {
       let path = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
       switch (true) {
@@ -600,11 +590,11 @@ function Compiler(func, file) {
           if (!fs.existsSync(process.cwd() + componentFolder)) {
             throw new Error('Could not find ' + path + ' at ' + match + ' in file ' + file)
           }
-  
+
           if (!fs.existsSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'))) {
             fs.mkdirSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'), { recursive: true })
           }
-  
+
           let baseFolder = componentFolder.split('node_modules')[1].split('/')[1]
           let glp = globSync('**/**/**/**.{jsx,js}', {
             cwd: process.cwd() + '/node_modules/' + baseFolder + '/',
@@ -615,7 +605,7 @@ function Compiler(func, file) {
             let text = fs.readFileSync(file, "utf8");
             if (!file.endsWith('.js') && file.endsWith('.jsx')) {
               text = Compiler(text, file);
-  
+
             }
             let dest = file.split('node_modules')[1]
             dest = dest.split(baseFolder)[1]
@@ -627,8 +617,8 @@ function Compiler(func, file) {
             replaceMents.push({ match: oldImportstring, replace: newImport })
             console.log(`📦 imported Node Package  ${baseFolder} `)
           }
-  
-  
+
+
           break;
         default:
           break;
@@ -653,7 +643,7 @@ function Compiler(func, file) {
   string = string.replaceAll(/\$\{\/\*.*\*\/\}/gs, "");
   string = string.replaceAll("<>", "`").replaceAll("</>", "`");
   string = string.replaceAll(".jsx", ".js");
- 
+
 
   string = string
     .replaceAll("className", "class")
@@ -905,7 +895,7 @@ async function Build() {
           page.on('crash', () => {
             console.error(`Render process crashed for ${route.url}`)
           });
-         
+
           await page.goto(`http://localhost:${port}${route.url}`, { waitUntil: 'networkidle2' });
 
           page.evaluate(() => {
@@ -949,8 +939,8 @@ async function Build() {
         browser.close()
       })
       hasRendered = []
-      globalThis.isBuilding = false 
-       
+      globalThis.isBuilding = false
+
     }
 
     if (hasRendered.length === routes.length) {
@@ -966,6 +956,7 @@ async function Build() {
     }
   }
   globalThis.routes = []
+  globalThis.paramRoutes = []
 
   for await (let file of glb) {
     // Normalize file paths
@@ -1064,7 +1055,10 @@ async function Build() {
     }
 
 
-    if (!obj.url.includes(':')) {
+    if (obj.url.includes(':') && !paramRoutes.includes(obj.url)) {
+      globalThis.paramRoutes.push({ fileName: fileName, url: obj.url, html: '/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html') })
+    } else {
+
       globalThis.routes.push({ fileName: fileName, url: obj.url, html: '/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html') })
     }
 
@@ -1085,7 +1079,8 @@ async function Build() {
 
   globalThis.routeDocuments = []
   globalThis.routes.map((route) => {
-    let equalparamroute = globalThis.routes.map((e) => {
+    let equalparamroute = globalThis.paramRoutes.map((e) => {
+      console
       if (e.url.includes(':')) {
         let url = e.url.split('/:')[0]
         if (url && route.url === url) {
@@ -1160,13 +1155,13 @@ async function Build() {
   `;
     globalThis.routeDocuments.push({ url: route.url, document: document })
   })
- 
-  if(globalThis.devMode && !globalThis.oneAndDone){
+
+  if (globalThis.devMode && !globalThis.oneAndDone) {
     ssg(globalThis.routes)
     globalThis.oneAndDone = true
     console.log(`In Development Mode, Prerendering ${globalThis.routes.length} pages... Once`)
-  } 
-  else if(globalThis.isProduction){
+  }
+  else if (globalThis.isProduction) {
     ssg(globalThis.routes)
   }
 
@@ -1251,7 +1246,7 @@ async function Build() {
       let data = await reader(process.cwd() + "/node_modules/vaderjs/runtime/" + file)
       await writer(process.cwd() + "/dist/" + file, data);
     });
-    
+
 
   }
 
@@ -1347,7 +1342,7 @@ const s = (port) => {
         return 'application/octet-stream';
     }
   }
- 
+
   server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
     globalThis.ws = ws
@@ -1362,7 +1357,7 @@ switch (true) {
 
     globalThis.devMode = true
     globalThis.isProduction = false
-    
+
     let p = process.env.PORT || config.port || process.argv.includes('-p') ? process.argv[process.argv.indexOf('-p') + 1] : 3000
     globalThis.oneAndDone = false
     console.log(`
@@ -1394,7 +1389,7 @@ Vader.js v${fs.readFileSync(process.cwd() + '/node_modules/vaderjs/package.json'
             Build()
           }
         }).on('error', (err) => console.log(err))
-    })  
+    })
     s(p)
 
     globalThis.listen = true;

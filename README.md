@@ -81,7 +81,7 @@ export default function(req, res){
 
    return <>
     <h1>${count}</h1>
-    <button onClick={(event)=>{setCount(count + 1)}}>
+    <button onClick={(event)=>{setCount(++count)}}>
    </>
 }
  
@@ -130,7 +130,7 @@ export function Layout({title, keywords, description, children}){
 
 export default function (req, res){
   return <>
-   <Layout $={{title:'home', description:'home page', keywords:'vader.js', logo:''}}>
+   <Layout ${{title:'home', description:'home page', keywords:'vader.js', logo:''}}>
    <h1> Hello World</h1>
    </Layout>
   </>
