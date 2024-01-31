@@ -467,7 +467,7 @@ function Compiler(func, file) {
         spreadContent = spreadContent.replaceAll(/\s+/g, " ").trim()
         spreadContent = spreadContent.replace(')}', ')').replace('}}', '}')
 
-        propstring += spreadContent + ',' 
+        propstring += spreadContent + ','
         hasSpread = true
 
       }
@@ -807,15 +807,17 @@ function Compiler(func, file) {
 
 globalThis.isBuilding = false
 globalThis.isWriting = null
-const glb = await glob("**/**/**/**.{jsx,js}", {
-  ignore: ["node_modules/**/*", "dist/**/*"],
-  cwd: process.cwd() + '/pages/',
-  absolute: true,
-  recursive: true
-});
+
 let hasRendered = []
 
 async function Build() {
+  const glb = await glob("**/**/**/**.{jsx,js}", {
+    ignore: ["node_modules/**/*", "dist/**/*"],
+    cwd: process.cwd() + '/pages/',
+    absolute: true,
+    recursive: true
+  });
+
   globalThis.isBuilding = true
   console.log(globalThis.isProduction ? 'Creating Optimized Production Build\n' : '')
   let str = `Page \t\t\t\t Size\n`
@@ -1060,6 +1062,39 @@ async function Build() {
       globalThis.routes.push({ fileName: fileName, url: obj.url, html: '/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html') })
     }
 
+    // check if route has a index.html file
+
+    if (!fs.existsSync(process.cwd() + '/dist/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html'))
+      && !obj.url.includes(':') && !globalThis.isProduction
+    ) {
+      let document = `<!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${obj.url}</title>
+          <script>
+          window.routes = JSON.parse('${JSON.stringify(globalThis.routes)}')
+          </script>
+          <script type="module">
+           import VaderRouter from '/router.js'
+           const router = new VaderRouter('${obj.url}')
+            router.get('${obj.url}', async (req, res) => {
+              let module = await import('/${obj.url === '/' ? 'index.js' : obj.url + '.js'}')
+              if(Object.keys(module).includes('$prerender') && !module.$prerender){
+                document.head.setAttribute('prerender', 'false')
+              }
+              res.render(module, req, res, module.$metadata)
+            })
+            router.listen(3000)
+          </script>
+      </head>
+      <body>
+           <div id="root"></div>
+      </body>
+      </html>`
+      writer(process.cwd() + '/dist/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html'), document)
+    }
 
     let stats = {
       route: obj.url.padEnd(30),
@@ -1252,7 +1287,29 @@ async function Build() {
 
   globalThis.isProduction ? console.log(`Total Bundle Size: ${Math.round(bundleSize / 1000)}kb`) : null
   bundleSize = 0;
+  if (!globalThis.isBuilding) {
+    let folders = fs.readdirSync(process.cwd() + '/dist/', { withFileTypes: true })
 
+    folders.forEach((folder) => {
+      // exclude files
+      if (folder.name.includes('src') || folder.name.includes('public') || folder.name.includes('pages')
+        || !folder.isDirectory()
+      ) {
+        return
+      }
+
+      let existsInPages = fs.existsSync(process.cwd() + '/pages/' + folder.name)
+
+      if (existsInPages) {
+        return
+      }
+      fs.rm(process.cwd() + '/dist/' + folder.name, { recursive: true }, (err) => {
+        if (err) {
+          throw err
+        }
+      })
+    })
+  }
   return true
 }
 const s = (port) => {
@@ -1262,7 +1319,7 @@ const s = (port) => {
     const validExtensions = ['.js', '.css', '.mjs', '.cjs', '.html', '.json', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.mp4', '.webm', '.ogg', '.map']
 
     if (!validExtensions.some(ext => req.url.endsWith(ext))) {
-      req.url = req.url !== '/' ? req.url.split('/')[1] : req.url;
+      req.url = req.url + '/'
       req.url = path.join(process.cwd(), 'dist', req.url, 'index.html');
     } else {
       req.url = path.join(process.cwd(), 'dist', req.url);
