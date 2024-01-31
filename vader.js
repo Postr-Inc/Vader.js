@@ -962,6 +962,10 @@ async function Build() {
     // Normalize file paths
     let origin = file.replace(/\\/g, '/');
     let fileName = origin.split('/pages/')[1].split('.jsx')[0].replace('.jsx', '') + '.jsx';
+    if (file.endsWith('.js')) {
+      console.warn('\x1b[33m%s\x1b[0m', `Warning: js files in the pages directory are not supported. Skipping ${file}`)
+      continue
+    }
     let isBasePath = fileName === 'index.jsx';
     let isParamRoute = fileName.includes('[') && fileName.includes(']') ? true : false
 
@@ -1080,7 +1084,7 @@ async function Build() {
            import VaderRouter from '/router.js'
            const router = new VaderRouter('${obj.url}')
             router.get('${obj.url}', async (req, res) => {
-              let module = await import('/${obj.url === '/' ? 'index.js' : obj.url + '.js'}')
+              let module = await import('${obj.url === '/' ? 'index.js' : obj.url}/index.js')
               if(Object.keys(module).includes('$prerender') && !module.$prerender){
                 document.head.setAttribute('prerender', 'false')
               }
@@ -1287,9 +1291,10 @@ async function Build() {
 
   globalThis.isProduction ? console.log(`Total Bundle Size: ${Math.round(bundleSize / 1000)}kb`) : null
   bundleSize = 0;
-  if (!globalThis.isBuilding) {
+  if (!globalThis.isBuilding && !globalThis.isProduction) {
     let folders = fs.readdirSync(process.cwd() + '/dist/', { withFileTypes: true })
-
+    let mapfolders = fs.readdirSync(process.cwd() + '/dist/src/maps/', { withFileTypes: true }) || []
+    console.log(`Cleaning up dist folder...`)
     folders.forEach((folder) => {
       // exclude files
       if (folder.name.includes('src') || folder.name.includes('public') || folder.name.includes('pages')
@@ -1309,6 +1314,26 @@ async function Build() {
         }
       })
     })
+    mapfolders.forEach((folder) => {
+
+      let existsInPages = fs.existsSync(process.cwd() + '/pages/' + folder.name)
+      let existsInSrc = fs.existsSync(process.cwd() + '/src/' + folder.name)
+      if (existsInPages || existsInSrc) {
+        return
+      }
+
+      let name = folder.name.includes('.js.map') ? folder.name.split('.js.map').join('.js') : folder.name
+      if (fs.existsSync(process.cwd() + '/dist/src/maps/' + name)) {
+        fs.rm(process.cwd() + '/dist/src/maps/' + name, { recursive: true }, (err) => {
+          if (err) {
+            throw err
+          }
+        })
+      }
+
+
+
+    })
   }
   return true
 }
@@ -1320,9 +1345,17 @@ const s = (port) => {
 
     if (!validExtensions.some(ext => req.url.endsWith(ext))) {
       req.url = req.url + '/'
+      let baseRoute = '/' + req.url.split('/')[1]
+      let paramRoute = globalThis.paramRoutes.find((e) => {
+        let base = e.url.split('/:')[0]
+        return base === baseRoute
+      })
+      if (paramRoute) {
+        req.url = baseRoute
+      }
       req.url = path.join(process.cwd(), 'dist', req.url, 'index.html');
     } else {
-      req.url = path.join(process.cwd(), 'dist', req.url);
+      req.url = path.join(process.cwd(), 'dist/', req.url);
     }
 
     const filePath = req.url
