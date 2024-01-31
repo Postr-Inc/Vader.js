@@ -1360,12 +1360,15 @@ switch (true) {
 
     globalThis.devMode = true
     globalThis.isProduction = false
+    
+    let p = process.env.PORT || config.port || process.argv.includes('-p') ? process.argv[process.argv.indexOf('-p') + 1] : 3000
     globalThis.oneAndDone = false
     console.log(`
 Vader.js v${fs.readFileSync(process.cwd() + '/node_modules/vaderjs/package.json', 'utf8').split('"version": "')[1].split('"')[0]}
 - Watching for changes in ./pages
 - Watching for changes in ./src
 - Watching for changes in ./public
+- Serving on port ${p}
 `)
     !globalThis.isBuilding ? Build() : null
 
@@ -1389,9 +1392,7 @@ Vader.js v${fs.readFileSync(process.cwd() + '/node_modules/vaderjs/package.json'
             Build()
           }
         }).on('error', (err) => console.log(err))
-    })
-    let p = process.argv[process.argv.indexOf('dev') + 1] ||  process.env.PORT || 3000
- 
+    })  
     s(p)
 
     globalThis.listen = true;
@@ -1412,7 +1413,8 @@ Building to ./dist
 
     break;
   case process.argv.includes('start') && !process.argv.includes('dev') && !process.argv.includes('build'):
-    let port = process.argv[process.argv.indexOf('serve') + 1] || process.env.PORT || 3000 
+    let port = process.env.PORT || config.port || process.argv.includes('-p') ? process.argv[process.argv.indexOf('-p') + 1] : 3000
+    console.log(port)
     globalThis.devMode = false
     console.log(`
 Vader.js v1.3.3 
@@ -1430,11 +1432,11 @@ Usage: vader <command>
     
 Commands:
 
-   vaderjs dev     Start the development server
+   vaderjs dev  -p <number>    Start the development server
     
    vaderjs build   Build the project to ./dist
     
-   vaderjs start  <port>   Production Mode (default 3000 or process.env.PORT)
+   vaderjs start  -p <number>  Production Mode (default 3000 or process.env.PORT)
       
 Learn more about vader:           https://vader-js.pages.dev/
         
