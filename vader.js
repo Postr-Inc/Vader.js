@@ -239,34 +239,34 @@ function Compiler(func, file) {
         continue;
       }
       let old = spread;
-      spread = spread.trim().replace(/\s+/g, " "); 
+      spread = spread.trim().replace(/\s+/g, " ");
       // re,pve $={ and }
       spread = spread.replace(/\s*\$\s*=\s*{\s*{/gs, '')
-      
+
       // replace trailing }
-      spread = spread.replace(/}}\s*$/, '').replace(/}\s*}$/, '') 
-      let splitByCommas =  spread.split(/,(?![^{}]*})/gs) 
+      spread = spread.replace(/}}\s*$/, '').replace(/}\s*}$/, '')
+      let splitByCommas = spread.split(/,(?![^{}]*})/gs)
       // remove empty strings
       splitByCommas = splitByCommas.filter((e) => e.split(':')[0].trim().length > 0)
-      splitByCommas = splitByCommas.map((e, index) => { 
+      splitByCommas = splitByCommas.map((e, index) => {
         let key = e.split(':')[0].trim()
         switch (true) {
           case e.includes('function') && !e.includes('this.bind') || e && e.includes('=>') && !e.includes('this.bind'):
             let value = e.split(':')[1].trim()
-            let ref = Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join(''); 
+            let ref = Math.random().toString(36).substring(2).split('').filter((e) => !Number(e)).join('');
             value = `this.bind(${value}, false, "${ref}", "")`
             e = `${key}="\${${value}}"`
             break;
-          case  e.includes('style:'):
-            let v2 = e.split('style:')[1].trim().replace(/,$/, '') 
-            v2 = v2.replace(/,$/, '') 
+          case e.includes('style:'):
+            let v2 = e.split('style:')[1].trim().replace(/,$/, '')
+            v2 = v2.replace(/,$/, '')
             e = `${key}="\${this.parseStyle(${v2})}"`
-           break;
-           
-          default:  
-            let v = e.split(':') 
+            break;
+
+          default:
+            let v = e.split(':')
             key = v[0].trim()
-             // remove key from v
+            // remove key from v
             v.shift()
             v = v.join(' ')
             e = `${key}="\${${v}}"`
@@ -277,7 +277,7 @@ function Compiler(func, file) {
 
         return e;
       });
- 
+
 
       let newSpread = splitByCommas.join(' ').trim().replace(/,$/, '');
 
@@ -348,7 +348,7 @@ function Compiler(func, file) {
       newAttributes.push(attribute);
       for (let key in attributes) {
 
-        let value = attributes[key]; 
+        let value = attributes[key];
         let oldvalue = value;
         if (value && !value.new) {
 
@@ -502,10 +502,10 @@ function Compiler(func, file) {
 
           if (prop.startsWith('$=')) {
             let old = prop
-            let match = prop.replace(/\$\s*=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs, '$1') 
+            let match = prop.replace(/\$\s*=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs, '$1')
             match = match.replace('$:', '$_ternary:')
             component = component.replace(old, '')
-            componentAttributes = componentAttributes.replace(old,  match)
+            componentAttributes = componentAttributes.replace(old, match)
 
             $_ternaryprops.push(prop)
 
@@ -635,52 +635,54 @@ function Compiler(func, file) {
 
   string = string.replaceAll('vaderjs/client', '/vader.js')
 
-  const importRegex = /import\s*([^\s,]+|\{[^}]+\})\s*from\s*(['"])(.*?)\2/g;
+  const importRegex = /import\s*([^\s,]+|\{[^}]+\})\s*from\s*(['"])(.*?)\2/gs;
   const imports = string.match(importRegex);
   let replaceMents = [];
 
 
-  for (let match of imports) {
-    let path = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
-    switch (true) {
-      case path && !path.includes('./') && !path.includes('/vader.js') && !path.includes('/vaderjs/client') && !path.startsWith('src') && !path.startsWith('public') && !path.includes('http') && !path.includes('https'):
-        let componentFolder = fs.existsSync(process.cwd() + '/node_modules/' + path) ? process.cwd() + '/node_modules/' + path : process.cwd() + '/node_modules/' + path.split('/')[0]
-        componentFolder = componentFolder.split(process.cwd())[1]
-        if (!fs.existsSync(process.cwd() + componentFolder)) {
-          throw new Error('Could not find ' + path + ' at ' + match + ' in file ' + file)
-        }
-
-        if (!fs.existsSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'))) {
-          fs.mkdirSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'), { recursive: true })
-        }
-
-        let baseFolder = componentFolder.split('node_modules')[1].split('/')[1]
-        let glp = globSync('**/**/**/**.{jsx,js}', {
-          cwd: process.cwd() + '/node_modules/' + baseFolder + '/',
-          absolute: true,
-          recursive: true
-        })
-        for (let file of glp) {
-          let text = fs.readFileSync(file, "utf8");
-          if (!file.endsWith('.js') && file.endsWith('.jsx')) {
-            text = Compiler(text, file);
-
+  if (imports) {
+    for (let match of imports) {
+      let path = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
+      switch (true) {
+        case path && !path.includes('./') && !path.includes('/vader.js') && !path.includes('/vaderjs/client') && !path.startsWith('src') && !path.startsWith('public') && !path.includes('http') && !path.includes('https'):
+          let componentFolder = fs.existsSync(process.cwd() + '/node_modules/' + path) ? process.cwd() + '/node_modules/' + path : process.cwd() + '/node_modules/' + path.split('/')[0]
+          componentFolder = componentFolder.split(process.cwd())[1]
+          if (!fs.existsSync(process.cwd() + componentFolder)) {
+            throw new Error('Could not find ' + path + ' at ' + match + ' in file ' + file)
           }
-          let dest = file.split('node_modules')[1]
-          dest = dest.split(baseFolder)[1]
-          writer(process.cwd() + '/dist/src/' + baseFolder + dest, text)
-          let importname = match.split('import')[1].split('from')[0].trim()
-          let oldImportstring = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
-          let newImport = `/src/${baseFolder + dest}`
-          newImport = newImport.replaceAll('.jsx', '.js').replaceAll('\\', '/')
-          replaceMents.push({ match: oldImportstring, replace: newImport })
-          console.log(`📦 imported Node Package  ${baseFolder} `)
-        }
+
+          if (!fs.existsSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'))) {
+            fs.mkdirSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'), { recursive: true })
+          }
+
+          let baseFolder = componentFolder.split('node_modules')[1].split('/')[1]
+          let glp = globSync('**/**/**/**.{jsx,js}', {
+            cwd: process.cwd() + '/node_modules/' + baseFolder + '/',
+            absolute: true,
+            recursive: true
+          })
+          for (let file of glp) {
+            let text = fs.readFileSync(file, "utf8");
+            if (!file.endsWith('.js') && file.endsWith('.jsx')) {
+              text = Compiler(text, file);
+
+            }
+            let dest = file.split('node_modules')[1]
+            dest = dest.split(baseFolder)[1]
+            writer(process.cwd() + '/dist/src/' + baseFolder + dest, text)
+            let importname = match.split('import')[1].split('from')[0].trim()
+            let oldImportstring = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
+            let newImport = `/src/${baseFolder + dest}`
+            newImport = newImport.replaceAll('.jsx', '.js').replaceAll('\\', '/')
+            replaceMents.push({ match: oldImportstring, replace: newImport })
+            console.log(`📦 imported Node Package  ${baseFolder} `)
+          }
 
 
-        break;
-      default:
-        break;
+          break;
+        default:
+          break;
+      }
     }
   }
 
@@ -873,6 +875,7 @@ const glb = await glob("**/**/**/**.{jsx,js}", {
   absolute: true,
   recursive: true
 });
+let hasRendered = []
 async function Build() {
   globalThis.isBuilding = true
   console.log(globalThis.isProduction ? 'Creating Optimized Production Build\n' : '')
@@ -887,119 +890,49 @@ async function Build() {
 
   function ssg(routes = []) {
     globalThis.isBuilding = true
+    let server = http.createServer((req, res) => {
+      let route = routes.find((e) => e.url === req.url)
+      if (route) {
+        let document = globalThis.routeDocuments.find((e) => e.url === req.url)
+        console.log(`\x1b[32m%s\x1b[0m`, `Prerendering ${req.url}...`)
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(document.document);
+      } else {
+        const filePath = process.cwd() + '/dist/' + req.url
+
+        fs.readFile(filePath, (err, data) => {
+          if (err) {
+            res.writeHead(404, { 'Content-Type': filePath.includes('js') ? 'text/javascript' : 'text/html' });
+            res.end('File not found');
+          } else {
+            res.writeHead(200, { 'Content-Type': filePath.includes('js') ? 'text/javascript' : 'text/html' });
+            res.end(data);
+          }
+        });
+      }
+    });
+
+    let port = 12000
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        setTimeout(() => {
+          server.close();
+          server.listen(++port);
+        }, 1000);
+      }
+    })
+
+    server.listen(port);
     routes.forEach(async (route) => {
       if (route.url.includes(':')) {
         return
       }
-      let equalparamroute = routes.map((e) => {
-        if (e.url.includes(':')) {
-          let url = e.url.split('/:')[0]
-          if (url && route.url === url) {
-            return e
-          } else {
-            return null
-
-          }
-        }
-        return null
-      }).filter(Boolean)
-      let document = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-          <script>
-          window.routes = JSON.parse('${JSON.stringify(routes)}')
-            
-         
-          </script>
-          <script id="isServer">
-          window.isServer = true
-          </script>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width,initial-scale=1.0">
-          <script type="module" id="meta">
-          window.history.pushState({}, '', '${route.url}') 
-          
-         </script>
-         <script type="module" id="router">
-         import VaderRouter from '/router.js' 
-         const router = new VaderRouter('${route.url}', 3000)
-         router.get('${route.url}', async (req, res) => {
-           try{
-            let module = await import('/${route.fileName.replace('.jsx', '.js')}')
-            if(Object.keys(module).includes('$prerender') && !module.$prerender){
-              document.head.setAttribute('prerender', 'false')
-            }
-            res.render(module, req, res, module.$metadata)
-           }
-           catch(error){
-            let errorMessage = {
-              message: error.message,
-              name: error.name,
-              stack: error.stack,
-              path: window.location.pathname
-            };
-          
-            
-            document.documentElement.setAttribute('error', JSON.stringify(errorMessage));
-            throw new Error(error)
-           }
-         }) 
-         ${equalparamroute.length > 0 ? equalparamroute.map((e) => {
 
 
 
-        return `router.get('${e.url}', async (req, res) => {
-            let module = await import('/${e.fileName.replace('.jsx', '.js')}')
-            res.render(module, req, res, module.$metadata)
-         })\n`
-      }) : ''}
-         router.listen(3000)
-         
-     </script> 
-      </head>
-      <body>
-          <div id="root"></div>
-      </body>  
-      
-      
-      </html>
-    `;
 
-      // generate random but common ports
-      let port = Math.floor(Math.random() * (65535 - 49152 + 1) + 49152)
 
-      const server = http.createServer((req, res) => {
 
-        if (req.url === '/') {
-          res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end(document);
-        } else {
-          // Serve static files (adjust the file paths based on your project structure)
-          const filePath = process.cwd() + '/dist/' + req.url
-
-          fs.readFile(filePath, (err, data) => {
-            if (err) {
-              res.writeHead(404, { 'Content-Type': filePath.includes('js') ? 'text/javascript' : 'text/html' });
-              res.end('File not found');
-            } else {
-              res.writeHead(200, { 'Content-Type': filePath.includes('js') ? 'text/javascript' : 'text/html' });
-              res.end(data);
-            }
-          });
-        }
-      });
-
-      server.listen(port)
-      server.on('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-          console.log(`Port ${port} is in use, trying another port...`);
-          setTimeout(() => {
-            server.close();
-            server.listen(++port);
-          }, 1000);
-        }
-      })
 
       globalThis.listen = true;
 
@@ -1015,14 +948,16 @@ async function Build() {
         page.on('error', (err) => {
           console.error('BROWSER ERROR:', JSON.parse(err));
         });
-      
-        try {
-          page.on('pageerror', async err => { 
-            let errorObj =  JSON.parse(await page.evaluate(() => document.documentElement.getAttribute('error')) || '{}') 
-            console.log('\x1b[31m%s\x1b[0m', 'Compiler Error:',  errorObj)
 
+        try {
+          page.on('pageerror', async err => {
+            let errorObj = JSON.parse(await page.evaluate(() => document.documentElement.getAttribute('error')) || '{}')
+            console.log('\x1b[31m%s\x1b[0m', 'Compiler Error:', errorObj)
+
+            console.log('\x1b[31m%s\x1b[0m', 'Error:', err)
           });
         } catch (error) {
+          console.log(error)
           browser.close()
         }
         // Handle page crashes
@@ -1032,16 +967,10 @@ async function Build() {
         page.on('requestfailed', request => {
           console.error('REQUEST FAILED:', request.url(), request.failure().errorText);
         });
-        await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle2' });
-
-
-
-
-
-
+        await page.goto(`http://localhost:${port}${route.url}`, { waitUntil: 'networkidle2' });
 
         await page.evaluate(() => {
-          document.getElementById('meta').remove()
+          document.querySelector('#meta').remove()
           document.querySelector('#isServer').innerHTML = 'window.isServer = false'
           if (document.head.getAttribute('prerender') === 'false') {
             document.querySelector('#root').innerHTML = ''
@@ -1057,19 +986,26 @@ async function Build() {
 
 
       } catch (error) {
-        console.log(error)
+
       }
 
       finally {
         browser.close()
         server.close()
+        hasRendered.push(route.url)
+        console.log(`\x1b[32m%s\x1b[0m`, `Prerendered ${route.url}...`)
       }
     })
 
-    let timeout = setTimeout(() => {
+
+
+    if (hasRendered.length === routes.length) {
+      server.close()
+      hasRendered = []
       globalThis.isBuilding = false
       clearTimeout(timeout)
-    }, 1000)
+    }
+
   }
 
   globalThis.routes = []
@@ -1171,6 +1107,7 @@ async function Build() {
     }
 
 
+
     globalThis.routes.push({ fileName: fileName, url: obj.url, html: '/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html') })
 
 
@@ -1187,6 +1124,87 @@ async function Build() {
 
     globalThis.isProduction ? console.log(string) : null
   }
+
+
+  globalThis.routeDocuments = []
+  globalThis.routes.map((route) => {
+    let equalparamroute = globalThis.routes.map((e) => {
+      if (e.url.includes(':')) {
+        let url = e.url.split('/:')[0]
+        if (url && route.url === url) {
+          return e
+        } else {
+          return null
+
+        }
+      }
+      return null
+    }).filter(Boolean)
+    let document = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <script>
+        window.routes = JSON.parse('${JSON.stringify(globalThis.routes)}') 
+        </script>
+        <script type="module" id="meta">
+        window.history.pushState({}, '', '${route.url}')
+        
+       </script>
+        <script id="isServer">
+        window.isServer = true
+        </script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1.0">
+         
+       <script type="module" id="router">
+       import VaderRouter from '/router.js' 
+       const router = new VaderRouter('${route.url}')
+       router.get('${route.url}', async (req, res) => {
+         try{
+          let module = await import('/${route.fileName.replace('.jsx', '.js')}')
+          if(Object.keys(module).includes('$prerender') && !module.$prerender){
+            document.head.setAttribute('prerender', 'false')
+          }
+          res.render(module, req, res, module.$metadata)
+         }
+         catch(error){
+          let errorMessage = {
+            message: error.message,
+            name: error.name,
+            stack: error.stack,
+            path: window.location.pathname
+          };
+        
+          
+          document.documentElement.setAttribute('error', JSON.stringify(errorMessage));
+          throw new Error(error)
+         }
+       }) 
+       ${equalparamroute.length > 0 ? equalparamroute.map((e) => {
+
+
+
+      return `router.get('${e.url}', async (req, res) => {
+          let module = await import('/${e.fileName.replace('.jsx', '.js')}')
+          res.render(module, req, res, module.$metadata)
+       })\n`
+    }) : ''}
+       router.listen(3000)
+       
+   </script> 
+    </head>
+    <body>
+        <div id="root"></div>
+    </body>  
+    
+    
+    </html>
+  `;
+    globalThis.routeDocuments.push({ url: route.url, document: document })
+  })
+
+
 
   ssg(globalThis.routes)
 
@@ -1220,7 +1238,7 @@ async function Build() {
 
     let data = await reader(process.cwd() + "/src/" + name)
     if (name.includes('.jsx')) {
-      let origin = process.cwd() + "/src/" + name 
+      let origin = process.cwd() + "/src/" + name
       if (!globalThis.isProduction) {
         let { sourceMap } = sourceMapGen({ origin: origin, fileName: name }, await Compiler(data, origin))
         data = data + `\n//# sourceMappingURL=/src/maps/${name.replace('.jsx', '.js.map')}\n //#sourceURL=${origin}`
@@ -1274,7 +1292,7 @@ async function Build() {
   }
 
   globalThis.isBuilding = false
-   globalThis.isProduction  ? console.log(`\nTotal bundle size: ${Math.round(bundleSize / 1000)}kb`) : null
+  globalThis.isProduction ? console.log(`\nTotal bundle size: ${Math.round(bundleSize / 1000)}kb`) : null
 
   bundleSize = 0;
 
@@ -1445,7 +1463,7 @@ url: http://localhost:${port}
   default:
     // add color
     console.log(` 
-Vader.js is a reactive framework for building interactive applications for the web!
+Vader.js is a reactive framework for building interactive applications for the web built ontop of bun.js!
     
 Usage: vader <command> 
     
@@ -1463,4 +1481,3 @@ Learn more about vader:           https://vader-js.pages.dev/
     break;
 
 }
- 
