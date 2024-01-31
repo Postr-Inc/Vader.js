@@ -481,23 +481,15 @@ function Compiler(func, file) {
       let myChildrens = [];
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
-      let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim();
-      // catchall = "" ={} =[]
-
-
-      let props = component.split("<")[1].split(">")[0]
-
-
-      const dynamicAttributesRegex = /([a-zA-Z0-9_-]+)\s*=\s*("(?:[^"\\]*(?:\\.[^"\\]*)*)"|'(?:[^'\\]*(?:\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{.*.*\})*)*\})*)*\}|(?:\([^)]*\)|()\s*=>\s*(?:\{.*\})?|\{[^}]*\})|\[[^\]]*\])/gs;
+      let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim(); 
+      let props = component.includes('/>')? component.split(`<`)[1].split('/>')[0] : component.split(`<`)[1].split(`>`)[1].split(`</${name}`)[0].trim()
+      props = props.replaceAll(/\s+/g, " ").trim()
+      props = props.replace(name, '').trim()
+      component = component.replace(componentAttributes, '')
+      const dynamicAttributesRegex = /([a-zA-Z0-9_-]+)\s*=\s*("(?:[^"\\]*(?:\\.[^"\\]*)*)"|'(?:[^'\\]*(?:\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{(.*.*?)\})*)*\})*)*\}|(?:\([^)]*\)|()\s*=>\s*(?:\{.*.*\})?|\{.*\})|\[[^\]]*\])/gs;
 
       const attributeObject = {};
-
-
-      let filteredProps = [];
-      let isWithinComponent = false;
-      let componentName = name
-      let currentProps = []
-
+ 
       let $_ternaryprops = []
 
       let match;
@@ -507,24 +499,27 @@ function Compiler(func, file) {
         let str = match[0].trim().replace(/\s+/g, " ");
         if (!str.includes('=')) {
           continue
-        }
+        }  
+        
+       
+        str = str.replaceAll(/\s+/g, " ") 
         str = str.split('=')
-        let key = str[0].trim()
-        let value = str[1].trim()
-        if (value.startsWith('"') && !value.endsWith('"') || value.startsWith("'") && !value.endsWith("'")
-          || value.startsWith('`') && !value.endsWith('`')) {
-          // wrap in respective quotes
-          value = value + value[0]
-        }
+        let key = str[0].trim() 
+        let value = str.slice(1).join('=').trim().match(/\{.*\}/gs) ? str.slice(1).join('=').trim().match(/\{.*\}/gs)[0] : str.slice(1).join('=').trim();
+
+   
+        
         let isObject = value.startsWith('{{') && value.endsWith('}}')
-        if (isObject) {
-          value = value.split('{{')[1].split('}}')[0].trim()
+        if (isObject) { 
+          value = value.split('{{')[1].split('}}')[0].trim() 
           value = `{${value}}`
+          propstring += `${key}:${value},`
         } else {
           // remove starting { and ending } using regex
           value = value.replace(/^{/, '').replace(/}$/, '')
+          propstring += `${key}:${value},`
         }
-        propstring += `${key}:${value},`
+         
       }
       component = component.replaceAll(/\s+/g, " ");
 
@@ -951,9 +946,8 @@ async function Build() {
         browser.close()
       })
       hasRendered = []
-      globalThis.isBuilding = false
-      globalThis.isProduction ? console.log(`Total Bundle Size: ${Math.round(bundleSize / 1000)}kb`) : null
-      bundleSize = 0
+      globalThis.isBuilding = false 
+       
     }
 
     if (hasRendered.length === routes.length) {
@@ -1167,7 +1161,10 @@ async function Build() {
   if(globalThis.devMode && !globalThis.oneAndDone){
     ssg(globalThis.routes)
     globalThis.oneAndDone = true
-    console.log('Prerendering...')
+    console.log(`In Development Mode, Prerendering ${globalThis.routes.length} pages... Once`)
+  } 
+  else if(globalThis.isProduction){
+    ssg(globalThis.routes)
   }
 
 
@@ -1251,11 +1248,13 @@ async function Build() {
       let data = await reader(process.cwd() + "/node_modules/vaderjs/runtime/" + file)
       await writer(process.cwd() + "/dist/" + file, data);
     });
+    
 
   }
 
   globalThis.isBuilding = false
 
+  globalThis.isProduction ? console.log(`Total Bundle Size: ${Math.round(bundleSize / 1000)}kb`) : null
   bundleSize = 0;
 
   return true
