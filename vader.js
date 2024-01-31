@@ -907,9 +907,7 @@ async function Build() {
           page.on('crash', () => {
             console.error(`Render process crashed for ${route.url}`)
           });
-          page.on('requestfailed', request => {
-            console.error('REQUEST FAILED:', request.url(), request.failure().errorText);
-          });
+         
           await page.goto(`http://localhost:${port}${route.url}`, { waitUntil: 'networkidle2' });
 
           page.evaluate(() => {
@@ -1165,8 +1163,12 @@ async function Build() {
   `;
     globalThis.routeDocuments.push({ url: route.url, document: document })
   })
-
-  ssg(globalThis.routes)
+ 
+  if(globalThis.devMode && !globalThis.oneAndDone){
+    ssg(globalThis.routes)
+    globalThis.oneAndDone = true
+    console.log('Prerendering...')
+  }
 
 
   const scannedSourceFiles = await glob("**/**.{jsx,js,json}", {
@@ -1258,7 +1260,7 @@ async function Build() {
 
   return true
 }
-const s = () => {
+const s = (port) => {
 
   const server = http.createServer((req, res) => {
 
@@ -1343,10 +1345,9 @@ const s = () => {
         return 'application/octet-stream';
     }
   }
-
-  const PORT = process.env.PORT || 3000;
-  server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+ 
+  server.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
     globalThis.ws = ws
   });
 
@@ -1359,6 +1360,7 @@ switch (true) {
 
     globalThis.devMode = true
     globalThis.isProduction = false
+    globalThis.oneAndDone = false
     console.log(`
 Vader.js v${fs.readFileSync(process.cwd() + '/node_modules/vaderjs/package.json', 'utf8').split('"version": "')[1].split('"')[0]}
 - Watching for changes in ./pages
@@ -1411,15 +1413,14 @@ Building to ./dist
 
     break;
   case process.argv.includes('start') && !process.argv.includes('dev') && !process.argv.includes('build'):
-    let port = process.argv[process.argv.indexOf('--serve') + 1] || 3000
-    process.env.PORT = port
+    let port = process.argv[process.argv.indexOf('serve') + 1] || process.env.PORT || 3000 
     globalThis.devMode = false
     console.log(`
 Vader.js v1.3.3 
 Serving ./dist on port ${port}
 url: http://localhost:${port}
     `)
-    s()
+    s(port)
     break;
   default:
     // add color
