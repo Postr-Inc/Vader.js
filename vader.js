@@ -143,6 +143,9 @@ function Compiler(func, file) {
             isJSXComponent = elementTag.match(/^[A-Z]/) ? true : false;
           }
         });
+        if (isJSXComponent) {
+          continue
+        }
         // add ; after newlines  
 
 
@@ -479,11 +482,16 @@ function Compiler(func, file) {
 
       let name = component.split("<")[1].split(">")[0].split(" ")[0].replace("/", "");
       let componentAttributes = component.split("<")[1].split(">")[0].split(" ").join(" ").replace(name, "").trim();
-      const dynamicAttributesRegex = /(\w+)(?:="([^"]*?)"|='([^']*?)'|(?:=\{([^}]*?)\})?|(?:=\{(.*?)*\})?|(?:={([^}]*?)})?|(?:{([^}]*?)})?|(?:}))?|\$=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs;
+      // catchall = "" ={} =[]
 
 
+      let props = component.split("<")[1].split(">")[0]
 
-      let props = component.match(dynamicAttributesRegex)
+
+      const dynamicAttributesRegex = /([a-zA-Z0-9_-]+)\s*=\s*("(?:[^"\\]*(?:\\.[^"\\]*)*)"|'(?:[^'\\]*(?:\\.[^'\\]*)*)'|\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{.*.*\})*)*\})*)*\}|(?:\([^)]*\)|()\s*=>\s*(?:\{.*\})?|\{[^}]*\})|\[[^\]]*\])/gs;
+
+      const attributeObject = {};
+
 
       let filteredProps = [];
       let isWithinComponent = false;
@@ -492,78 +500,31 @@ function Compiler(func, file) {
 
       let $_ternaryprops = []
 
-      for (let prop of props) {
-
-        if (prop === componentName) {
-
-          isWithinComponent = true;
-          filteredProps.push(prop);
-        } else if (isWithinComponent && prop.includes('=')) {
-
-          if (prop.startsWith('$=')) {
-            let old = prop
-            let match = prop.replace(/\$\s*=\s*\{\s*\{\s*([^]*?)\s*\}\s*\}/gs, '$1')
-            match = match.replace('$:', '$_ternary:')
-            component = component.replace(old, '')
-            componentAttributes = componentAttributes.replace(old, match)
-
-            $_ternaryprops.push(prop)
-
-          }
-          else if (prop.includes('${')) {
-
-
-            prop = prop.replace('="', ':')
-            if (prop.includes('${')) {
-              prop = prop.replace('="', ':')
-              prop = prop.replace('${', '')
-            }
-            if (prop.includes('="${{')) {
-              prop = prop.replace('${{', '{')
-              prop = prop.replace('}}', '}')
-              prop = prop.replace('="', ':')
-              prop = prop.replace('}"', '}')
-            }
-
-          }
-          if (prop.includes('={')) {
-            let value = prop.split('={')
-            let isObj = value[1].match(/^{.*}$/gs) ? true : false
-            if (!isObj) {
-              // remove trailing }
-              value[1] = value[1].replace(/}\s*$/, '')
-            }
-
-            if (value[0] == 'style' && isObj) {
-              value[1] = `this.parseStyle(${value[1]})`
-            }
-            prop = `${value[0]}:${value[1]}`
-          }
-
-          if (prop.includes('function') || prop.includes('=>')) {
-            // parse 'function' to function 
-            prop = prop.replace("'", '')
-
-            if (prop.endsWith("}'")) {
-              prop = prop.replace("}'", '}')
-
-            }
-
-            prop = prop.replace('=function', ':function')
-          }
-
-          filteredProps.push(prop);
-
-
-
-        } else if (isWithinComponent && prop.includes('}')) {
-
+      let match;
+      let propstring = ''
+      // props right now is just a string with all of them on one line and a space between each
+      while ((match = dynamicAttributesRegex.exec(props)) !== null) {
+        let str = match[0].trim().replace(/\s+/g, " ");
+        if (!str.includes('=')) {
+          continue
         }
-
-
-        else {
-          isWithinComponent = false;
+        str = str.split('=')
+        let key = str[0].trim()
+        let value = str[1].trim()
+        if (value.startsWith('"') && !value.endsWith('"') || value.startsWith("'") && !value.endsWith("'")
+          || value.startsWith('`') && !value.endsWith('`')) {
+          // wrap in respective quotes
+          value = value + value[0]
         }
+        let isObject = value.startsWith('{{') && value.endsWith('}}')
+        if (isObject) {
+          value = value.split('{{')[1].split('}}')[0].trim()
+          value = `{${value}}`
+        } else {
+          // remove starting { and ending } using regex
+          value = value.replace(/^{/, '').replace(/}$/, '')
+        }
+        propstring += `${key}:${value},`
       }
       component = component.replaceAll(/\s+/g, " ");
 
@@ -574,7 +535,7 @@ function Compiler(func, file) {
 
       let children = new RegExp(`<${name}[^>]*>([^]*)<\/${name}>`, 'gs').exec(component)?.[1] || null;
 
-      props = filteredProps.join(',').replace(/\s+/g, " ").trim().replace(/,$/, '')
+
 
       let savedname = name;
 
@@ -607,24 +568,15 @@ function Compiler(func, file) {
 
 
 
-
-      props = props.replaceAll(`,${savedname}`, '').replaceAll(savedname, '')
-      if (props.startsWith(',')) {
-        props = props.replace(',', '')
-      }
-      props = props.replaceAll("='", ":'")
-        .replaceAll('=`', ':`')
-        .replaceAll('="', ':"')
-        .replaceAll('={', ':')
+      propstring = propstring.replace(/,$/, '')
 
 
       /**
        * @memoize - memoize a component to be remembered on each render and replace the old jsx
        */
 
-
       let replace = "";
-      replace = `\${this.memoize(this.createComponent(${savedname}, {${props}}, [\`${myChildrens.join('')}\`]))}`;
+      replace = `\${this.memoize(this.createComponent(${savedname}, {${propstring}}, [\`${myChildrens.join('')}\`]))}`;
 
 
       body = body.replace(before, replace);
@@ -635,12 +587,12 @@ function Compiler(func, file) {
 
   string = string.replaceAll('vaderjs/client', '/vader.js')
 
-  const importRegex = /import\s*([^\s,]+|\{[^}]+\})\s*from\s*(['"])(.*?)\2/gs;
+  const importRegex = /import\s*([^\s,]+|\{[^}]+\})\s*from\s*(['"])(.*?)\2/g;
   const imports = string.match(importRegex);
   let replaceMents = [];
 
 
-  if (imports) {
+  if(imports){
     for (let match of imports) {
       let path = match.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').trim()
       switch (true) {
@@ -650,11 +602,11 @@ function Compiler(func, file) {
           if (!fs.existsSync(process.cwd() + componentFolder)) {
             throw new Error('Could not find ' + path + ' at ' + match + ' in file ' + file)
           }
-
+  
           if (!fs.existsSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'))) {
             fs.mkdirSync(process.cwd() + '/dist/src/' + componentFolder.split('/').slice(2).join('/'), { recursive: true })
           }
-
+  
           let baseFolder = componentFolder.split('node_modules')[1].split('/')[1]
           let glp = globSync('**/**/**/**.{jsx,js}', {
             cwd: process.cwd() + '/node_modules/' + baseFolder + '/',
@@ -665,7 +617,7 @@ function Compiler(func, file) {
             let text = fs.readFileSync(file, "utf8");
             if (!file.endsWith('.js') && file.endsWith('.jsx')) {
               text = Compiler(text, file);
-
+  
             }
             let dest = file.split('node_modules')[1]
             dest = dest.split(baseFolder)[1]
@@ -677,8 +629,8 @@ function Compiler(func, file) {
             replaceMents.push({ match: oldImportstring, replace: newImport })
             console.log(`📦 imported Node Package  ${baseFolder} `)
           }
-
-
+  
+  
           break;
         default:
           break;
@@ -876,6 +828,7 @@ const glb = await glob("**/**/**/**.{jsx,js}", {
   recursive: true
 });
 let hasRendered = []
+
 async function Build() {
   globalThis.isBuilding = true
   console.log(globalThis.isProduction ? 'Creating Optimized Production Build\n' : '')
@@ -894,7 +847,6 @@ async function Build() {
       let route = routes.find((e) => e.url === req.url)
       if (route) {
         let document = globalThis.routeDocuments.find((e) => e.url === req.url)
-        console.log(`\x1b[32m%s\x1b[0m`, `Prerendering ${req.url}...`)
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(document.document);
       } else {
@@ -922,92 +874,102 @@ async function Build() {
       }
     })
 
+    const browser = puppeteer.launch({
+      headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      warning: false,
+    })
     server.listen(port);
+
     routes.forEach(async (route) => {
       if (route.url.includes(':')) {
         return
       }
-
-
-
-
-
-
-
       globalThis.listen = true;
 
-      const browser = await puppeteer.launch({
-        headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        warning: false,
-      })
       try {
 
         route.url = route.url.replaceAll(/\/:[a-zA-Z0-9_-]+/gs, '')
-        let page = await browser.newPage();
-        // Handle browser errors
-        page.on('error', (err) => {
-          console.error('BROWSER ERROR:', JSON.parse(err));
-        });
-
-        try {
-          page.on('pageerror', async err => {
-            let errorObj = JSON.parse(await page.evaluate(() => document.documentElement.getAttribute('error')) || '{}')
-            console.log('\x1b[31m%s\x1b[0m', 'Compiler Error:', errorObj)
-
-            console.log('\x1b[31m%s\x1b[0m', 'Error:', err)
+        let page = (await browser).newPage()
+        page.then(async (page) => {
+          page.on('error', (err) => {
+            console.error('JS ERROR:', JSON.parse(err));
           });
-        } catch (error) {
-          console.log(error)
-          browser.close()
-        }
-        // Handle page crashes
-        page.on('crash', () => {
-          console.error('PAGE CRASHED');
-        });
-        page.on('requestfailed', request => {
-          console.error('REQUEST FAILED:', request.url(), request.failure().errorText);
-        });
-        await page.goto(`http://localhost:${port}${route.url}`, { waitUntil: 'networkidle2' });
+          try {
+            page.on('pageerror', async err => {
+              let errorObj = JSON.parse(await page.evaluate(() => document.documentElement.getAttribute('error')) || '{}')
+              console.log('\x1b[31m%s\x1b[0m', 'Compiler Error:', errorObj)
 
-        await page.evaluate(() => {
-          document.querySelector('#meta').remove()
-          document.querySelector('#isServer').innerHTML = 'window.isServer = false'
-          if (document.head.getAttribute('prerender') === 'false') {
-            document.querySelector('#root').innerHTML = ''
-            console.log(`Disabled prerendering for ${window.location.pathname}`)
+              console.log('\x1b[31m%s\x1b[0m', 'Error:', err)
+            });
+          } catch (error) {
+            page.close()
           }
+          page.on('crash', () => {
+            console.error(`Render process crashed for ${route.url}`)
+          });
+          page.on('requestfailed', request => {
+            console.error('REQUEST FAILED:', request.url(), request.failure().errorText);
+          });
+          await page.goto(`http://localhost:${port}${route.url}`, { waitUntil: 'networkidle2' });
+
+          page.evaluate(() => {
+            document.querySelector('#meta').remove()
+            document.querySelector('#isServer').innerHTML = 'window.isServer = false'
+            if (document.head.getAttribute('prerender') === 'false') {
+              document.querySelector('#root').innerHTML = ''
+              console.log(`Disabled prerendering for ${window.location.pathname}`)
+            }
+          })
+          let html = await page.content();
+
+          html = await prettier.format(html, { parser: "html" })
+
+          writer(process.cwd() + '/dist/' + (route.url === '/' ? 'index.html' : `${route.url}/` + 'index.html'), html)
+
+          console.log(`\x1b[32m%s\x1b[0m`, `Prerendered ${route.url}...`)
+
+          hasRendered.push(route.url)
         })
-        let html = await page.content();
-
-        html = await prettier.format(html, { parser: "html" })
 
 
-        await writer(process.cwd() + '/dist/' + (route.url === '/' ? 'index.html' : `${route.url}/` + 'index.html'), html)
 
 
       } catch (error) {
+        console.log('\x1b[31m%s\x1b[0m', 'Error:', error)
 
       }
-
       finally {
-        browser.close()
-        server.close()
-        hasRendered.push(route.url)
-        console.log(`\x1b[32m%s\x1b[0m`, `Prerendered ${route.url}...`)
       }
     })
 
 
 
-    if (hasRendered.length === routes.length) {
+
+
+    function kill() {
+      console.log(`\x1b[32m%s\x1b[0m`, `\nPrerendered ${routes.length} pages...\n`)
       server.close()
+      browser.then((browser) => {
+        browser.close()
+      })
       hasRendered = []
       globalThis.isBuilding = false
-      clearTimeout(timeout)
+      globalThis.isProduction ? console.log(`Total Bundle Size: ${Math.round(bundleSize / 1000)}kb`) : null
+      bundleSize = 0
     }
 
+    if (hasRendered.length === routes.length) {
+      kill()
+    } else {
+      console.log(`\x1b[32m%s\x1b[0m`, `Prerendering ${routes.length} pages...\n`)
+      let interval = setInterval(() => {
+        if (hasRendered.length === routes.length) {
+          kill()
+          clearInterval(interval)
+        }
+      }, 1000);
+    }
   }
-
   globalThis.routes = []
 
   for await (let file of glb) {
@@ -1107,8 +1069,9 @@ async function Build() {
     }
 
 
-
-    globalThis.routes.push({ fileName: fileName, url: obj.url, html: '/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html') })
+    if (!obj.url.includes(':')) {
+      globalThis.routes.push({ fileName: fileName, url: obj.url, html: '/' + (isBasePath ? 'index.html' : `${obj.url}/` + 'index.html') })
+    }
 
 
     let stats = {
@@ -1124,7 +1087,6 @@ async function Build() {
 
     globalThis.isProduction ? console.log(string) : null
   }
-
 
   globalThis.routeDocuments = []
   globalThis.routes.map((route) => {
@@ -1204,8 +1166,6 @@ async function Build() {
     globalThis.routeDocuments.push({ url: route.url, document: document })
   })
 
-
-
   ssg(globalThis.routes)
 
 
@@ -1234,7 +1194,6 @@ async function Build() {
   scannedSourceFiles.forEach(async (file) => {
     file = file.replace(/\\/g, '/');
     let name = file.split('/src/')[1]
-    //parse jsx 
 
     let data = await reader(process.cwd() + "/src/" + name)
     if (name.includes('.jsx')) {
@@ -1247,11 +1206,13 @@ async function Build() {
       await writer(process.cwd() + "/dist/src/" + name.split('.jsx').join('.js'), await Compiler(data, origin))
       return
     }
-    bundleSize += fs.statSync(process.cwd() + "/src/" + name).size;
+    if (!name.includes('.map')) {
+      bundleSize += fs.statSync(process.cwd() + "/src/" + name).size;
+    }
     await writer(process.cwd() + "/dist/src/" + name, data);
   })
 
-  const scannedPublicFiles = await glob("**/**.{css,js,html,mjs,cjs}", {
+  const scannedPublicFiles = await glob("**/**/**.{css,js,html,mjs,cjs,png,jpg,jpeg,gif,svg,mp4,webm,ogg}", {
     ignore: ["node_modules/**/*", "dist/**/*"],
     cwd: process.cwd() + '/public/',
     absolute: true,
@@ -1259,7 +1220,7 @@ async function Build() {
   scannedPublicFiles.forEach(async (file) => {
     file = file.replace(/\\/g, '/');
     file = file.split('/public/')[1]
-    let data = await reader(process.cwd() + "/public/" + file)
+    let data = fs.readFileSync(process.cwd() + "/public/" + file);
     bundleSize += fs.statSync(process.cwd() + "/public/" + file).size;
     await writer(process.cwd() + "/dist/public/" + file, data);
   })
@@ -1292,7 +1253,6 @@ async function Build() {
   }
 
   globalThis.isBuilding = false
-  globalThis.isProduction ? console.log(`\nTotal bundle size: ${Math.round(bundleSize / 1000)}kb`) : null
 
   bundleSize = 0;
 
@@ -1400,7 +1360,7 @@ switch (true) {
     globalThis.devMode = true
     globalThis.isProduction = false
     console.log(`
-Vader.js v1.3.3
+Vader.js v${fs.readFileSync(process.cwd() + '/node_modules/vaderjs/package.json', 'utf8').split('"version": "')[1].split('"')[0]}
 - Watching for changes in ./pages
 - Watching for changes in ./src
 - Watching for changes in ./public
@@ -1422,6 +1382,7 @@ Vader.js v1.3.3
               })
             }
 
+            console.log('\nRebuilding...')
             globalThis.isBuilding = true
             Build()
           }
