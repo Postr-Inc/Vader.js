@@ -17,15 +17,10 @@
 > Do not use any alpha versions as these where changed multiple times any version under latest is considered lts and are deemed to be stable
 ## Get Started 
 
-1. Installing Bun.js - (Required)
-> Warning - do not use wsl version of bun with vader on windows it will not work due to path resolution use the experimental version :}
-
-([Install Bun](https://bun.sh/docs/installation))
-
-2. Install vaderjs
+1. Install vaderjs
 
  ```bash
-   bun add vaderjs@latest or npx vaderjs@latest
+    npx vaderjs@latest
  ```
 
 4.  Create Proper Folders
