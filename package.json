@@ -32,6 +32,5 @@
     "dotenv":"latest",
     "prettier": "latest",
     "source-map": "latest"
-
   }
 }

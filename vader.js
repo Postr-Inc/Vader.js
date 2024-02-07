@@ -2,6 +2,7 @@
 import { exec } from "child_process";
 import fs from "fs";
 globalThis.currentCommand = null;
+globalThis.isRunning = false;
 let vaderisInstalled = process.cwd() + "/node_modules/vaderjs/vader.js";
 if (!fs.existsSync(process.cwd() + "/_dev")) {
   fs.mkdirSync(process.cwd() + "/_dev");
@@ -98,7 +99,7 @@ console.log(`
 function checkIFChromeIumIsInstalled() {
   let platform = process.platform; 
   let findChrome = { 
-    windows:`powershell -c "${ process.cwd() + '\\test.ps1'}"`,
+    windows:`powershell -c "${ process.cwd()  + '\\node_modules\\vaderjs\\binaries\\win32\\check.ps1'}"`,
     others: "/usr/bin/chromium-browser --version",
   };
   let installCommands = { 
@@ -126,8 +127,7 @@ function checkIFChromeIumIsInstalled() {
           resolve(
             `${platform === "win32" ? "Google Chrome" : "Chromium"} is installed: ${stdout}`
           ); 
-          fs.writeFileSync(process.cwd() + '/_dev/chrome', `Installed: ${stdout}`);
-          run();
+          fs.writeFileSync(process.cwd() + '/_dev/chrome', `Installed: ${stdout}`); 
         }
         if (stderr) {
           console.log(stderr);
@@ -197,11 +197,12 @@ checkIFChromeIumIsInstalled()
     if (stdout) {
       checkIFBundleIsInstalled()
         .then((stdout) => { 
-          if (stdout) {
+          if (stdout && !isRunning) {
             if(!fs.existsSync(process.cwd() + '/_dev/bun')){
                 fs.writeFileSync(process.cwd() + "/_dev/bun", `Installed: ${stdout}`);
             }
             run();
+            globalThis.isRunning = true;
           }
         })
         .catch(async (err) => {
