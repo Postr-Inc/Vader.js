@@ -1,462 +1,134 @@
 /**
- * @method strictMount
- * @description  This method allows you to await until the component is mounted before running a callback
- * @param {Component key} key 
- * @param {Function} callback 
+ * @file Vader.js - A lightweight, modern, and fast front-end framework for building web applications.
+ * @copyright - Malikwhitten67 
+ * @license MIT
  */
-export const strictMount = (key, callback) => {
 
-};
 
 /**
- * @method $metdata
- * @description  This method allows you to set the metadata for the current page
- * @param {string} title
- * @param {string} styles
- * @param {string} description
- * @param {string} keywords
- * @param {string} author
- * @param {string} image
- * @param {string} url
- * @param {string} robot
- * @param {string} manifest
- * @param {Array} tags
- * @returns {Object} - The rendered content.
+ * @class Component
+ * @description Base class for all components - functional and class components
+ * @example 
+ * class App extends Component {
+ *    constructor(props){
+ *     super(props)
+ *     this.state = {
+ *         count: 0
+ *       }
+ *    }
  * 
- */
-
-export const $metdata = {
-  title: '',
-  styles,
-  description: '',
-  keywords: '',
-  author: '',
-  image: '',
-  url: '',
-  robot: '',
-  manifest: '',
-  tags: []
-
-}
-
-/**
- * @method $prerender
- * @description  This method disables the prerendering of the current page
- */
-export const $prerender = {
-
-}
-
-
-
-
-
-/**
- * Represents a component in the Vader framework.
+ *    render(){
+ *      return  <div>
+ *           <h1>Count is {this.state.count}</h1>
+ *          <button onClick={()=> this.setState({count: this.state.count + 1})}>Click me</button>
+ *      </div>
+ *     }
+ * }
+ * 
  */
 export class Component {
   /**
-   * Creates an instance of Component.
+   * @constructor 
+   * @param {object} props - Component props
+   * @param {string} props.key - Unique identifier for the component
+   * @param {object} props.children - Content to be displayed inside the component
    */
   constructor() {
     this.state = {};
-    /**
-     * @type {string}
-     * @description The key for the component. used to identify the component in the DOM
-     */
-    this.key = null;
-    /**
-     * @private
-     */
-    this.components = {};
-    this.mounted = false;
-    this.checkIFMounted();
-    this.memoizes = []
-    /**
-     * @private
-     */
-    this.functions = []
-    this.children = []
-
-
-    /**
-     * Parent of the current component.
-     * @type {Component}
-     */
-    this.parentNode = {}
-
-    /**
-     * Request object.
-     */
-    this.request = {
-      /**
-       * @type {string}
-       * @description The headers for the current route
-       */
-      headers: {},
-      /**
-       * @type {string}
-       * @description The method for the current route
-       */
-      method: "GET",
-      /**
-       * @type {string}
-       * @description params for the given route /:id/:name etc
-       */
-      params: {},
-      /**
-       * @type {string}
-       * @description path: current route path
-       */
-      path: "",
-      /**
-       * @type {string}
-       * @description query: query  object for the current route ?name=hello -> {name: 'hello'}
-       */
-      query: {},
-    },
-      /**
-       * @type {string}
-       * @description The response object for the current route
-       */
-      this.response = {
-        /**
-         * @method json
-         * @description  This method allows you to send json data to the client
-         * @param {*} data 
-         */
-        json: (data) => { },
-        /**
-         * @method send
-         * @description  This method allows you to send text data to the client
-         * @param {*} data 
-         */
-        send: (data) => { },
-        /**
-         * @method redirect
-         * @description  This method allows you to redirect the client to a new route
-         * @param {*} path 
-         */
-        redirect: (path) => { },
-        /**
-         * @method render
-         * @description  render a new component to the client
-         *  @param {*} Component
-         */
-        render: async (Component) => { },
-        /**
-         * @method log
-         * @description  This method is used to log the request and response
-         * @param {String} type
-         */
-        log: (type) => { },
-        /**
-         * @method setQuery
-         * @description  This method is used to set the query object for the current route
-         */
-        setQuery: (query) => { },
-
-      }
-    /**
-     * @method router
-     * @description use router methods directly from the parent component
-     */
-
-    this.router = {
-      /**
-       * @method use
-       * @description add a middleware to the current route
-       * @param {Function} middleware
-       * @returns {void}
-       */
-      use: (/**@type {Function} */ middleware) => { },
-    }
+    this.props = {};
+    this.key = Math.random();
+    this.__internalInstance = {};
   }
 
   /**
-   * @method createComponent
-   * @description  This method allows you to create a component from a class or function
-   * @param {Component} component 
-   * @param {Object} props 
-   * @param {Array} children 
+   * @function
+   * @description  This method allows you to update the state of a component
    */
-  createComponent(/**@type {Component}**/component, props, children) {
-
-  }
+  render() {}
   /**
-   * @private
-   */
-  reset() {
-
-  }
-  /**
-   * @method memoize
-   * @description  This method allows you to memoize a component which when rerendered will not be reinstantiated
-   * @param {Component} component 
-   */
-  memoize(/**@type {Component}**/component) {
-
-  }
-  /**
-   * @method parseStyle
-   * @description  This method allows you to parse a jsx style object to a string
-   * @param {object} styles 
-   */
-  parseStyle(styles) {
-
-  }
-  /** 
-   * @private
-   */
-  bindMount() {
-  }
-
-  /**
-   * Hydrates the component by updating the HTML content if it has changed.
-   * @private
-   */
-
-  domDifference(oldDom, newDom) {
-
-  }
-  /**
-   * @private
-   * @param {*} diff 
-   */
-
-  updateChangedElements(diff) {
-
-  }
-
-  /**
-   * @method hydrate
-   * @description  This method allows you to hydrate a component
-   * @private
-   * @param {*} hook 
-   */
-  hydrate(hook) {
-
-  }
-
-
-  /**
-   * @method patch
-   * @description  This method allows you to patch the dom
-   * @private 
-   * @param {*} oldElements 
-   * @param {*} newElements 
-   */
-
-  patch(oldElements, newElements) {
-
-  }
-
-
-
-
-
-  /**
-   * Handles an object by parsing it as JSON and evaluating it.
-   * @param {string} obj - The object to handle.
-   * @returns {*} - The evaluated object.
-   * @prvate
-   */
-  handleObject(obj) {
-
-  }
-
-
-
-  /**
-   * Binds a function to the component.
-   * @param {string} funcData - The function data.
-   * @param {string} p - The parameter.
-   * @param {string} ref - The reference.
-   * @param {string} paramNames - The parameter names.
-   * @param {...*} params - The parameters.
-   * @returns {string} - A valid inline JS function call.
-   */
-  bind(funcTion, isTerny, jsx, ref, paramNames, ...params) {
-
-  }
-
-
-
-  /**
- * useState hook.
- *
- * @template T
- * @param {string} key - The key for the state property.
- * @param {T} initialState - The initial state value.
- * @returns {[() => T, (newValue: T, hook: Function) => void]} - A tuple with getter and setter functions.
- */
-  useState(key, initialState) {
-    if (!this.state[key]) {
-      this.state[key] = initialState;
-    }
-
-    /**
-     * Get the current state value.
-     *
-     * @returns {T} The current state value.
-     */
-    let updatedValue = () => this.state[key];
-
-    const getValue = updatedValue();
-
-    /**
-     * Set a new value for the state.
-     *
-     * @param {T} newValue - The new value to set.
-     * @param {Function} hook - The hook to hydrate after setting the value.
-     */
-    const set = (newValue, hook) => {
-      this.state[key] = newValue;
-      this.hydrate(hook);
-    };
-
-
-
-    return [getValue, set];
-  }
-
-
-
-  /**
-   *  useRef hook.
-   * @param {string} key 
-   * @param {any} initialState 
-   * @returns  {{ current: HTMLElement|any, bind: string }} - An object containing the current value and a bind string.
-   */
-  useRef(key = null, initialState) {
-
-  }
-
-  /**
-   * useReducer hook.
-   * @param {string} key - The key for the state property.
-   * @param {*} initialState - The initial state value.
-   * @param {Function} func - The reducer function.
-   * @returns {[*, (newValue: *, hook: Function) => void]} - A tuple with getter and setter functions.
+   *  @function
+   * @description  This method allows you to update the state of a component
    * **/
-
-  useReducer(key = null, initialState, func = null) {
-
-  }
-
+  onMount() {}
 
   /**
-   * Placeholder for content to be rendered.
-   * @method render
-   * @returns {string} - The rendered content.
+   * @function
+   * @description  This method allows you to update the state of a component 
+   * @param {any} initialValue 
+   * @returns  {[any, Function]}
    */
-  render() { }
 
-  /**
-   * Checks if the component is mounted and triggers the onMount method.
-   * @private
-   */
-  checkIFMounted() {
-    let observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-
-        if (mutation.target.querySelector(`[key="${this.key}"]`) && !this.mounted) {
-          this.onMount();
-          this.mounted = true;
-        }
-
-        if (Array.from(mutation.removedNodes).find((node) => node.attributes && node.attributes.key && node.attributes.key.value === this.key)) {
-          this.onUnmount();
-          this.reset();
-        }
-      })
-    })
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+  useState(initialValue) {
+    if (!this.state[key]) this.state[key] = initialValue;
+    let state = this.state[key];
+    const setState = (newState) => {
+      state = newState;
+      this.state[key] = newState;
+      this.updateInstance(this.__internalInstance);
+    };
+    const getUpdatedState = () => {
+      return this.state[key] || initialValue;
+    }
+    state = getUpdatedState();
+    return [state, setState];
+  
   }
 
   /**
-   * Method that is called when the component is mounted.
-   * @method onMount
+   * @function useRef
+   * @description  This method allows you to create a reference to a DOM element
+   * @param {string} key
+   * @param {any} initialValue
+   * @returns {current: any}
    */
-  onMount() { }
+  useRef(initialValue) {
+    return {current: initialValue}
+  }
+
   /**
-   * Method that is called when the component is unmounted.
-   * @method onUnmount
+   * @function useReducer
+   * @description  This method allows you to use a reducer to manage state
+   * @param {function} reducer
+   * @param {any} initialState
    */
-  onUnmount() { }
+  useReducer(reducer, initialState) {
+    if (!this.state[key]) this.state[key] = initialState;
+    let state = this.state[key];
+    const setState = (newState) => {
+      state = newState;
+      this.state[key] = newState;
+      this.updateInstance(this.__internalInstance);
+    };
+    const getUpdatedState = () => {
+      return this.state[key] || initialState;
+    }
+    state = getUpdatedState();
+    return [state, setState];
+  }
+  
 }
-
-
-
+ 
 /**
- *  useState hook.
- *
- * @param {string} key - The key for the state property.
- * @param {*} initialState - The initial state value.
- * @returns {[*]} - A tuple with the current state value and a setter function.
+ * @method Mounted
+ * @description  This method allows you to await until the component is mounted before running a callback
+ *  
+ * @param {function} callback - Function to be called when the component is mounted
+ * @param {Component} component - Component to be determined mounted
+ * @param {boolean} runOnlyOnce - Run the callback only once - default: true
  */
-export const useState = (key, initialState) => {
-  if (!states[key]) {
-    states[key] = initialState;
-  }
+export const Mounted = (callback, /**@type {Component} */ component, runOnlyOnce = true) => {
 
-  /**
-   * Get the current state value.
-   *
-   * @returns {*} The current state value.
-   */
-  let updatedValue = () => states[key];
-
-  /**
-   * Set a new value for the state.
-   *
-   * @param {*} newValue - The new value to set.
-   * @param {Function} hook - The hook to hydrate after setting the value.
-   */
-  const set = (newValue, hook) => {
-    states[key] = newValue;
-    this.hydrate(hook);
-  };
-
-  return [states[key], set];
 };
+ 
+ 
 
 
 
-/**
- * @method useReducer
- * @param {*} initialState 
- * @param {*} reducer 
- * @returns  {Array} [value, set]
- */
-export const useReducer = (/**@type {*}**/initialState, /**@type {function}**/reducer) => {
-  return [initialState, (newValue) => { }];
-};
 
 
-/**
- *  useRef hook.
- * @param {string} key 
- * @param {any} initialState 
- * @returns  {{ current: HTMLElement|any, bind: string }} - An object containing the current value and a bind string.
- */
-export const useRef = (initialState) => {
-  return {
-    /**
-     * @description The current value of the ref.
-       @type {*}
-     */
-    current: initialState,
-    /**
-     * @description A unique string that can be used to bind the ref to an element.
-     * @type {HTMLElement|string}
-     */
-    bind: '',
-  };
-};
+ 
+
+
 
 /**
 * @class Link
@@ -470,7 +142,7 @@ export class Link extends Component {
      * @constructor
      * @param {object} props - Component props 
      * @param {string} props.href - URL for the link 
-     * @param {string} props.action - Action to be performed when the link is clicked
+     * @param {string} props.action - Action to be performed when the link is clicked - can be function or string
      * @param {string} [props.class] - CSS class for the link
      * @param {string} [props.style] - Inline CSS style for the link
      * @param {string} [props.children] - Content to be displayed inside the link
@@ -485,8 +157,17 @@ export class Link extends Component {
           * @property {string} [style] - Inline CSS style for the link
           * @property {string} [children] - Content to be displayed inside the link
           */
-    this.props = props;
-
+    this.props = {
+      href: props.href,
+      /**
+       * @type {string|function}
+       * @param {string} [action='outside'] - Action to be performed when the link is clicked
+       */
+      action: props.action || 'outside',
+      class: props.class,
+      style: props.style,
+    }
+ 
     /**
      * @type {HTMLAnchorElement}
      */
@@ -595,12 +276,20 @@ export class Head extends Component {
   /**
   * @constructor
   * @param {object} props - Component props
+  * @param {boolean} props.updateOnReload - update metadata and title when rerendered
   * @param {string} props.children - Content to be displayed inside the head
   */
   constructor(props) {
     super(props);
+    /**
+* @type {object}
+* @param {object} props - Component props
+* @param {boolean} props.updateOnReload - update metadata and title when rerendered
+* @param {string} props.children - Content to be displayed inside the head
+*/
     this.props = {
       children: props.children,
+      updateOnReload: props.updateOnReload
     }
     this.key = 'head';
     this.head = document.createElement('head');
@@ -657,6 +346,7 @@ export class Html extends Component {
   /**
    * @constructor
    * @param {object} props - Component props
+   * @param {string} props.key - Identifier which is used to check if the component has been mounted
    * @param {string} props.children - Content to be displayed inside the HTML
    * @param {string} props.lang - Language for the HTML
    */
@@ -673,7 +363,7 @@ export class Html extends Component {
       lang: props.lang || 'en',
       attributes: props.attributes || {},
     }
-    this.key = 'html';
+    this.key =  props.key || 'html';
     this.html = document.createElement('html');
   }
 
@@ -689,6 +379,38 @@ export class Html extends Component {
     console.log('Document Has Been Mounted')
   }
 
+}
+/**
+ * @function useRef
+ * @description  This method allows you to create a reference to a DOM element
+ * @param {any} initialValue 
+ * @returns 
+ */
+export const useRef = (initialValue) => {
+  return {
+    current: initialValue
+  } 
+}
+
+/**
+ *  @function useState
+ * @description  This method allows you to use to bind state to a component and update on changes
+ * @param {any} initialValue 
+ * @returns  {[any, Function]}
+ */
+export const useState = (initialValue) => {
+  return [initialValue, () => {}]
+}
+/**
+ * @function useReducer
+ * @description  This method allows you to use a reducer to manage state
+ * @param {function} reducer 
+ * @param {any} initialState 
+ * @returns 
+ */
+
+export const useReducer = (reducer, initialState) => {
+  return [initialState, () => {}]
 }
 export default {
   Component,

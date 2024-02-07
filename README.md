@@ -17,10 +17,14 @@
 > Do not use any alpha versions as these where changed multiple times any version under latest is considered lts and are deemed to be stable
 ## Get Started 
 
+1. Installing Bun.js - (Required)
+> Warning - do not use wsl version of bun with vader alot will not work due to path resolution use the experimental version :}
+([Install Bun](https://bun.sh/docs/installation))
+
 2. Install vaderjs
 
  ```bash
-   npm i vaderjs@latest
+   bun add vaderjs@latest
  ```
 
 4.  Create Proper Folders
@@ -80,7 +84,7 @@ export default function(req, res){
    let [count, setCount] = useState(0)
 
    return <>
-    <h1>${count}</h1>
+    <h1>{count}</h1>
     <button onClick={(event)=>{setCount(++count)}}>
    </>
 }
@@ -103,10 +107,10 @@ We can define some metadata to be used at compile
 ```jsx
  // src/layout.tsx
 export function Layout({title, keywords, description, children}){
-  return <>
+  return  (
    <Html lang="en-us">
         <Head>
-            <title>${title}</title>
+            <title>{title}</title>
             <meta charset="utf-8" />
             <meta name="description" content={description} /> 
             <meta name="robots" content="index, follow" />
@@ -119,9 +123,9 @@ export function Layout({title, keywords, description, children}){
             <link rel="stylesheet" href="/public/css/styles.css" />
         </Head>
 
-        ${children}
+         {children}
     </Html>
-    </>
+  )
 }
 
 // pages/index.jsx
@@ -129,11 +133,11 @@ export function Layout({title, keywords, description, children}){
 //$= is a ternary operator used for spread like nesting
 
 export default function (req, res){
-  return <>
-   <Layout ${{title:'home', description:'home page', keywords:'vader.js', logo:''}}>
+  return (
+       <Layout {...{title:'home', description:'home page', keywords:'vader.js', logo:''}}>
    <h1> Hello World</h1>
    </Layout>
-  </>
+  )
 }
 
 ```
@@ -169,27 +173,28 @@ Vaderjs uses partial hydration & full reflection
 You can pass a reference to the dom target like an id for the element u want to change - or you can just swap the value and the entire component will rerender
 
 ```jsx
-import  {Component, useState, useRef} = from 'vaderjs/client'
+import  {Component, useState, useRef. Mounted} = from 'vaderjs/client'
  
 export default class MyApp extends Component{
   contructor(){
    super()
-   this.key = 'static key for state changes'
-   // or
-   this.nokey // disable element generation 
+   this.key = 'static key for state changes' 
   }
   
   render(){
     let [count, setCount] = useState(0)
     let ref = useRef('')
    
+    Mounted(()=>{
+      console.log(ref.current) // p tag
+    }, this)
     return  <>
-     <p ref={ref.bind}>Count is ${count}</p>
-     ${/**
+     <p ref={ref}>Count is {count}</p>
+     {/**
        pass anything used from the toplevel render to the lowerlevel function params to be able to invoke!
       **/}
-     <button onclick={(setCount, count, ref)=>{
-      setCount(count + 1, ref.bind)
+     <button onclick={()=>{
+      setCount(++count)
      }}>Increment</button>
     </>
     
