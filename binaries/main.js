@@ -323,7 +323,7 @@ async function generateProviderRoutes(){
             }
             routes.forEach((r) => {
                if(r.path === '/'
-               || prev.find((p) => p.source === '/'+ r.path + '/index.html')
+               || prev.find((p) => p.destination === '/'+ r.path + '/index.html')
                ){
                 return void 0;
                }
@@ -555,6 +555,7 @@ async function transForm(){
  
  
     if(globalThis.mode === 'dev' && !globalThis.oneAndDone || globalThis.mode === 'build'){
+        console.log('Generating routes...')
          
         /**
          * @description - create an html file for each route
