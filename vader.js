@@ -3,7 +3,7 @@ import { exec } from "child_process";
 import fs from "fs";
 globalThis.currentCommand = null;
 globalThis.isRunning = false;
-let vaderisInstalled = process.cwd() + "/node_modules/vaderjs/vader.js";
+let vaderisInstalled = process.cwd() + "/node_modules/vaderjs/binaries/main.js";
 if (!fs.existsSync(process.cwd() + "/_dev")) {
   fs.mkdirSync(process.cwd() + "/_dev");
 }
