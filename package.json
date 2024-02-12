@@ -2,7 +2,7 @@
   "name": "vaderjs",
   "description": "A Reactive library aimed to helping you build reactive applications inspired by react.js",
   "module": "vader.js",
-  "version": "1.4.0-27bho234",
+  "version": "1.4.1-h7iuy47",
   "bin": {
     "vader": "./vader.js"
   },
@@ -12,6 +12,7 @@
     "nextjs",
     "pages router",
     "bun.js",
+    "severside generation",
     "spa",
     "vanillajs",
     "vanilla js"
@@ -28,9 +29,8 @@
     "email": "malikwhitterb@gmail.com"
   },
   "dependencies": { 
-    "puppeteer":"latest",
-    "dotenv":"latest",
-    "prettier": "latest",
-    "source-map": "latest"
+    "playwright": "latest",  
+    "source-map": "latest",
+    "ws": "latest"
   }
 }
