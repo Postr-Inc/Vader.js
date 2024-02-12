@@ -46,6 +46,26 @@ public - used for anything
 
 ```
 
+Create a vader.config.js file
+
+```js
+import  {defineConfig} from 'vaderjs/config/index.js'
+import ssg from 'vaderjs/@integrations/ssg.js'
+export  default  defineConfig({
+    host:{
+        provider:'vercel',
+        prod: {
+            port: process.env.PRODUCTION
+        }
+    },
+    dev:{
+        port: 3000
+    },
+    integrations:[ssg]
+})
+
+```
+
  
 
 5. And your done - Run `npx vaderjs` and the compiled output is visible inside of the `/dist/` folder!
@@ -80,8 +100,8 @@ export default function(req, res){
    let [count, setCount] = useState(0)
 
    return <>
-    <h1>{count}</h1>
-    <button onClick={(event)=>{setCount(++count)}}>
+    <h1>{count()}</h1>
+    <button onClick={(event)=>{setCount(count() + 1)}
    </>
 }
  
@@ -91,7 +111,7 @@ export default function(req, res){
 
 # ServerSide Site Generation (SSG)
 
-Vader compiles all code to a static index.html page so your visitors will never have to wait for the page to load, it then rehydrates the page reapplying functionality!
+Vader allows you to integrate ssg into your app via config file, it compiles all code to a static index.html page so your visitors will never have to wait for the page to load. Uppon rerender the page rehydrates reapplying functionality!
 
 you can always opt out of ssg using:  
 
@@ -124,11 +144,9 @@ export function Layout({title, keywords, description, children}){
   )
 }
 
-// pages/index.jsx
-
-//$= is a ternary operator used for spread like nesting
-
-export default function (req, res){
+// pages/index.jsx 
+export default function Index(_,req, res){
+  //_ is props which you wont need on base route componnets
   return (
        <Layout {...{title:'home', description:'home page', keywords:'vader.js', logo:''}}>
    <h1> Hello World</h1>
@@ -197,43 +215,6 @@ export default class MyApp extends Component{
   }
 } 
 ```
-
-
-### Function Binding
-
-Vaderjs allows you to bind functions directly to html elements just like react
-there are two ways - top level invokes like below
-
-```javascript
-// vader uses params[0] as the event target object and other parameters resolve after
-
-function click(event, otherparams){
-    console.log(event.target, otherparams)
-}
-
-const hello = function(event, otherparams){
-
-}
- 
-return <>
- <button onclick={()=>click()}>Click Me</button>
-</>
-```
- 
-Low level invokes are considered top level and can access - any value above the scope !! 
-
-```jsx
-let car = {
-  model: 'tesla',
-  price: 'toomiuch'
-}
-return <>
-<button onclick={(event)=>{
- console.log(car.model)
-}}>Log</button>
-```
-
- 
 
  
  
