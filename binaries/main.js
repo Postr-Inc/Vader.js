@@ -6,6 +6,8 @@ import * as Bun from "bun";
 
 import WebSocket from "ws";
 
+console.log(process.cwd() + '/vader.config.js')
+
 let config = await import(process.cwd() + '/vader.config.js').then((m) => m ? m.default : {}).catch((e) => {
 
     console.error(e)
@@ -583,10 +585,10 @@ globalThis.context = {
  */
 
 function handleIntegrations() {
-
+ 
     if (config?.integrations) {
 
-        config.integrations.forEach((integration) => {
+        config.integrations.forEach((integration) => { 
 
             let int = integration
 
@@ -994,7 +996,7 @@ async function transForm() {
 
             write(process.cwd() + '/dist/public/' + file.split('public/').pop(), data);
 
-            bundleSize += fs.statSync(process.cwd() + '/dist/public/' + file.split('public/').pop()).size
+            bundleSize += fs.existsSync(process.cwd() + '/dist/public/' + file.split('public/').pop()) ? fs.statSync(process.cwd() + '/dist/public/' + file.split('public/').pop()).size : 0
 
         }
 
@@ -1225,9 +1227,9 @@ switch (true) {
         })
 
         async function runOnChange() {
-
+ 
             for (var ints in integrationStates) {
-
+ 
                 if (integrationStates && integrationStates[ints].on.includes('dev:change')) {
 
                     console.log('Starting integration...')
@@ -1236,13 +1238,18 @@ switch (true) {
 
                     let { name, version, useRuntime, entryPoint, onAction, doOn } = int
 
-                    if (globalThis.isBuilding) {
-
-                        return
+                    
+                    if (globalThis[`isRunning${name}`]) {
+                             
+                           setTimeout(() => {
+                                globalThis[`isRunning${name}`] = false
+                           }, 1000)
+                            return void 0   
 
                     }
 
-                    globalThis.isBuilding = true
+                    globalThis[`isRunning${name}`] = true
+                    console.log(`Using integration: ${name} v${version}`)
 
                     Bun.spawn({
 
@@ -1262,13 +1269,15 @@ switch (true) {
 
                                 globalThis.isBuilding = false
 
+                                globalThis[`isRunning${name}`] = false
+
                             }
 
                         },
 
                         cmd: [useRuntime || 'node', entryPoint],
 
-                    })
+                    })  
 
 
 
@@ -1430,7 +1439,7 @@ Vader.js v1.3.3
 
 Serving ./dist on port ${port}
 
-url: http://localhost:${port}
+url: ${config?.host?.prod?.hostname || 'http://localhost'}:${port}
 
             `)
 
