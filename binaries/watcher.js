@@ -35,7 +35,7 @@ folders.forEach((folder) => {
 
           setTimeout(() => {
             hasSent = false;
-          }, 1000);
+          }, 500);
         }
 
         break;

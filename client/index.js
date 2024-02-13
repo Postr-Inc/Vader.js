@@ -122,6 +122,21 @@ export const Mounted = (callback, /**@type {Component} */ component, runOnlyOnce
  
  
 
+/**
+ * @function fontmatter
+ * @description  This method allows you to get the frontmatter of a markdown file
+ * @param {string} path - Path to the markdown file
+ * @returns {{title: string, description: string, content: string}}
+ */
+
+export const fontmatter = (path) => {
+  return {
+    title: '',
+    description: '',
+    content: Object.keys({}).includes('content') ? '' : ''
+  }
+
+}
 
 
 

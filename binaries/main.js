@@ -3,28 +3,33 @@ import { Glob } from "bun";
 import fs from "fs";
 
 import * as Bun from "bun";
+ 
 
-import WebSocket from "ws";
+let config = await import(process.cwd() + "/vader.config.js")
+  .then((m) => (m ? m.default : {}))
+  .catch((e) => { 
+    return {};
+  });
 
-console.log(process.cwd() + '/vader.config.js')
+async function checkIFUptodate() {
+  let lts = await fetch("https://registry.npmjs.org/vaderjs").then((res) =>
+    res.json()
+  );
+  let latest = lts["dist-tags"].latest;
+  let current = JSON.parse(
+    fs.readFileSync(process.cwd() + "/node_modules/vaderjs/package.json")
+  ).version;
+  return {
+    latest,
+    current,
+  };
+}
 
-let config = await import(process.cwd() + '/vader.config.js').then((m) => m ? m.default : {}).catch((e) => {
+import IPCServer from "vaderjs/binaries/IPC/index.js";
 
-    console.error(e)
+const IPC = IPCServer;
 
-    return {}
-
-})
-
-import IPCServer from "vaderjs/binaries/IPC/index.js"
-
-import { exec } from "child_process";
-
-const IPC = IPCServer
-
-
-
-globalThis.isVader = true
+globalThis.isVader = true;
 
 /**
 
@@ -37,18 +42,16 @@ globalThis.isVader = true
           */
 
 globalThis.call = async (fn, args) => {
-
-    return await fn(args) || void 0
-
-}
+  return (await fn(args)) || void 0;
+};
 
 /**@description - Used to store hmr websocket clients */
 
-globalThis.clients = []
+globalThis.clients = [];
 
 /**@description - Used to keep track of routes */
 
-globalThis.routes = []
+globalThis.routes = [];
 
 /**
 
@@ -56,15 +59,15 @@ globalThis.routes = []
 
  */
 
-globalThis.mode = ''
+globalThis.mode = "";
 
 /**@usedby @transForm */
 
-globalThis.isBuilding = false
+globalThis.isBuilding = false;
 
-globalThis.hasGenerated = []
+globalThis.hasGenerated = [];
 
-let currentState = ''
+let currentState = "";
 
 /**
 
@@ -72,11 +75,7 @@ let currentState = ''
 
  */
 
-let bundleSize = 0
-
-
-
-
+let bundleSize = 0;
 
 /**
 
@@ -84,32 +83,48 @@ let bundleSize = 0
 
  */
 
-const glob = new Glob("/pages/**/**/*.{,tsx,js,jsx}", { absolute: true });
+const glob = new Glob("/pages/**/**/*.{,tsx,js,jsx,md}", {
+  absolute: true,
+});
 
-const vaderGlob = new Glob("/node_modules/vaderjs/runtime/**/**/*.{,tsx,js}", { absolute: true });
+const vaderGlob = new Glob("/node_modules/vaderjs/runtime/**/**/*.{,tsx,js}", {
+  absolute: true,
+});
 
-const srcGlob = new Glob("/src/**/**/*.{jsx,ts,tsx,js}", { absolute: true });
+const srcGlob = new Glob("/src/**/**/*.{jsx,ts,tsx,js}", {
+  absolute: true,
+});
 
-const publicGlob = new Glob("/public/**/**/*.{css,js,html,jpg,png,gif,svg,ico,video,webm,mp4,jpeg}", { absolute: true });
+const publicGlob = new Glob(
+  "/public/**/**/*.{css,js,html,jpg,png,gif,svg,ico,video,webm,mp4,jpeg}",
+  {
+    absolute: true,
+  }
+);
 
-const distPages = new Glob("/dist/pages/**/**/*.{tsx,js,jsx}", { absolute: true })
+const distPages = new Glob("/dist/pages/**/**/*.{tsx,js,jsx}", {
+  absolute: true,
+});
 
-const distSrc = new Glob("/dist/src/**/**/*.{tsx,js,jsx}", { absolute: true })
+const distSrc = new Glob("/dist/src/**/**/*.{tsx,js,jsx}", {
+  absolute: true,
+});
 
-const distPublic = new Glob("/dist/public/**/**/*.{css,js,html,jpg,png,gif,svg,ico,video,webm,mp4,jpeg}", { absolute: true });
-
-
+const distPublic = new Glob(
+  "/dist/public/**/**/*.{css,js,html,jpg,png,gif,svg,ico,video,webm,mp4,jpeg}",
+  {
+    absolute: true,
+  }
+);
 
 const router = new Bun.FileSystemRouter({
+  style: "nextjs",
 
-    style: "nextjs",
+  dir: process.cwd() + "/pages",
 
-    dir: process.cwd() + '/pages',
+  origin: process.env.ORIGIN || "http://localhost:3000",
 
-    origin: process.env.ORIGIN || "http://localhost:3000",
-
-    assetPrefix: "_next/static/"
-
+  assetPrefix: "_next/static/",
 });
 
 /**
@@ -123,166 +138,184 @@ const router = new Bun.FileSystemRouter({
  * @returns 
 
  */
+const cssToObj = (css) => {
+  let styles = {};
+  let currentSelector = "";
+
+  css.split("\n").forEach((line) => {
+    line = line.trim();
+
+    if (line.endsWith("{")) {
+      // Start of a block, extract the selector
+      currentSelector = line.slice(0, -1).trim();
+      styles[currentSelector] = {};
+    } else if (line.endsWith("}")) {
+      // End of a block
+      currentSelector = "";
+    } else if (line.includes(":") && currentSelector) {
+      // Inside a block and contains key-value pair
+      let [key, value] = line.split(":").map((part) => part.trim());
+      styles[currentSelector][key] = value;
+    }
+  });
+
+  return styles;
+};
 
 function handleReplaceMents(data) {
-
-    data.split('\n').forEach((line, index) => {
-
-        switch (true) {
-
-
-
-            case line.includes('useReducer') && !line.includes('import'):
-
-                line = line.replaceAll(/\s+/g, " ");
-
-
-
-                let varTypereducer = line.split("=")[0].trim().split("[")[0].trim();
-
-                let keyreducer = line.split("=")[0].trim().split("[")[1].trim().split(",")[0].trim();
-
-                let setKeyreducer = line.split("=")[0].trim().split(",")[1].trim().replace("]", "");
-
-                let reducer = line.split("=")[1].split("useReducer(")[1];
-
-
-
-                let newStatereducer = `${varTypereducer} [${keyreducer}, ${setKeyreducer}] = this.useReducer('${keyreducer}', ${line.includes('=>') ? reducer + '=>{' : reducer}`;
-
-
-
-                data = data.replace(line, newStatereducer);
-
-                break
-
-
-
-            case line.includes('useState') && !line.includes('import'):
-
-                let varType = line.split("[")[0]
-
-                if (!line.split("=")[0].split(",")[1]) {
-
-                    throw new Error('You forgot to value selector  (useState) ' + ' at ' + `${file}:${string.split(line)[0].split('\n').length}`)
-
-                }
-
-                let key = line.split("=")[0].split(",")[0].trim().split('[')[1];
-
-
-
-                if (!line.split("=")[0].split(",")[1]) {
-
-                    throw new Error('You forgot to add a setter (useState) ' + ' at ' + `${file}:${string.split(line)[0].split('\n').length}`)
-
-                }
-
-                let setKey = line.split("=")[0].split(",")[1].trim().replace("]", "");
-
-                key = key.replace("[", "").replace(",", "");
-
-                let valuestate = line.split("=")[1].split("useState(")[1];
-
-
-
-                let regex = /useState\((.*)\)/gs;
-
-                valuestate = valuestate.match(regex) ? valuestate.match(regex)[0].split("useState(")[1].split(")")[0].trim() : valuestate
-
-                let newState = `${varType} [${key}, ${setKey}] = this.useState('${key}', ${valuestate}`;
-
-                data = data.replace(line, newState);
-
-                break;
-
-
-
-            case line.includes("useRef") && !line.includes("import"):
-
-                line = line.trim();
-
-                let typeref = line.split(" ")[0]
-
-
-
-                let keyref = line.split(typeref)[1].split("=")[0].trim().replace("[", "").replace(",", "");
-
-
-
-
-
-                let valueref = line.split("=")[1].split("useRef(")[1];
-
-
-
-                let newStateref = `${typeref} ${keyref} = this.useRef('${keyref}', ${valueref}`;
-
-                data = data.replace(line, newStateref);
-
-            case line.includes('.jsx') && line.includes('import') || line.includes('.tsx') && line.includes('import'):
-
-                let old = line
-
-                line = line.replace('.jsx', '.js')
-
-                line = line.replace('.tsx', '.js')
-
-                data = data.replace(old, line)
-
-
-
-                break;
-
+  data.split("\n").forEach(async (line, index) => {
+    switch (true) {
+      case line.includes("import") && line.includes("module.css"):
+        let path = line.split("from")[1].trim().split(";")[0].trim();
+        let name = line.split("import")[1].split("from")[0].trim();
+        path = path.replace(";", "");
+        path = path.replace(/'/g, "").trim().replace(/"/g, "").trim();
+        path = path.replaceAll(".jsx", ".js");
+        path = path.replaceAll("../", "");
+        let css = fs.readFileSync(process.cwd() + "/" + path, "utf8");
+        css = css.replaceAll(".", "");
+        let styles = cssToObj(css);
+        let style = JSON.stringify(styles);
+        let newLine = `let ${name} = ${style}`;
+        data = data.replace(line, newLine);
+
+        break;
+
+      case line.includes("useReducer") && !line.includes("import"):
+        line = line.replaceAll(/\s+/g, " ");
+
+        let varTypereducer = line.split("=")[0].trim().split("[")[0].trim();
+
+        let keyreducer = line
+          .split("=")[0]
+          .trim()
+          .split("[")[1]
+          .trim()
+          .split(",")[0]
+          .trim();
+
+        let setKeyreducer = line
+          .split("=")[0]
+          .trim()
+          .split(",")[1]
+          .trim()
+          .replace("]", "");
+
+        let reducer = line.split("=")[1].split("useReducer(")[1];
+
+        let newStatereducer = `${varTypereducer} [${keyreducer}, ${setKeyreducer}] = this.useReducer('${keyreducer}', ${
+          line.includes("=>") ? reducer + "=>{" : reducer
+        }`;
+
+        data = data.replace(line, newStatereducer);
+
+        break;
+
+      case line.includes("useState") && !line.includes("import"):
+        let varType = line.split("[")[0];
+
+        if (!line.split("=")[0].split(",")[1]) {
+          throw new Error(
+            "You forgot to value selector  (useState) " +
+              " at " +
+              `${file}:${string.split(line)[0].split("\n").length}`
+          );
         }
 
-    })
+        let key = line.split("=")[0].split(",")[0].trim().split("[")[1];
 
-
-
-    data = data.replaceAll('jsxDEV', 'Vader.createElement')
-
-    data = data.replaceAll('jsx', 'Vader.createElement')
-
-    data = data.replaceAll('vaderjs/client', '/vader.js')
-
-    data = data.replaceAll('.tsx', '.js')
-
-    let reactImportMatch = data.match(/import React/g);
-
-    if (reactImportMatch) {
-
-        let fullmatch = data.match(/import React from "react"/g);
-
-        if (fullmatch) {
-
-            data = data.replaceAll('import React from "react"', '');
-
+        if (!line.split("=")[0].split(",")[1]) {
+          throw new Error(
+            "You forgot to add a setter (useState) " +
+              " at " +
+              `${file}:${string.split(line)[0].split("\n").length}`
+          );
         }
 
+        let setKey = line.split("=")[0].split(",")[1].trim().replace("]", "");
+
+        key = key.replace("[", "").replace(",", "");
+
+        let valuestate = line.split("=")[1].split("useState(")[1];
+
+        let regex = /useState\((.*)\)/gs;
+
+        valuestate = valuestate.match(regex)
+          ? valuestate
+              .match(regex)[0]
+              .split("useState(")[1]
+              .split(")")[0]
+              .trim()
+          : valuestate;
+
+        let newState = `${varType} [${key}, ${setKey}] = this.useState('${key}', ${valuestate}`;
+
+        data = data.replace(line, newState);
+
+        break;
+
+      case line.includes("useRef") && !line.includes("import"):
+        line = line.trim();
+
+        let typeref = line.split(" ")[0];
+
+        let keyref = line
+          .split(typeref)[1]
+          .split("=")[0]
+          .trim()
+          .replace("[", "")
+          .replace(",", "");
+
+        let valueref = line.split("=")[1].split("useRef(")[1];
+
+        let newStateref = `${typeref} ${keyref} = this.useRef('${keyref}', ${valueref}`;
+
+        data = data.replace(line, newStateref);
+
+      case (line.includes(".jsx") && line.includes("import")) ||
+        (line.includes(".tsx") && line.includes("import")):
+        let old = line;
+
+        line = line.replace(".jsx", ".js");
+
+        line = line.replace(".tsx", ".js");
+
+        data = data.replace(old, line);
+
+        break;
     }
+  });
 
-    data = data.replaceAll('.ts', '.js')
+  data = data.replaceAll("jsxDEV", "Vader.createElement");
 
+  data = data.replaceAll("jsx", "Vader.createElement");
 
+  data = data.replaceAll("vaderjs/client", "/vader.js");
 
-    // check if Vader is imported
+  data = data.replaceAll(".tsx", ".js");
 
-    let vaderImport = data.match(/import Vader/g);
+  let reactImportMatch = data.match(/import React/g);
 
-    if (!vaderImport) {
+  if (reactImportMatch) {
+    let fullmatch = data.match(/import React from "react"/g);
 
-        data = `import Vader from "/vader.js";\n` + data;
-
+    if (fullmatch) {
+      data = data.replaceAll('import React from "react"', "");
     }
+  }
 
-    return data;
+  data = data.replaceAll(".ts", ".js");
 
+  // check if Vader is imported
+
+  let vaderImport = data.match(/import Vader/g);
+
+  if (!vaderImport) {
+    data = `import Vader from "/vader.js";\n` + data;
+  }
+
+  return data;
 }
-
-
-
-
 
 /**
 
@@ -297,58 +330,40 @@ function handleReplaceMents(data) {
  */
 
 const ContentType = (url) => {
+  switch (url.split(".").pop()) {
+    case "css":
+      return "text/css";
 
-    switch (url.split('.').pop()) {
+    case "js":
+      return "text/javascript";
 
-        case 'css':
+    case "json":
+      return "application/json";
 
-            return 'text/css';
+    case "html":
+      return "text/html";
 
-        case 'js':
+    case "jpg":
+      return "image/jpg";
 
-            return 'text/javascript';
+    case "png":
+      return "image/png";
 
-        case 'json':
+    case "gif":
+      return "image/gif";
 
-            return 'application/json';
+    case "svg":
+      return "image/svg+xml";
 
-        case 'html':
+    case "webp":
+      return "image/webp";
+    case "ico":
+      return "image/x-icon";
 
-            return 'text/html';
-
-        case 'jpg':
-
-            return 'image/jpg';
-
-        case 'png':
-
-            return 'image/png';
-
-        case 'gif':
-
-            return 'image/gif';
-
-        case 'svg':
-
-            return 'image/svg+xml';
-
-        case 'ico':
-
-            return 'image/x-icon';
-
-        default:
-
-            return 'text/html';
-
-
-
-    }
-
-}
-
-
-
-
+    default:
+      return "text/html";
+  }
+};
 
 /**
 
@@ -361,76 +376,73 @@ const ContentType = (url) => {
  */
 
 function Server(port) {
+  Bun.serve({
+    port: port,
 
-    Bun.serve({
+    async fetch(req, res) {
+      const url = new URL(req.url);
 
-        port: port,
+      const success = res.upgrade(req);
 
-        async fetch(req, res) {
+      if (success) {
+        return new Response("Connected", {
+          headers: {
+            "Content-Type": "text/html",
+          },
+        });
+      }
 
-            const url = new URL(req.url);
+      if (req.url.includes(".")) {
+        if (!fs.existsSync(process.cwd() + "/dist" + url.pathname)) {
+          return new Response("Not Found", {
+            status: 404,
 
-            const success = res.upgrade(req);
+            headers: {
+              "Content-Type": "text/html",
+            },
+          });
+        }
 
-            if (success) {
+        console.log(`HTTP GET: ${url.pathname} -> ${ContentType(req.url)}`);
+        return new Response(
+          fs.readFileSync(process.cwd() + "/dist" + url.pathname),
+          {
+            headers: {
+              "Content-Type": ContentType(req.url),
+            },
+          }
+        );
+      }
 
-                return new Response('Connected', {
-
-                    headers: {
-
-                        "Content-Type": "text/html"
-
-                    }
-
-                })
-
+      let matchedRoute =
+        router.match(url.pathname) ||
+        fs.existsSync(process.cwd() + "/dist" + url.pathname)
+          ? {
+              filePath: process.cwd() + "/dist" + url.pathname,
+              isAbsolute: true,
             }
+          : null;
 
-            if (req.url.includes('.')) {
+      if (matchedRoute) {
+        let { filePath, kind, name, params, pathname, query, isAbsolute } =
+          matchedRoute;
 
-                if (!fs.existsSync(process.cwd() + '/dist' + url.pathname)) {
+        let folder = filePath.split("pages/").pop().split("index.js").shift();
+        folder = folder
+          .split("/")
+          .filter((f) => f !== "dist")
+          .join("/");
+        let jsFile = filePath.split("pages/").pop().split(".").shift() + ".js";
 
-                    return new Response('Not Found', {
+        let pageContent = isAbsolute
+          ? fs.readFileSync(filePath + "/index.html")
+          : fs.readFileSync(
+              process.cwd() + "/dist/" + folder + "/index.html",
+              "utf8"
+            );
 
-                        status: 404,
-
-                        headers: {
-
-                            "Content-Type": "text/html"
-
-                        }
-
-                    })
-
-                }
-
-                console.log('Serving: ' + url.pathname)
-
-                return new Response(fs.readFileSync(process.cwd() + '/dist/' + url.pathname, 'utf-8'), {
-
-                    headers: {
-
-                        "Content-Type": ContentType(req.url)
-
-                    }
-
-                })
-
-            }
-
-            let matchedRoute = router.match(url.pathname);
-
-            if (matchedRoute) {
-
-                let { filePath, kind, name, params, pathname, query, } = matchedRoute
-
-                let folder = url.pathname.split('/')[1]
-
-                let jsFile = filePath.split('pages/').pop().split('.').shift() + '.js'
-
-                let pageContent = fs.readFileSync(process.cwd() + '/dist/' + folder + '/index.html', 'utf8')
-
-                globalThis.mode === 'dev' ? pageContent += `
+        globalThis.mode === "dev"
+          ? (pageContent += `
 
                 <script type="module">
 
@@ -450,50 +462,33 @@ function Server(port) {
 
                 </script>
 
-                `  : void 0
+                `)
+          : void 0;
 
-                return new Response(pageContent, {
+        return new Response(pageContent, {
+          headers: {
+            "Content-Type": "text/html",
 
-                    headers: {
+            "X-Powered-By": "Vader.js v1.3.3",
+          },
+        });
+      }
 
-                        "Content-Type": "text/html",
+      return new Response("Not Found", {
+        status: 404,
 
-                        "X-Powered-By": "Vader.js v1.3.3"
-
-                    }
-
-                })
-
-            }
-
-
-
-            return new Response('Not Found', {
-
-                status: 404,
-
-                headers: {
-
-                    "Content-Type": "text/html"
-
-                }
-
-            })
-
+        headers: {
+          "Content-Type": "text/html",
         },
+      });
+    },
 
-        websocket: {
-
-            open(ws) {
-
-                clients.push(ws)
-
-            },
-
-        }
-
-    })
-
+    websocket: {
+      open(ws) {
+        clients.push(ws);
+      },
+    },
+  });
 }
 
 /**
@@ -513,26 +508,16 @@ function Server(port) {
  */
 
 const write = (file, data) => {
-
-    try {
-
-        if (!fs.existsSync('./dist')) {
-
-            fs.mkdirSync('./dist')
-
-        }
-
-        Bun.write(file, data);
-
-    } catch (error) {
-
-        console.error(error)
-
+  try {
+    if (!fs.existsSync("./dist")) {
+      fs.mkdirSync("./dist");
     }
 
-
-
-}
+    Bun.write(file, data);
+  } catch (error) {
+    console.error(error);
+  }
+};
 
 /**
 
@@ -545,10 +530,8 @@ const write = (file, data) => {
  */
 
 const read = async (file) => {
-
-    return await Bun.file(file).text();
-
-}
+  return await Bun.file(file).text();
+};
 
 /**
 
@@ -558,9 +541,7 @@ const read = async (file) => {
 
  */
 
-
-
-globalThis.integrationStates = []
+globalThis.integrationStates = [];
 
 /**
 
@@ -569,10 +550,8 @@ globalThis.integrationStates = []
  */
 
 globalThis.context = {
-
-    vader: true
-
-}
+  vader: true,
+};
 
 /**
 
@@ -585,26 +564,18 @@ globalThis.context = {
  */
 
 function handleIntegrations() {
- 
-    if (config?.integrations) {
+  if (config?.integrations) {
+    config.integrations.forEach((integration) => {
+      let int = integration;
 
-        config.integrations.forEach((integration) => { 
+      globalThis.integrationStates.push(int);
+    });
+  }
 
-            let int = integration
-
-            globalThis.integrationStates.push(int)
-
-        })
-
-    }
-
-
-
-    return void 0;
-
+  return void 0;
 }
 
-handleIntegrations()
+handleIntegrations();
 
 /**
 
@@ -617,156 +588,119 @@ handleIntegrations()
  */
 
 async function generateProviderRoutes() {
-
-    if (!config?.host?.provider) {
-
-        console.warn('No provider found in vader.config.js ignoring route generation...')
-
-        return void 0;
-
-    }
-
-    let providerType = [{
-
-        provider: 'vercel',
-
-        file: 'vercel.json',
-
-        out: process.cwd() + '/vercel.json',
-
-        obj: {
-
-            rewrites: []
-
-        }
-
-    }, {
-
-        provider: 'cloudflare',
-
-        file: '_redirects',
-
-        out: 'dist/_redirects'
-
-    }]
-
-
-
-    let provider = providerType.find((p) => p.provider === config.host.provider)
-
-    if (provider) {
-
-        let prev = null
-
-
-
-        switch (provider.provider) {
-
-            case 'vercel':
-
-                if (!fs.existsSync(provider.out)) {
-
-                    fs.writeFileSync(provider.out, JSON.stringify({ rewrites: [] }))
-
-                }
-
-                prev = await read(provider.out);
-
-                if (!prev) {
-
-                    prev = []
-
-                } else {
-
-                    prev = JSON.parse(prev).rewrites
-
-                }
-
-                routes.forEach((r) => {
-
-                    let previous = prev.find((p) => p.source.includes(r.path))
-
-                    if (previous) {
-
-                        return void 0;
-
-                    }
-
-
-
-                    prev.push({
-
-                        source: '/' + r.path,
-
-                        destination: '/' + r.path + '/index.html'
-
-                    })
-
-
-
-                    if (r.params.length > 0) {
-
-                        r.params.forEach((param) => {
-
-                            if (!param.paramData) {
-
-                                return void 0;
-
-                            }
-
-                            let parampath = Object.keys(param.paramData).map((p) => `:${p}`).join('/')
-
-                            prev.push({
-
-                                source: '/' + r.path + '/' + parampath,
-
-                                destination: '/' + r.path + '/index.html'
-
-                            })
-
-                        })
-
-                    }
-
-
-
-                    fs.writeFileSync(provider.out, JSON.stringify({ rewrites: prev }, null, 2))
-
-
-
-
-
-                })
-
-                provider.obj.rewrites = prev
-
-                write(provider.out, JSON.stringify(provider.obj, null, 2))
-
-                break;
-
-            case 'cloudflare':
-
-                console.warn('Cloudflare is not supported yet refer to their documentation for more information:https://developers.cloudflare.com/pages/configuration/redirects/')
-
-                break;
-
-        }
-
-
-
-
-
-
-
-
-
-    }
+  if (!config?.host?.provider) {
+    console.warn(
+      "No provider found in vader.config.js ignoring route generation..."
+    );
 
     return void 0;
+  }
 
+  let providerType = [
+    {
+      provider: "vercel",
+
+      file: "vercel.json",
+
+      out: process.cwd() + "/vercel.json",
+
+      obj: {
+        rewrites: [],
+      },
+    },
+    {
+      provider: "cloudflare",
+
+      file: "_redirects",
+
+      out: "dist/_redirects",
+    },
+  ];
+
+  let provider = providerType.find((p) => p.provider === config.host.provider);
+
+  if (provider) {
+    let prev = null;
+
+    switch (provider.provider) {
+      case "vercel":
+        if (!fs.existsSync(provider.out)) {
+          fs.writeFileSync(
+            provider.out,
+            JSON.stringify({
+              rewrites: [],
+            })
+          );
+        }
+
+        prev = await read(provider.out);
+
+        if (!prev) {
+          prev = [];
+        } else {
+          prev = JSON.parse(prev).rewrites;
+        }
+
+        routes.forEach((r) => {
+          let previous = prev.find((p) => p.source.includes(r.path));
+
+          if (previous) {
+            return void 0;
+          }
+
+          prev.push({
+            source: "/" + r.path,
+
+            destination: "/" + r.path + "/index.html",
+          });
+
+          if (r.params.length > 0) {
+            r.params.forEach((param) => {
+              if (!param.paramData) {
+                return void 0;
+              }
+
+              let parampath = Object.keys(param.paramData)
+                .map((p) => `:${p}`)
+                .join("/");
+
+              prev.push({
+                source: "/" + r.path + "/" + parampath,
+
+                destination: "/" + r.path + "/index.html",
+              });
+            });
+          }
+
+          fs.writeFileSync(
+            provider.out,
+            JSON.stringify(
+              {
+                rewrites: prev,
+              },
+              null,
+              2
+            )
+          );
+        });
+
+        provider.obj.rewrites = prev;
+
+        write(provider.out, JSON.stringify(provider.obj, null, 2));
+
+        break;
+
+      case "cloudflare":
+        console.warn(
+          "Cloudflare is not supported yet refer to their documentation for more information:https://developers.cloudflare.com/pages/configuration/redirects/"
+        );
+
+        break;
+    }
+  }
+
+  return void 0;
 }
-
-
 
 /**
 
@@ -776,279 +710,275 @@ async function generateProviderRoutes() {
 
  */
 
-
-
 async function transForm() {
+  return new Promise(async (resolve, reject) => {
+    globalThis.isBuilding = true;
 
-    return new Promise(async (resolve, reject) => {
+    router.reload();
 
-        globalThis.isBuilding = true
+    for await (var file of glob.scan(".")) {
+      file = file.replace(/\\/g, "/");
 
-        router.reload()
+      let isBasePath = file.split("pages/")?.[1]?.split("/").length === 1;
 
-        for await (var file of glob.scan('.')) {
+      let folder =
+        file.split("pages/")?.[1]?.split("/").slice(0, -1).join("/") || null;
 
-            file = file.replace(/\\/g, '/');
+      if (isBasePath) {
+        folder = "/";
+      }
 
-            let isBasePath = file.split('pages/')?.[1]?.split('/').length === 1;
+      if (file.endsWith(".md")) {
+        let data = await read(file);
+        if (
+          integrationStates.find((int) => int?._df && int?._df === "i18mdf")
+        ) {
+          console.log(
+            `Using markdown parser ${
+              integrationStates.find((int) => int?._df && int?._df === "i18mdf")
+                .name
+            } v${
+              integrationStates.find((int) => int?._df && int?._df === "i18mdf")
+                .version
+            }`
+          );
+          let parser = integrationStates.find(
+            (int) => int?._df && int?._df === "i18mdf"
+          );
 
+          parser.parse(data);
+          parser._class.stylesheets.forEach((sheet) => {
+            parser._class.output =
+              `<link rel="stylesheet" href="${sheet}">` + parser._class.output;
+          });
+          let output = `./dist/${
+            isBasePath ? "index.html" : folder + "/index.html"
+          }`;
+          write(output, parser._class.output);
+        }
+        continue;
+      }
 
+      let route = isBasePath ? router.match("/") : router.match("/" + folder);
 
-            let folder = file.split('pages/')?.[1]?.split('/').slice(0, -1).join('/') || null;
+      if (route) {
+        let { filePath, kind, name, params, pathname, query } = route;
 
-            if (isBasePath) {
+        let data = await read(filePath);
 
-                folder = '/'
-
-            }
-
-            let route = isBasePath ? router.match('/') : router.match('/' + folder)
-
-
-
-            if (route) {
-
-                let { filePath, kind, name, params, pathname, query, } = route
-
-                let data = await read(filePath);
-
-                try {
-
-                    data = new Bun.Transpiler({ loader: "tsx", target: "browser", }).transformSync(data);
-
-                } catch (e) {
-
-                    console.error(e)
-
-                }
-
-                let out = `./dist/${isBasePath ? 'index.js' : folder + '/index.js'}`;
-
-                isBasePath ? folder = '/' : null;
-
-                data = handleReplaceMents(data);
-
-                let isAparam = null
-
-                if (folder === "") {
-
-                    return
-
-                }
-
-                switch (true) {
-
-                    case kind === 'dynamic':
-
-                        isAparam = true
-
-                        break;
-
-                    case kind === 'catch-all':
-
-                        isAparam = true
-
-                        break;
-
-                    case kind === 'optional-catch-all':
-
-                        isAparam = true
-
-                        break;
-
-                }
-
-                routes.push({ path: folder, file: out, isParam: isAparam, params: params, query, pathname })
-
-                write(out, data);
-
-                bundleSize += data.length
-
-
-
-
-
-            }
-
-
-
+        try {
+          data = new Bun.Transpiler({
+            loader: "tsx",
+            target: "browser",
+          }).transformSync(data);
+        } catch (e) {
+          console.error(e);
         }
 
+        let out = `./dist/${isBasePath ? "index.js" : folder + "/index.js"}`;
 
+        isBasePath ? (folder = "/") : null;
 
-        for await (var file of srcGlob.scan('.')) {
+        data = handleReplaceMents(data);
 
-            if (!fs.existsSync(process.cwd() + '/dist/src/')) {
+        let isAparam = null;
 
-                fs.mkdirSync(process.cwd() + '/dist/src/')
-
-            }
-
-            file = file.replace(/\\/g, '/');
-
-            switch (file.split('.').pop()) {
-
-                case 'ts':
-
-                    let transpiler = new Bun.Transpiler({ loader: "ts", target: "browser", });
-
-                    let data = await read(file);
-
-                    try {
-
-                        data = transpiler.transformSync(data);
-
-                    } catch (error) {
-
-                        console.error(error)
-
-                    }
-
-                    file = file.replace('.ts', '.js')
-
-                    let path = process.cwd() + '/dist/src/' + file.split('src/').pop()
-
-                    write(path, data);
-
-                    bundleSize += data.length
-
-
-
-                    break;
-
-
-
-                case 'tsx':
-
-                    let transpilerx = new Bun.Transpiler({ loader: "tsx", target: "browser", });
-
-                    let datax = await read(file);
-
-                    try {
-
-                        datax = transpilerx.transformSync(datax);
-
-                    } catch (error) {
-
-                        console.error(error)
-
-                    }
-
-                    datax = handleReplaceMents(datax);
-
-                    file = file.replace('.tsx', '.js')
-
-                    let pathx = process.cwd() + '/dist/src/' + file.split('src/').pop()
-
-                    write(pathx, datax);
-
-
-
-
-
-                    break;
-
-                case 'jsx':
-
-                    let transpilerjx = new Bun.Transpiler({ loader: "jsx", target: "browser" });
-
-                    let datajx = await read(file);
-
-
-
-                    let source = transpilerjx.scan(datajx)
-
-                    try {
-
-                        datajx = transpilerjx.transformSync(datajx)
-
-                    } catch (error) {
-
-                        console.error(error)
-
-                    }
-
-                    datajx = handleReplaceMents(datajx);
-
-                    file = file.replace('.jsx', '.js')
-
-                    let pathjx = process.cwd() + '/dist/src/' + file.split('src/').pop()
-
-                    write(pathjx, datajx);
-
-                    bundleSize += datajx.length
-
-                    break;
-
-            }
-
+        if (folder === "") {
+          return;
         }
 
+        switch (true) {
+          case kind === "dynamic":
+            isAparam = true;
 
+            break;
 
+          case kind === "catch-all":
+            isAparam = true;
 
+            break;
 
-        for await (var file of publicGlob.scan('.')) {
+          case kind === "optional-catch-all":
+            isAparam = true;
 
-            let data = await read(file);
-
-            file = file.replace(/\\/g, '/');
-
-            write(process.cwd() + '/dist/public/' + file.split('public/').pop(), data);
-
-            bundleSize += fs.existsSync(process.cwd() + '/dist/public/' + file.split('public/').pop()) ? fs.statSync(process.cwd() + '/dist/public/' + file.split('public/').pop()).size : 0
-
+            break;
         }
 
-        for await (var file of vaderGlob.scan('.')) {
+        routes.push({
+          path: folder,
+          file: out,
+          isParam: isAparam,
+          params: params,
+          query,
+          pathname,
+        });
 
-            let data = await read(file);
+        write(out, data);
 
-            file = file.replace(/\\/g, '/');
+        bundleSize += data.length;
+      }
+    }
 
-            write(process.cwd() + '/dist/' + file.split('node_modules/vaderjs/runtime/').pop(), data);
+    for await (var file of srcGlob.scan(".")) {
+      if (!fs.existsSync(process.cwd() + "/dist/src/")) {
+        fs.mkdirSync(process.cwd() + "/dist/src/");
+      }
 
-            bundleSize += fs.statSync(process.cwd() + '/dist/' + file.split('node_modules/vaderjs/runtime/').pop()).size
+      file = file.replace(/\\/g, "/");
 
-        }
+      switch (file.split(".").pop()) {
+        case "ts":
+          let transpiler = new Bun.Transpiler({
+            loader: "ts",
+            target: "browser",
+          });
 
+          let data = await read(file);
 
+          try {
+            data = transpiler.transformSync(data);
+          } catch (error) {
+            console.error(error);
+          }
 
-        // clean dist folder
+          file = file.replace(".ts", ".js");
 
-        for await (var file of distPages.scan('.')) {
+          let path = process.cwd() + "/dist/src/" + file.split("src/").pop();
 
-            file = file.replace(/\\/g, '/');
+          write(path, data);
 
-            let path = process.cwd() + '/pages/' + file.split('dist/pages/').pop()
+          bundleSize += data.length;
 
-            path = path.replace('.js', config?.files?.mimeType || '.jsx')
+          break;
 
+        case "tsx":
+          let transpilerx = new Bun.Transpiler({
+            loader: "tsx",
+            target: "browser",
+          });
 
+          let datax = await read(file);
 
-            if (!fs.existsSync(path)) {
+          try {
+            datax = transpilerx.transformSync(datax);
+          } catch (error) {
+            console.error(error);
+          }
 
-                fs.unlinkSync(file)
+          datax = handleReplaceMents(datax);
 
-            }
+          file = file.replace(".tsx", ".js");
 
+          let pathx = process.cwd() + "/dist/src/" + file.split("src/").pop();
 
+          write(pathx, datax);
 
-        }
+          break;
 
+        case "jsx":
+          let transpilerjx = new Bun.Transpiler({
+            loader: "jsx",
+            target: "browser",
+          });
 
+          let datajx = await read(file);
 
+          let source = transpilerjx.scan(datajx);
 
+          try {
+            datajx = transpilerjx.transformSync(datajx);
+          } catch (error) {
+            console.error(error);
+          }
 
+          datajx = handleReplaceMents(datajx);
 
+          file = file.replace(".jsx", ".js");
 
+          let pathjx = process.cwd() + "/dist/src/" + file.split("src/").pop();
 
+          write(pathjx, datajx);
 
+          bundleSize += datajx.length;
 
+          break;
+        default:
+          break;
+      }
+    }
 
+    for await (var file of publicGlob.scan(".")) {
+      // works
 
+      let data = null;
+      let isBuff = false;
+      file = file.replace(/\\/g, "/");
+      if (
+        file.endsWith(".png") ||
+        file.endsWith(".jpg") ||
+        file.endsWith(".jpeg") ||
+        file.endsWith(".gif") ||
+        file.endsWith(".svg") ||
+        file.endsWith(".webp") ||
+        file.endsWith(".ico") ||
+        file.endsWith(".mp4") ||
+        file.endsWith(".webm")
+      ) {
+        data = Buffer.from(fs.readFileSync(file)).toString("base64");
+        isBuff = true;
+      }
+      data = data || (await read(file));
 
-        /**
+      let path = process.cwd() + "/dist/public/" + file.split("public/").pop();
+      fs.writeFileSync(path, data, isBuff ? "base64" : "utf8");
+
+      bundleSize += data.length;
+    }
+
+    for await (var file of vaderGlob.scan(".")) {
+      file = file.replace(/\\/g, "/");
+      if (
+        fs.existsSync(
+          process.cwd() +
+            "/dist/" +
+            file.split("node_modules/vaderjs/runtime/").pop()
+        )
+      ) {
+        return;
+      }
+      let data = await read(file);
+
+      file = file.replace(/\\/g, "/");
+
+      write(
+        process.cwd() +
+          "/dist/" +
+          file.split("node_modules/vaderjs/runtime/").pop(),
+        data
+      );
+
+      bundleSize += fs.statSync(
+        process.cwd() +
+          "/dist/" +
+          file.split("node_modules/vaderjs/runtime/").pop()
+      ).size;
+    }
+
+    // clean dist folder
+
+    for await (var file of distPages.scan(".")) {
+      file = file.replace(/\\/g, "/");
+
+      let path = process.cwd() + "/pages/" + file.split("dist/pages/").pop();
+
+      path = path.replace(".js", config?.files?.mimeType || ".jsx");
+
+      if (!fs.existsSync(path)) {
+        fs.unlinkSync(file);
+      }
+    }
+
+    /**
 
          * @function organizeRoutes
 
@@ -1056,409 +986,341 @@ async function transForm() {
 
          */
 
+    const organizeRoutes = () => {
+      // if path starts with the same path and is dynamic then they are the same route and push params to the same route
 
+      let newRoutes = [];
 
-        const organizeRoutes = () => {
+      routes.forEach((route) => {
+        let exists = routes.find((r) => {
+          if (r.path.includes("[")) {
+            r.path = r.path.split("[").shift();
+          }
 
-            // if path starts with the same path and is dynamic then they are the same route and push params to the same route
+          r.path = r.path
+            .split("/")
+            .filter((p) => p !== "")
+            .join("/");
 
-            let newRoutes = []
+          if (r.isParam) {
+            return r.path === route.path && r.isParam;
+          }
+        });
 
-            routes.forEach((route) => {
+        if (exists) {
+          let b4Params = route.params;
 
-                let exists = routes.find((r) => {
+          route.params = [];
 
-                    if (r.path.includes('[')) {
+          route.params.push(b4Params);
 
-                        r.path = r.path.split('[').shift()
+          route.params.push({
+            jsFile: "/" + exists.path + "/index.js",
 
-                    }
+            folder: "/" + exists.path,
 
+            paramData: exists.params,
+          });
 
+          route.query = exists.query;
 
-                    r.path = r.path.split('/').filter((p) => p !== '').join('/')
-
-                    if (r.isParam) {
-
-                        return r.path === route.path && r.isParam
-
-                    }
-
-
-
-                })
-
-                if (exists) {
-
-                    let b4Params = route.params
-
-                    route.params = []
-
-                    route.params.push(b4Params)
-
-                    route.params.push({
-
-                        jsFile: '/' + exists.path + '/index.js',
-
-                        folder: '/' + exists.path,
-
-                        paramData: exists.params
-
-                    }
-
-                    )
-
-                    route.query = exists.query
-
-                    newRoutes.push(route)
-
-                }
-
-                else if (!exists && !route.isParam) {
-
-                    newRoutes.push(route)
-
-
-
-                }
-
-                //remove param route that matched
-
-                routes = routes.filter((r) => exists ? r.path !== exists.path : true)
-
-
-
-            })
-
-            globalThis.routes = newRoutes
-
+          newRoutes.push(route);
+        } else if (!exists && !route.isParam) {
+          newRoutes.push(route);
         }
 
-        organizeRoutes()
+        //remove param route that matched
 
+        routes = routes.filter((r) => (exists ? r.path !== exists.path : true));
+      });
 
+      globalThis.routes = newRoutes;
+    };
 
+    organizeRoutes();
 
+    generateProviderRoutes();
 
-        generateProviderRoutes()
+    globalThis.isBuilding = false;
 
-        globalThis.isBuilding = false
+    if (!fs.existsSync(process.cwd() + "/_dev/meta")) {
+      fs.mkdirSync(process.cwd() + "/_dev/meta");
+    }
 
-        if (!fs.existsSync(process.cwd() + '/_dev/meta')) {
+    fs.writeFileSync(
+      process.cwd() + "/_dev/meta/routes.json",
+      JSON.stringify(routes, null, 2)
+    );
 
-            fs.mkdirSync(process.cwd() + '/_dev/meta')
+    console.log(`Finished building ${Math.round(bundleSize / 1000)}kb`);
 
-        }
+    bundleSize = 0;
 
-        fs.writeFileSync(process.cwd() + '/_dev/meta/routes.json', JSON.stringify(routes, null, 2))
-
-        console.log(`Finished building ${Math.round(bundleSize / 1000)}kb`)
-
-
-
-        bundleSize = 0
-
-        resolve()
-
-    });
-
-
-
+    resolve();
+  });
 }
 
-let port = 3000
+let port = 3000;
+let hasRan = [];
 
 switch (true) {
+  case process.argv.includes("dev") &&
+    !process.argv.includes("build") &&
+    !process.argv.includes("start"):
+    port = process.argv.includes("-p")
+      ? process.argv[process.argv.indexOf("-p") + 1]
+      : config?.dev?.port || 3000;
 
-    case process.argv.includes('dev') && !process.argv.includes('build') && !process.argv.includes('start'):
+    globalThis.oneAndDone = false;
+    let v = await checkIFUptodate();
 
+    console.log(`
 
-
-        port = process.argv.includes('-p') ? process.argv[process.argv.indexOf('-p') + 1] : config?.dev?.port || 3000
-
-        globalThis.oneAndDone = false
-
-        console.log(`
-
-  Vader.js v${fs.readFileSync(process.cwd() + '/node_modules/vaderjs/package.json', 'utf8').split('"version": "')[1].split('"')[0]}
-
+    ${
+      v.current !== v.latest
+        ? `Update available: ${v.latest} (current: ${v.current})`
+        : `Vader.js v${v.current}`
+    }
   - Watching for changes in ./pages
-
   - Watching for changes in ./src
-
   - Watching for changes in ./public
+  - Serving on port http://localhost:${port}
 
-  - Serving on port ${port}
+  `);
 
-  `)
+    globalThis.mode = "dev";
 
-        globalThis.mode = 'dev'
+    Server(port);
+    for (var ints in integrationStates) {
+      if (
+        integrationStates &&
+        integrationStates[ints]?.on &&
+        integrationStates[ints].on.includes("dev") &&
+        !hasRan.includes(integrationStates[ints].name)
+      ) {
+        console.log("Starting integration...");
 
-        Server(port)
+        let int = integrationStates[ints];
 
-        transForm()
+        let { name, version, useRuntime, entryPoint, onAction, doOn } = int;
 
-
+        globalThis[`isRunning${name}`] = true;
+        console.log(`Using integration: ${name} v${version}`);
 
         Bun.spawn({
+          cwd: process.cwd(),
 
-            cwd: process.cwd() + '/node_modules/vaderjs/binaries/',
+          isVader: true,
+
+          env: {
+            PWD: process.cwd(),
+
+            isVader: true,
+
+            FOLDERS: "pages,src,public",
+
+            onExit: (code) => {
+              globalThis.isBuilding = false;
+
+              globalThis[`isRunning${name}`] = false;
+            },
+          },
+
+          cmd: [useRuntime || "node", entryPoint],
+        });
+
+        hasRan.push(integrationStates[ints].name);
+      }
+    }
+
+    transForm();
+
+    Bun.spawn({
+      cwd: process.cwd() + "/node_modules/vaderjs/binaries/",
+
+      env: {
+        PWD: process.cwd(),
+
+        IPC: IPC,
+
+        FOLDERS: "pages,src,public",
+
+        onExit: (code) => {
+          globalThis.isBuilding = false;
+
+          globalThis.oneAndDone = true;
+        },
+      },
+
+      cmd: ["node", "watcher.js"],
+    });
+
+    async function runOnChange() {
+      for (var ints in integrationStates) {
+        if (
+          integrationStates &&
+          integrationStates[ints].on &&
+          integrationStates[ints]?.on.includes("dev:change")
+        ) {
+          let int = integrationStates[ints];
+
+          let { name, version, useRuntime, entryPoint, onAction, doOn } = int;
+
+          if (globalThis[`isRunning${name}`]) {
+            setTimeout(() => {
+              globalThis[`isRunning${name}`] = false;
+            }, 1000);
+            return void 0;
+          }
+
+          globalThis[`isRunning${name}`] = true;
+          console.log(`Using integration: ${name} v${version}`);
+
+          Bun.spawn({
+            cwd: process.cwd(),
+
+            isVader: true,
 
             env: {
+              PWD: process.cwd(),
 
-                PWD: process.cwd(),
+              isVader: true,
 
-                IPC: IPC,
+              FOLDERS: "pages,src,public",
 
-                FOLDERS: 'pages,src,public',
+              onExit: (code) => {
+                globalThis.isBuilding = false;
 
-                onExit: (code) => {
-
-                    globalThis.isBuilding = false
-
-                    globalThis.oneAndDone = true
-
-                }
-
+                globalThis[`isRunning${name}`] = false;
+              },
             },
 
-            cmd: ['node', 'watcher.js'],
+            cmd: [useRuntime || "node", entryPoint],
+          });
 
-        })
-
-        async function runOnChange() {
- 
-            for (var ints in integrationStates) {
- 
-                if (integrationStates && integrationStates[ints].on.includes('dev:change')) {
-
-                    console.log('Starting integration...')
-
-                    let int = integrationStates[ints]
-
-                    let { name, version, useRuntime, entryPoint, onAction, doOn } = int
-
-                    
-                    if (globalThis[`isRunning${name}`]) {
-                             
-                           setTimeout(() => {
-                                globalThis[`isRunning${name}`] = false
-                           }, 1000)
-                            return void 0   
-
-                    }
-
-                    globalThis[`isRunning${name}`] = true
-                    console.log(`Using integration: ${name} v${version}`)
-
-                    Bun.spawn({
-
-                        cwd: process.cwd(),
-
-                        isVader: true,
-
-                        env: {
-
-                            PWD: process.cwd(),
-
-                            isVader: true,
-
-                            FOLDERS: 'pages,src,public',
-
-                            onExit: (code) => {
-
-                                globalThis.isBuilding = false
-
-                                globalThis[`isRunning${name}`] = false
-
-                            }
-
-                        },
-
-                        cmd: [useRuntime || 'node', entryPoint],
-
-                    })  
-
-
-
-                    console.log(`Using integration: ${name} v${version}`)
-
-
-
-                }
-
-            }
-
+          console.log(`Using integration: ${name} v${version}`);
         }
+      }
+    }
 
+    IPC.client({
+      use: IPCServer.typeEnums.WATCHER,
 
+      port: 3434,
+    }).Console.read(async (message) => {
+      message = message.msg;
 
+      switch (true) {
+        case message.data?.type === "change":
+          console.log("File changed:", message.data.filename);
 
+          transForm();
 
-        IPC.client({
+          clients.forEach((client) => {
+            client.send("reload");
+          });
 
-            use: IPCServer.typeEnums.WATCHER,
+          // reload config
+          config = await import(process.cwd() + "/vader.config.js").then((m) =>
+            m ? m.default : {}
+          );
 
-            port: 3434
+          runOnChange();
 
-        }).Console.read((message) => {
+          break;
 
-            message = message.msg
+        case message.data?.type === "add":
+          console.log("File added:", message.data.filename);
 
-            switch (true) {
+          transForm();
 
-                case message.data?.type === 'change':
+          break;
+      }
+    });
 
-                    console.log('File changed:', message.data.filename)
+    break;
 
-                    transForm()
+  case process.argv.includes("build") &&
+    !process.argv.includes("dev") &&
+    !process.argv.includes("start"):
+    globalThis.devMode = false;
 
-                    clients.forEach((client) => {
+    globalThis.mode = "prod";
 
-                        client.send('reload')
+    globalThis.isProduction = true;
 
-                    })
+    globalThis.routeStates = [];
 
-                    runOnChange()
-
-
-
-                    break;
-
-                case message.data?.type === 'add':
-
-                    console.log('File added:', message.data.filename)
-
-                    transForm()
-
-                    break;
-
-            }
-
-        })
-
-
-
-
-
-
-
-        break;
-
-    case process.argv.includes('build') && !process.argv.includes('dev') && !process.argv.includes('start'):
-
-        globalThis.devMode = false
-
-
-
-
-
-
-
-        globalThis.mode = 'prod'
-
-        globalThis.isProduction = true
-
-        globalThis.routeStates = []
-
-        console.log(`
-
+    console.log(`
   Vader.js v1.3.3 
-
   Building to ./dist
+  `);
 
-  `)
+    transForm();
 
+    for (var ints in integrationStates) {
+      if (
+        integrationStates &&
+        integrationStates[ints].on &&
+        integrationStates[ints]?.on.includes("build")
+      ) {
+        console.log("Starting integration...");
 
+        let int = integrationStates[ints];
 
-        await transForm()
+        let { name, version, useRuntime, entryPoint, onAction, doOn } = int;
 
-        for (var ints in integrationStates) {
+        console.log(`Using integration: ${name} v${version}`);
 
-            console.log(integrationStates[ints], 'integrationStates[ints]')
+        Bun.spawn({
+          cwd: process.cwd(),
 
-            if (integrationStates && integrationStates[ints].on.includes('build')) {
+          isVader: true,
 
-                console.log('Starting integration...')
+          env: {
+            PWD: process.cwd(),
 
-                let int = integrationStates[ints]
+            isVader: true,
 
-                let { name, version, useRuntime, entryPoint, onAction, doOn } = int
+            FOLDERS: "pages,src,public",
 
-                console.log(`Using integration: ${name} v${version} from ${entryPoint}`)
+            onExit: (code) => {
+              globalThis.isBuilding = false;
+            },
+          },
 
+          cmd: ["node", entryPoint],
+        });
+      }
+    }
 
+    break;
 
-                Bun.spawn({
+  case process.argv.includes("start") &&
+    !process.argv.includes("dev") &&
+    !process.argv.includes("build"):
+    port = process.argv.includes("-p")
+      ? process.argv[process.argv.indexOf("-p") + 1]
+      : config?.host?.prod?.port || 3000;
 
-                    cwd: process.cwd(),
-
-                    isVader: true,
-
-                    env: {
-
-                        PWD: process.cwd(),
-
-                        isVader: true,
-
-                        FOLDERS: 'pages,src,public',
-
-                        onExit: (code) => {
-
-                            globalThis.isBuilding = false
-
-                        }
-
-                    },
-
-                    cmd: ["node", entryPoint]
-
-                })
-
-
-
-
-
-
-
-            }
-
-        }
-
-
-
-        break;
-
-    case process.argv.includes('start') && !process.argv.includes('dev') && !process.argv.includes('build'):
-
-        port = process.argv.includes('-p') ? process.argv[process.argv.indexOf('-p') + 1] : config?.host?.prod?.port || 3000
-
-        console.log(`
+    console.log(`
 
 Vader.js v1.3.3 
 
 Serving ./dist on port ${port}
 
-url: ${config?.host?.prod?.hostname || 'http://localhost'}:${port}
+url: ${config?.host?.prod?.hostname || "http://localhost"}:${port}
 
-            `)
+            `);
 
-        globalThis.devMode = false
+    globalThis.devMode = false;
 
-        globalThis.isProduction = true
+    globalThis.isProduction = true;
 
+    Server(port);
 
+    break;
 
-        Server(port)
-
-        break;
-
-    default:
-
-
-
-        break;
-
-
-
+  default:
+    break;
 }

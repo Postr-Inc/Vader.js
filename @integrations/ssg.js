@@ -62,14 +62,13 @@ const generateHTML = (routeData) => {
   <html>
    <head> 
    
-<title>Vaderjs v1.3.3</title>
-<meta name="description" content="Vader.js is a modern web framework for building web applications.">
-<link rel="shortcut icon" href="https://raw.githubusercontent.com/Postr-Inc/Vader.js/main/logo.png" type="image/x-icon">
-   </head>
-   <body>
-   <script id="v">
+<title>Vaderjs v1.3.3</title> 
+<script id="v">
    window.$SERVER = true
    </script>
+</head>
+   <body>
+    
    <div id="app"></div>
    <script id="router" type="module">
     import Router from '/router.js' 
@@ -152,8 +151,7 @@ const ssg = async (config) => {
           document.querySelector("#app").innerHTML = "";
         }
       });
-      let content = await page.content();
-      console.log(`Writing ${routes[i].path} to ${output}/${routes[i].path}/index.html`)
+      let content = await page.content(); 
       if (output.includes('./dist')) {
         output = output.split('./dist')[1]
       }
@@ -183,7 +181,8 @@ export default {
   version: '1.0.0',
   useRuntime: 'node',
   entryPoint: process.cwd() + '/node_modules/vaderjs/@integrations/ssg.js',
-  on: ['build', 'dev:change'],
+  on: ['build', 'dev'],
 }
 
 
+// Path:integrations/ssg.js
