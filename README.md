@@ -33,7 +33,7 @@ Tip: Each folder can be deep nested up to 4 levels!
 /pages/index.jsx = /
 /pages/home/[page].jsx  = /home/:page
 /pages/path/index.jsx = /path/
-/pages/test/[...]/index.jsx = /path/test/*
+/pages/test/[[...catchall]]/index.jsx = /path/test/*
 /pages/route/[param1]/[param2].jsx = /path/route/:param1/:param2
 ```
 Keyword folders - all files are passed from these folders to the `dist` folder
@@ -80,7 +80,7 @@ vader's compiler automatically handles routing so you wont need to! - it uses a 
 /pages/index.jsx = /
 /pages/home/[page].jsx  = /home/:page
 /pages/path/index.jsx = /path/
-/pages/path/[...].jsx = /path/*
+/pages/path/[[...catchall]].jsx = /path/*
  
 ```
 For pages that have [params] you can derive it using this.request
@@ -163,7 +163,7 @@ Vaderjs has two types of in javascript styling - css modules and inline jsx styl
 ```jsx
 
 // inline
-<button style={{color:'red'}}>Button</button>
+<button style={{color:'red', "@mobile":{color:'green'}}}>Button</button>
 
 // css module
 
@@ -203,12 +203,12 @@ export default class MyApp extends Component{
       console.log(ref.current) // p tag
     }, this)
     return  <>
-     <p ref={ref}>Count is {count}</p>
+     <p ref={ref}>Count is {count()}</p>
      {/**
        pass anything used from the toplevel render to the lowerlevel function params to be able to invoke!
       **/}
      <button onclick={()=>{
-      setCount(++count)
+      setCount(count() + 1)
      }}>Increment</button>
     </>
     

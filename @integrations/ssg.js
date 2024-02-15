@@ -48,14 +48,15 @@ let server = http.createServer((req, res) => {
 });
 
 const generateHTML = (routeData) => {
+  console
    
-  let { path, file, isParam, params, query, pathname } = routeData;
+  let { path, file, isParam, params,kind, isCatchAll, query, pathname } = routeData;
+  console.log(path, file, isParam, isCatchAll, query, pathname)
   let baseFolder =  file.split('/').filter(f => f !== 'dist').join('/')
   if (file.includes('./dist')) {
     baseFolder = file.split('./dist')[1]
   }
-
-  let isCatchAll = false;
+ 
 
   let html = `
 <!DOCTYPE html>
@@ -74,44 +75,16 @@ const generateHTML = (routeData) => {
     import Router from '/router.js' 
     
     const rt = new Router
-    ${Array.isArray(params)
-      ? params
-        .map((param) => {
-          if (!param.jsFile) return "";
-          let ranName = Math.random()
-            .toString(36)
-            .substring(7)
-            .replace(".", "");
-          let pd = Object.keys(param.paramData)[0];
-          let baseFolder = path
-            .split("/")
-            .filter((f) => f !== "pages")
-            .join("/");
-             
-         if(pd === '$catchall'){
-            isCatchAll = true;
-            console.log('catchall')
-            return `
-            import c${ranName} from '${param.jsFile}'
-            rt.get($SERVER ? '/' : '/${baseFolder}/*', c${ranName})
-            `
-         }
+    ${Object.keys(routeData.params).length > 0 ? Object.keys(routeData.params).map((param, i) => {
+    return `rt.get('/${pathname}/:${param}', ' ${baseFolder}')`
+    }): ''}
 
-          return ` 
-          
-      import c${ranName} from '${param.jsFile}'
-      rt.get('/${baseFolder}/:${pd}', c${ranName})
-      `;
-        })
-        .join("")
-      : ""
-    }
     let c = await import('${baseFolder}')  
     if(Object.keys(c).includes('$prerender') && c.$prerender === false){
       document.head.setAttribute('prerender', 'false')
     }
     ${
-      !isCatchAll ? `rt.get($SERVER? '/' : '${pathname}', c)` : ``
+      !isCatchAll ? `rt.get($SERVER? '/' : '${pathname}', c)` :  `rt.get($SERVER? '/' : '${pathname}/*', c)`
     }
      
     rt.listen()
@@ -129,6 +102,9 @@ const generateHTML = (routeData) => {
 const ssg = async (config) => {
   return new Promise(async (resolve, reject) => {
     let { pages, output } = config;
+    if(!fs.existsSync(`${process.cwd()}/_dev/meta/routes.json`)){
+      process.exit()
+    }
     let routes = JSON.parse(fs.readFileSync(`${process.cwd()}/_dev/meta/routes.json`).toString())
     for (var i in routes) {
       let route = routes[i];
@@ -169,12 +145,11 @@ const ssg = async (config) => {
     }
   })
 } 
- 
-if(context){ 
-  server.listen(8700);
-  await ssg({ pages: './pages', output: './dist' })
+
+if(context){
+server.listen(8700);
+await ssg({ pages: './pages', output: './dist' })
 }
- 
 
 export default {
   name: 'Vaderjs Static Site Generator',

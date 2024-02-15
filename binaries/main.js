@@ -148,6 +148,8 @@ const cssToObj = (css) => {
     if (line.endsWith("{")) {
       // Start of a block, extract the selector
       currentSelector = line.slice(0, -1).trim();
+      currentSelector = currentSelector.replace(/-./g, (x) => x[1].toUpperCase());
+      currentSelector  =currentSelector.replace('.', '')
       styles[currentSelector] = {};
     } else if (line.endsWith("}")) {
       // End of a block
@@ -155,6 +157,7 @@ const cssToObj = (css) => {
     } else if (line.includes(":") && currentSelector) {
       // Inside a block and contains key-value pair
       let [key, value] = line.split(":").map((part) => part.trim());
+      key = key.replace(/-./g, (x) => x[1].toUpperCase());
       styles[currentSelector][key] = value;
     }
   });
@@ -172,8 +175,7 @@ function handleReplaceMents(data) {
         path = path.replace(/'/g, "").trim().replace(/"/g, "").trim();
         path = path.replaceAll(".jsx", ".js");
         path = path.replaceAll("../", "");
-        let css = fs.readFileSync(process.cwd() + "/" + path, "utf8");
-        css = css.replaceAll(".", "");
+        let css = fs.readFileSync(process.cwd() + "/" + path, "utf8"); 
         let styles = cssToObj(css);
         let style = JSON.stringify(styles);
         let newLine = `let ${name} = ${style}`;
