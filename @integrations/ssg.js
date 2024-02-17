@@ -51,7 +51,7 @@ const generateHTML = (routeData) => {
   console
    
   let { path, file, isParam, params,kind, isCatchAll, query, pathname } = routeData;
-  console.log(path, file, isParam, isCatchAll, query, pathname)
+ 
   let baseFolder =  file.split('/').filter(f => f !== 'dist').join('/')
   if (file.includes('./dist')) {
     baseFolder = file.split('./dist')[1]
@@ -75,17 +75,24 @@ const generateHTML = (routeData) => {
     import Router from '/router.js' 
     
     const rt = new Router
-    ${Object.keys(routeData.params).length > 0 ? Object.keys(routeData.params).map((param, i) => {
-    return `rt.get('/${pathname}/:${param}', ' ${baseFolder}')`
+    ${Object.keys(params).length > 0 ? Object.keys(params).map((param, i) => {
+     let first = pathname.split('/')[1]
+     first = '/' + first
+     let ranName = `_${Math.random().toString(36).substr(2, 9)}`
+    return `
+    import ${ranName} from '${baseFolder}'
+    rt.get($SERVER  ? '/' : '${first}/:${param}', ${ranName})`
     }): ''}
 
-    let c = await import('${baseFolder}')  
+    let c = await import('${baseFolder}')
     if(Object.keys(c).includes('$prerender') && c.$prerender === false){
       document.head.setAttribute('prerender', 'false')
     }
+
     ${
-      !isCatchAll ? `rt.get($SERVER? '/' : '${pathname}', c)` :  `rt.get($SERVER? '/' : '${pathname}/*', c)`
+      !isCatchAll && !pathname.includes('[')  ? `rt.get($SERVER  ? '/' : '${pathname}', c)` : isCatchAll &&  !pathname.includes('[')  ? `rt.get($SERVER ? '/' : '${pathname}/*', c)` : ``
     }
+   
      
     rt.listen()
    </script>
@@ -99,6 +106,8 @@ const generateHTML = (routeData) => {
  * @description Generate a static webapp from your Vader.js application
  * @returns 
  */
+
+ 
 const ssg = async (config) => {
   return new Promise(async (resolve, reject) => {
     let { pages, output } = config;
@@ -107,11 +116,9 @@ const ssg = async (config) => {
     }
     let routes = JSON.parse(fs.readFileSync(`${process.cwd()}/_dev/meta/routes.json`).toString())
     for (var i in routes) {
-      let route = routes[i];
-       
-      if(route.path.includes('[')){
-         continue
-      }
+      let route = routes[i]; 
+      
+     
       let html = generateHTML(route);
       globalThis.routeDocuments[routes[i].path] = html;
       let browser = await playwright.chromium.launch({
@@ -120,7 +127,7 @@ const ssg = async (config) => {
       });
       globalThis.browser = browser;
       let page = await browser.newPage();
-      await page.goto(`http://localhost:8700?folder=${routes[i].path}`);
+      await page.goto(`http://localhost:8700?folder=${routes[i].path}`, { waitUntil: 'load' });
       await page.evaluate(() => {
         document.querySelector('script#v').innerHTML = `window.$SERVER = false`
         if(document.head.getAttribute('prerender') === 'false'){
@@ -130,9 +137,16 @@ const ssg = async (config) => {
       let content = await page.content(); 
       if (output.includes('./dist')) {
         output = output.split('./dist')[1]
+      }  
+    
+      if(routes[i].path.includes('[')){
+        routes[i].path = routes[i].path.split('[')[0]
+      }else if(routes[i].path.includes(':')){
+        routes[i].path = routes[i].path.split(':')[0]
       }
       let path = '/dist/' + output  + routes[i].path + '/index.html';
-      fs.writeFileSync(process.cwd() + path, content)
+
+      fs.writeFileSync(process.cwd() + path,   content);
       hasGenerated.push(routes[i].path)
     }
 
@@ -147,10 +161,11 @@ const ssg = async (config) => {
 } 
 
 if(context){
+   
+
 server.listen(8700);
 await ssg({ pages: './pages', output: './dist' })
 }
-
 export default {
   name: 'Vaderjs Static Site Generator',
   version: '1.0.0',

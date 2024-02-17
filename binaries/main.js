@@ -2,8 +2,7 @@ import { Glob } from "bun";
 
 import fs from "fs";
 
-import * as Bun from "bun";
- 
+import * as Bun from "bun"; 
 
 let config = await import(process.cwd() + "/vader.config.js")
   .then((m) => (m ? m.default : {}))
@@ -26,6 +25,7 @@ async function checkIFUptodate() {
 }
 
 import IPCServer from "vaderjs/binaries/IPC/index.js";
+import { exec } from "child_process";
 
 const IPC = IPCServer;
 
@@ -145,19 +145,19 @@ const cssToObj = (css) => {
   css.split("\n").forEach((line) => {
     line = line.trim();
 
+     
     if (line.endsWith("{")) {
       // Start of a block, extract the selector
       currentSelector = line.slice(0, -1).trim();
-      currentSelector = currentSelector.replace(/-./g, (x) => x[1].toUpperCase());
-      currentSelector  =currentSelector.replace('.', '')
+      currentSelector = currentSelector.replace(/-./g, (x) => x[1].toUpperCase()); 
+      currentSelector = currentSelector.replace('.', ''); 
       styles[currentSelector] = {};
     } else if (line.endsWith("}")) {
       // End of a block
       currentSelector = "";
     } else if (line.includes(":") && currentSelector) {
       // Inside a block and contains key-value pair
-      let [key, value] = line.split(":").map((part) => part.trim());
-      key = key.replace(/-./g, (x) => x[1].toUpperCase());
+      let [key, value] = line.split(":").map((part) => part.trim()); 
       styles[currentSelector][key] = value;
     }
   });
@@ -176,7 +176,7 @@ function handleReplaceMents(data) {
         path = path.replaceAll(".jsx", ".js");
         path = path.replaceAll("../", "");
         let css = fs.readFileSync(process.cwd() + "/" + path, "utf8"); 
-        let styles = cssToObj(css);
+        let styles = cssToObj(css); 
         let style = JSON.stringify(styles);
         let newLine = `let ${name} = ${style}`;
         data = data.replace(line, newLine);
@@ -209,7 +209,7 @@ function handleReplaceMents(data) {
           line.includes("=>") ? reducer + "=>{" : reducer
         }`;
 
-        data = data.replace(line, newStatereducer);
+        data = datam(line, newStatereducer);
 
         break;
 
@@ -415,30 +415,31 @@ function Server(port) {
           }
         );
       }
-
+  
       let matchedRoute =
-        router.match(url.pathname) ||
-        fs.existsSync(process.cwd() + "/dist" + url.pathname)
-          ? {
-              filePath: process.cwd() + "/dist" + url.pathname,
-              isAbsolute: true,
-            }
-          : null;
+        router.match(url.pathname) 
 
       if (matchedRoute) {
-        let { filePath, kind, name, params, pathname, query, isAbsolute } =
+        let { filePath, kind, name, params, pathname, query, scriptSrc, isAbsolute } =
           matchedRoute;
 
-        let folder = filePath.split("pages/").pop().split("index.js").shift();
+          scriptSrc = scriptSrc.split("pages").pop().split("index.js").shift().split('_next/static')[1] 
+          // split the furthest file and turn it into index.js
+          scriptSrc = scriptSrc.split('/').filter(f => f !== '').join('/') 
+          // ex: .JSX -> .JS
+          scriptSrc.includes('[[...catchall]]') ? scriptSrc = scriptSrc.replace('[[...catchall]]', 'index.js') : scriptSrc = scriptSrc.replace('.jsx', '.js')
+          // split if it has a param
+          if(scriptSrc.includes('[')){
+            scriptSrc = scriptSrc.split('[').shift() + 'index.js'
+          }
+          scriptSrc = scriptSrc.split('index.js').shift() + 'index.js'
+ 
+        let folder = '/' +scriptSrc.split("index.js").shift();
         folder = folder
           .split("/")
           .filter((f) => f !== "dist")
-          .join("/");
-        let jsFile = filePath.split("pages/").pop().split(".").shift() + ".js";
-
-        let pageContent = isAbsolute
-          ? fs.readFileSync(filePath + "/index.html")
-          : fs.readFileSync(
+          .join("/");  
+        let pageContent =  fs.readFileSync(
               process.cwd() + "/dist/" + folder + "/index.html",
               "utf8"
             );
@@ -617,10 +618,20 @@ async function generateProviderRoutes() {
 
       out: "dist/_redirects",
     },
+    {
+      "provider":"regular_http_server",
+      "file":"htaaccess",
+      "out":"dist/.htaccess",
+      "obj":`
+      RewriteEngine On
+      RewriteCond %{REQUEST_FILENAME} !-f
+      RewriteRule ^ index.html [QSA,L]
+      `,
+    }
   ];
 
   let provider = providerType.find((p) => p.provider === config.host.provider);
-
+ 
   if (provider) {
     let prev = null;
 
@@ -635,21 +646,32 @@ async function generateProviderRoutes() {
           );
         }
 
-        prev = await read(provider.out);
-
-        if (!prev) {
-          prev = [];
-        } else {
-          prev = JSON.parse(prev).rewrites;
+        // make sure file isnt empty
+        if (fs.readFileSync(provider.out).toString().match(/\S/g) === null) {
+          console.warn("Rewrites file is empty, ignoring...");
+          fs.writeFileSync(
+            provider.out,
+            JSON.stringify({
+              rewrites: [],
+            })
+          );
         }
 
-        routes.forEach((r) => {
-          let previous = prev.find((p) => p.source.includes(r.path));
+        prev = JSON.parse(fs.readFileSync(provider.out).toString()).rewrites;
+
+        for(var i in routes){
+          let r = routes[i];
+            let previous = prev.find((p) => p.source.includes(r.path));
 
           if (previous) {
             return void 0;
           }
 
+          if(r.path.includes('[')){
+            r.path = r.path.split('[').shift() + '/:param';
+          }
+         // replace duplicate slashes
+          r.path = r.path.replace(/\/\//g, '/');
           prev.push({
             source: "/" + r.path,
 
@@ -672,7 +694,7 @@ async function generateProviderRoutes() {
                 destination: "/" + r.path + "/index.html",
               });
             });
-          }
+          } 
 
           fs.writeFileSync(
             provider.out,
@@ -684,9 +706,9 @@ async function generateProviderRoutes() {
               2
             )
           );
-        });
-
-        provider.obj.rewrites = prev;
+        }
+        
+        provider.obj.rewrites = prev; 
 
         write(provider.out, JSON.stringify(provider.obj, null, 2));
 
@@ -696,13 +718,14 @@ async function generateProviderRoutes() {
         console.warn(
           "Cloudflare is not supported yet refer to their documentation for more information:https://developers.cloudflare.com/pages/configuration/redirects/"
         );
+        
 
         break;
     }
   }
 
   return void 0;
-}
+} 
 
 /**
 
@@ -760,9 +783,10 @@ async function transForm() {
         }
         continue;
       }
+ 
 
       let route = isBasePath ? router.match("/") : router.match("/" + folder);
-
+ 
       if (route) {
         let { filePath, kind, name, params, pathname, query } = route;
 
@@ -771,7 +795,7 @@ async function transForm() {
         try {
           data = new Bun.Transpiler({
             loader: "tsx",
-            target: "browser",
+            target: "browser", 
           }).transformSync(data);
         } catch (e) {
           console.error(e);
@@ -782,6 +806,7 @@ async function transForm() {
         isBasePath ? (folder = "/") : null;
 
         data = handleReplaceMents(data);
+
 
         let isAparam = null;
 
@@ -806,17 +831,32 @@ async function transForm() {
             break;
         }
 
-        routes.push({
-          path: folder,
-          file: out,
-          isParam: isAparam,
-          params: params,
-          query,
-          pathname,
-        });
+        if(!routes.find(r => r.path === folder)){
+          routes.push({
+            path: folder,
+            file: out,
+            isParam: isAparam,
+            params: params,
+            kind,
+            isCatchAll:  kind.includes("catch-all"),
+            query,
+            pathname,
+          });
+        }
+
+        console.log(`Transforming ${file} -> ${out}`);
 
         write(out, data);
 
+        //terser
+        Bun.spawn({
+          cwd: process.cwd(),
+
+          isVader: true,
+
+          cmd: ["npx", "terser", out, "--output", out],
+        });
+      
         bundleSize += data.length;
       }
     }
@@ -919,8 +959,7 @@ async function transForm() {
         file.endsWith(".png") ||
         file.endsWith(".jpg") ||
         file.endsWith(".jpeg") ||
-        file.endsWith(".gif") ||
-        file.endsWith(".svg") ||
+        file.endsWith(".gif") || 
         file.endsWith(".webp") ||
         file.endsWith(".ico") ||
         file.endsWith(".mp4") ||
@@ -932,6 +971,10 @@ async function transForm() {
       data = data || (await read(file));
 
       let path = process.cwd() + "/dist/public/" + file.split("public/").pop();
+      if(!fs.existsSync(path.split(file.split("/").pop()).shift())){
+        fs.mkdirSync(path.split(file.split("/").pop()).shift(), { recursive: true });
+      }
+     
       fs.writeFileSync(path, data, isBuff ? "base64" : "utf8");
 
       bundleSize += data.length;
@@ -946,7 +989,7 @@ async function transForm() {
             file.split("node_modules/vaderjs/runtime/").pop()
         )
       ) {
-        return;
+        continue;
       }
       let data = await read(file);
 
@@ -988,71 +1031,18 @@ async function transForm() {
 
          */
 
-    const organizeRoutes = () => {
-      // if path starts with the same path and is dynamic then they are the same route and push params to the same route
-
-      let newRoutes = [];
-
-      routes.forEach((route) => {
-        let exists = routes.find((r) => {
-          if (r.path.includes("[")) {
-            r.path = r.path.split("[").shift();
-          }
-
-          r.path = r.path
-            .split("/")
-            .filter((p) => p !== "")
-            .join("/");
-
-          if (r.isParam) {
-            return r.path === route.path && r.isParam;
-          }
-        });
-
-        if (exists) {
-          let b4Params = route.params;
-
-          route.params = [];
-
-          route.params.push(b4Params);
-
-          route.params.push({
-            jsFile: "/" + exists.path + "/index.js",
-
-            folder: "/" + exists.path,
-
-            paramData: exists.params,
-          });
-
-          route.query = exists.query;
-
-          newRoutes.push(route);
-        } else if (!exists && !route.isParam) {
-          newRoutes.push(route);
-        }
-
-        //remove param route that matched
-
-        routes = routes.filter((r) => (exists ? r.path !== exists.path : true));
-      });
-
-      globalThis.routes = newRoutes;
-    };
-
-    organizeRoutes();
-
-    generateProviderRoutes();
+ 
 
     globalThis.isBuilding = false;
 
     if (!fs.existsSync(process.cwd() + "/_dev/meta")) {
       fs.mkdirSync(process.cwd() + "/_dev/meta");
     }
-
-    fs.writeFileSync(
-      process.cwd() + "/_dev/meta/routes.json",
-      JSON.stringify(routes, null, 2)
-    );
+    
+    // handle [{}]
+ 
+generateProviderRoutes();
+    write( process.cwd() + "/_dev/meta/routes.json", JSON.stringify(routes, null, 2));
 
     console.log(`Finished building ${Math.round(bundleSize / 1000)}kb`);
 
