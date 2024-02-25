@@ -171,7 +171,7 @@ export default {
          if(!globalThis.isListening){ 
              let config = require(process.cwd() + '/vader.config.js').default  
              if(process.env.mode === 'production'){
-                console.log(`Listening at - http://${config.host.hostname}:${config.env.PORT}`)
+                console.log(`\x1b[32msuccess \x1b[0m- listening on port ${config.env.PORT || 3000}`)
                 spawnServer(config)
              }  
              config?.env?.SSR ? spawn_ssr_server(config ) : spawnServer(config)  

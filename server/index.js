@@ -47,7 +47,7 @@ class Component {
     }
 
 }
-export async function renderToString(element, args = []) {  
+export async function renderToString(element, args = []) {   
     let data = typeof element === 'function' ? await element(args) : element
     let doc = new Document()
     let el = doc.createElement(data)

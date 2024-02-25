@@ -261,7 +261,7 @@ export async function Compile(){
               }  
               copy = copy.replace(old, newLine)
             break;
-            case !line.includes('import') && line.includes('useState') && !line.includes('let useState'): 
+            case !line.includes('import') && line.includes('useState') && !line.includes('let useState') && !line.includes('var useState') && !line.includes('console'):
             let varType = line.split('[', 1)[0];
             let before =  line.split('useState(')[1].split(',')[0]; 
             let key = line.split('[')[1].split(',')[0]; 

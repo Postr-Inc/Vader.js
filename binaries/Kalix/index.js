@@ -444,6 +444,9 @@ export class Document {
      * @returns {HTMLElement}
      */
     createElement(nodeData) {
+        if(!nodeData){
+            return new HTMLElement("div", {}, [])
+        }
         if (typeof nodeData === 'string') {
             return new HTMLElement(nodeData, {}, [])
         }

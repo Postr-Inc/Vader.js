@@ -1,5 +1,5 @@
 import * as Bun from 'bun'
-import { Element, Document, DOMParser} from 'vaderjs/binaries/Kalix/index.js'
+import {  Document, DOMParser} from 'vaderjs/binaries/Kalix/index.js'
 import { renderToString } from '../../server'
 import fs from 'fs'
 let routes = new Bun.FileSystemRouter({
@@ -15,7 +15,10 @@ async function generate(){
   for(var i in routes){
     let path = i 
     let file = routes[i]
-    let comp =  require(file).default
+    let comp =  require(file).default 
+    if(!comp){
+        continue;
+    }
     let document = new Document()
     let div = document.createElement('div')
     div.setAttribute('id', 'root') 
@@ -24,7 +27,7 @@ async function generate(){
     dom = div.toString("outerHTML")   
     let folder = path.split('/pages')[0]
     let newPath = process.cwd() + '/build' + folder + '/index.html'
-    let name = comp.name
+    let name = comp.name || 'App'
     file = file.replace(/\\/g, '/').replace('\/\/', '/').replace(process.cwd().replace(/\\/g, '/'), '').split('/pages')[1].replace('.tsx', '.js').replace('.jsx', '.js')
     let isParamRoute = path.includes('[')
     let baseFolder = ''
@@ -33,12 +36,26 @@ async function generate(){
         let providerPath;
         switch(true){
             case provider === 'vercel':
+                 if(path.includes('[[catchall]]')){ 
+                    providerPath = `${baseFolder}/${path.replace('[[catchall]]', '*')}`
+                    providerRoutes.push({source: providerPath, destination: `${path}/index.html`})
+                    break;
+                 }
                  providerPath = `${baseFolder}:${path.split('[')[1].split(']')[0]}`
                  providerRoutes.push({source: providerPath, dest: `${path}/index.html`}) 
                  break;
             case provider === 'nginx': 
                 providerPath = `RewriteRule ^${baseFolder.replace('/', '')}.*$ ${path}/index.html [L]`
                 providerRoutes.push(providerPath)
+                break;
+            case provider === 'cloudflare':
+                if(path.includes('[[catchall]]')){ 
+                    providerPath = `${baseFolder}/${path.replace('[[catchall]]', '*')}`
+                    providerRoutes.push({source: providerPath, destination: `${path}/index.html`})
+                    break;
+                }
+                providerPath = `${baseFolder}/:${path.split('[')[1].split(']')[0]}`
+                providerRoutes.push({source: providerPath, destination: `${path}/index.html`}) 
                 break;
         }
     }else{
@@ -54,6 +71,10 @@ async function generate(){
                 }
                 providerPath = `RewriteRule ^${path.replace('/', '')}/$ ${path}/index.html [L]`
                 providerRoutes.push(providerPath)
+                break;
+            case provider === 'cloudflare':
+                providerPath = `${path}`
+                providerRoutes.push({source: providerPath, destination: `${path === '/' ? '' : '/'}/index.html`})  
                 break;
             
         }
@@ -100,6 +121,13 @@ Header add x-powered-by "vaderjs"
 </IfModule>
         `
          fs.writeFileSync(process.cwd() + '/.htaccess', full)
+        break;
+    case provider === 'cloudflare':
+        let cloudflare = process.cwd() + '/build/_redirects'
+        let data = providerRoutes.map((route) => {
+            return `${route.source} ${route.destination}`
+        }).join('\n')
+        fs.writeFileSync(cloudflare, data)
         break;
   }
   console.log(`\x1b[32mSuccess\x1b[0m - Static files generated`)

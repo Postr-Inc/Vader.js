@@ -1,8 +1,7 @@
 {
-  "name": "Vaderjs",
+  "name": "vaderjs",
   "description": "A reactive framework for building fast and scalable web applications",
-  "version": "1.4.2",
-  "main": "vader.js",
+  "version": "1.4.2-yml56", 
   "author": {
     "name": "Malikwhitten67",
     "email": "malikwhitterb@gmail.com"
@@ -14,7 +13,7 @@
   },
   "type": "module",
   "bin":{
-    "vader":"./vader.js"
+    "vader":"./vader_dev.js"
   },
   "dependencies": {
     "ws": "latest"
