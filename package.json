@@ -1,39 +1,25 @@
 {
-  "name": "vaderjs",
-  "description": "A Reactive library aimed to helping you build reactive applications inspired by react.js",
-  "module": "vader.js",
-  "version": "1.4.1-d560b9aa7f",
-  "bin": {
-    "vader": "./vader.js"
+  "name": "Vaderjs",
+  "description": "A reactive framework for building fast and scalable web applications",
+  "version": "1.4.2",
+  "main": "vader.js",
+  "author": {
+    "name": "Malikwhitten67",
+    "email": "malikwhitterb@gmail.com"
   },
-  "keywords": [
-    "react",
-    "reactive",
-    "nextjs",
-    "pages router",
-    "bun.js",
-    "severside generation",
-    "static site generation",
-    "vue",
-    "spa",
-    "vanillajs",
-    "vanilla js"
-  ],
-  "type": "module",
   "license": "MIT",
-  "homepage": "https://vader-js.pages.dev",
   "repository": {
     "type": "git",
     "url": "https://github.com/Postr-Inc/Vader.js"
   },
-  "author": {
-    "name": "Malik Whitten",
-    "email": "malikwhitterb@gmail.com"
+  "type": "module",
+  "bin":{
+    "vader":"./vader.js"
   },
-  "dependencies": { 
-    "playwright": "latest",  
-    "source-map": "latest",
-    "terser":"latest",
+  "dependencies": {
+    "ws": "latest"
+  },
+  "devDependencies": { 
     "ws": "latest"
   }
 }
