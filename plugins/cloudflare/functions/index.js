@@ -8,6 +8,10 @@ const glob = new Glob("/**/*.{ts,tsx,js,jsx}", {
  */
 async function generate(){
     let config   = await import(process.cwd() + '/vader.config.js').then((config) => { return config.default })
+    if(!config?.env || !config?.env.SSR){
+       console.error('\x1b[31m[CloudFlare Functions] \x1b[0m -  Please add an SSR environment variable to your vader.config.js file')
+        return
+    }
     let start = Date.now()
     for(var i of glob.scanSync({cwd: process.cwd() + '/routes', absolute: true})){ 
         let data = await Bun.file(i).text()

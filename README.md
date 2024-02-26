@@ -39,8 +39,8 @@ Keyword folders - all files are passed from these folders to the build folder
 
 ```md
 1. pages - used for jsx route files
-2. src  - used for your jsx components / javascript files
-3. public - used for anything 
+2. src  - used for your jsx components / javascript -typescript files
+3. public - used for anything / css / json etc
 ```
 
 
@@ -49,18 +49,28 @@ Keyword folders - all files are passed from these folders to the build folder
 ```ts
 import { defineConfig } from "vaderjs/config"; 
 import cloudflare from "vaderjs/plugins/cloudflare/functions"
+import tailwindcss from "vaderjs/plugins/tailwindcss"
 export default defineConfig({
     target: "web",
     host: {
         hostname: "localhost",
-        provider:'cloudflare'
+        provider:'cloudflare' // used for ssg or ssr
     }, 
     env: {
         PORT: 3000,
         SSR: true,
         apiRoute: "https://api.example.com"
     }, 
-    plugins: [cloudflare],
+     Router: {
+        tls: {
+            cert: "cert.pem",
+            key: "key.pem"
+        },
+        headers: {
+            "cache-control": "public, max-age=0, must-revalidate"
+        }
+    },
+    plugins: [cloudflare, tailwindcss],
 });
 
 ```

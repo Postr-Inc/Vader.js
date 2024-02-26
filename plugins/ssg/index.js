@@ -11,51 +11,76 @@ async function generate(){
   let config = await import(process.cwd() + '/vader.config.js').then((config) => { return config.default })
   let provider = config?.host?.provider   
 
-  let providerRoutes = []
+  let providerRoutes = [] 
+    Object.keys(routes).map((route) => {
+      if(route.includes('[')){
+               
+               let root = Object.keys(routes).find((r) => {
+                   return r === '/'
+               } ) 
+            
+                
+                let param = route.split('/[')[1].split(']')[0] 
+                let p = {}
+                let existingParams = routes[root]?.params || []
+                existingParams.push({
+                    isCatchAll: route.includes('[[catchall]]') ? true : false,  
+                    name: param,
+                    file: routes[route],
+                    baseFolder: route.split('[')[0]
+                }) 
+                p.file = routes[root]
+                p.params = existingParams
+                routes[root] = p 
+                delete routes[route] 
+            
+      }
+  })
   for(var i in routes){
-    let path = i 
+    let path = i  
     let file = routes[i]
+    if(typeof file === 'object'){
+        file = file.file
+    } 
     let comp =  require(file).default 
     if(!comp){
         continue;
-    }
-    let document = new Document()
-    let div = document.createElement('div')
-    div.setAttribute('id', 'root') 
-    let dom =  await renderToString(comp)   
-    div.setContent(dom) 
-    dom = div.toString("outerHTML")   
+    } 
+      
+    let dom =  await renderToString(comp)
+    let isHtml = dom.includes('<html')  
     let folder = path.split('/pages')[0]
     let newPath = process.cwd() + '/build' + folder + '/index.html'
     let name = comp.name || 'App'
     file = file.replace(/\\/g, '/').replace('\/\/', '/').replace(process.cwd().replace(/\\/g, '/'), '').split('/pages')[1].replace('.tsx', '.js').replace('.jsx', '.js')
-    let isParamRoute = path.includes('[')
+    let isParamRoute = routes[i].params ? true : false 
     let baseFolder = ''
     if(isParamRoute){
-        baseFolder = path.split('[')[0]
+        let route  = routes[i].params[0]
+        baseFolder =  i.split('[')[0] 
         let providerPath;
         switch(true){
             case provider === 'vercel':
-                 if(path.includes('[[catchall]]')){ 
-                    providerPath = `${baseFolder}/${path.replace('[[catchall]]', '*')}`
+                 if(route.isCatchAll){
+                    providerPath = `${baseFolder}/*`
                     providerRoutes.push({source: providerPath, destination: `${path}/index.html`})
                     break;
                  }
-                 providerPath = `${baseFolder}:${path.split('[')[1].split(']')[0]}`
-                 providerRoutes.push({source: providerPath, dest: `${path}/index.html`}) 
+                 providerPath = `${baseFolder}:${route.name}`
+                 providerRoutes.push({source: providerPath, dest: `/`}) 
                  break;
             case provider === 'nginx': 
                 providerPath = `RewriteRule ^${baseFolder.replace('/', '')}.*$ ${path}/index.html [L]`
                 providerRoutes.push(providerPath)
                 break;
             case provider === 'cloudflare':
-                if(path.includes('[[catchall]]')){ 
-                    providerPath = `${baseFolder}/${path.replace('[[catchall]]', '*')}`
+                if(route.isCatchAll){
+                    providerPath = `${baseFolder}/*`
                     providerRoutes.push({source: providerPath, destination: `${path}/index.html`})
                     break;
                 }
-                providerPath = `${baseFolder}/:${path.split('[')[1].split(']')[0]}`
-                providerRoutes.push({source: providerPath, destination: `${path}/index.html`}) 
+                providerPath = `${baseFolder}/*`
+                providerRoutes.push({source: providerPath, destination: `${path}/index.html`})
                 break;
         }
     }else{
@@ -72,21 +97,48 @@ async function generate(){
                 providerPath = `RewriteRule ^${path.replace('/', '')}/$ ${path}/index.html [L]`
                 providerRoutes.push(providerPath)
                 break;
-            case provider === 'cloudflare':
-                providerPath = `${path}`
-                providerRoutes.push({source: providerPath, destination: `${path === '/' ? '' : '/'}/index.html`})  
-                break;
+           
             
         }
-    }
-    dom = dom + `
-    <script type="module">
+    } 
+    dom = preRender ? dom : '<div id="root"></div>' + `
+    <script type="module"> 
+        
        import { render } from '/src/client.js'
-       import ${name} from '/pages/${file.replace(process.cwd(), '')}'
+       let ${name} = await import('/pages/${file.replace(process.cwd(), '')}')
+         if(${name}.default){
+            ${name} = ${name}.default
+        }else{
+                let keys = Object.keys(${name})
+                ${name} = ${name}[keys[0]]
+        }
        import Kuai from '/src/router.js'
        let kuai = new Kuai()
+       ${
+         routes[i].params ? 
+         routes[i].params.map((param) => {
+                let name = param.name
+                let file = param.file.replace(/\\/g, '/').replace('\/\/', '/').replace(process.cwd().replace(/\\/g, '/'), '').split('/pages')[1].replace('.tsx', '.js').replace('.jsx', '.js')
+                return `
+                // handle if default or named
+                let ${name} = await import('/pages/${file}')
+                if(${name}.default){
+                    ${name} = ${name}.default
+                }else{
+                     let keys = Object.keys(${name})
+                     ${name} = ${name}[keys[0]]
+                }
+                kuai.get('${param.baseFolder}:${name}', (c) => {
+                    render(${name}, ${
+                    isHtml ? `document.documentElement`: `document.body.firstChild`
+                    }, c.req, c.res)
+                })`
+         }).join('\n') : ''
+       }
        kuai.get('${path}', (c) => {
-            render(${name}, document.getElementById('root'), c.req, c.res)
+            render(${name}, ${
+            isHtml ? `document.documentElement`: `document.body.firstChild`
+            }, c.req, c.res)
        })
 
        kuai.listen()
@@ -121,14 +173,7 @@ Header add x-powered-by "vaderjs"
 </IfModule>
         `
          fs.writeFileSync(process.cwd() + '/.htaccess', full)
-        break;
-    case provider === 'cloudflare':
-        let cloudflare = process.cwd() + '/build/_redirects'
-        let data = providerRoutes.map((route) => {
-            return `${route.source} ${route.destination}`
-        }).join('\n')
-        fs.writeFileSync(cloudflare, data)
-        break;
+        break; 
   }
   console.log(`\x1b[32mSuccess\x1b[0m - Static files generated`)
 

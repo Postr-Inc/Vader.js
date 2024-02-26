@@ -26,6 +26,11 @@
  * @param {string} [config.mode] - The mode for the configuration.
  * @param {Array} [config.plugins] - The plugins for the configuration.
  * @param {Object} [config.env] - The environment variables for the configuration.
+ * @param {Array} [config.Router] -  The router configuration.
+ * @param {Object} [config.Router.tls] - The tls configuration - allows you to switch the server to https.
+ * @param {string} [config.Router.tls.cert] - The certificate for the tls configuration.
+ * @param {string} [config.Router.tls.key] - The key for the tls configuration.
+ * @param {Object} [config.Router.headers] - The headers for the router configuration.
  * @returns {Object} The configured object.
  */
 export const defineConfig = (config: { 
@@ -46,10 +51,24 @@ export const defineConfig = (config: {
         outDir?: string, 
     },
     mode?: string,
+    /**
+     * @type {any[]}
+     * @description Allows you to extend the functionality of vaderjs
+     */
     plugins?: any[]
     env?: {
         [key: string]: any
-    }
+    },
+    Router?: {
+        tls?: {
+            cert?: string,
+            key?: string
+        },
+        headers?: {
+            [key: string]: string
+        }
+    },
+    [key: string]: any
 }) => {
     // add config.env to globalThis.env
     let env = {}

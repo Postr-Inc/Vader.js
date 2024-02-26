@@ -331,27 +331,32 @@ export async function Compile(){
           old = line; 
           copy = copy.replace(old, newStatereducer);
            break;
+           case line.includes('vaderjs/client') && line.includes('import') || line.includes('vaderjs') && line.includes('import'): 
+            let b4 = line  
+            copy = copy.replace(b4, '')
+          break;
           
-         case line.includes('vaderjs/client') && line.includes('import') || line.includes('vaderjs') && line.includes('import'):
-             let b4 = line
-             let isUsingProvider = config?.host?.provider
-             let replacement = isUsingProvider === 'cloudflare' ? 'remove' : '/src/client.js'
-             if(replacement === 'remove'){
-                copy = copy.replace(b4, '') 
-                break;
-             }
-             let after = line.replace('vaderjs/client',  replacement).replace('vaderjs',  replacement)
-             copy = copy.replace(b4, after)
-           break;
- 
+           case line.includes('import') && !line.includes('vaderjs/client') && !line.includes('vaderjs') && !line.includes('import.meta') && !line.includes('import.meta.url') && !line.includes('import.meta.env'): 
+              
+              let filePath = line.split('from')[1].trim().replace(/'/g, '').replace(/"/g, '').replace(';', '').replaceAll('../','').replace(/\\/g, '/')
+              let contents = fs.readFileSync(filePath, 'utf8')
+              // remove default exports
+
+              if(contents.match(/export\s+default\s+/g)){
+                contents = contents.replace(/export\s+default\s+/g, '')
+              }
+              
+              copy = copy.replace(line, contents)
+            
+            break;
+             
         }
       }
-      if(!contents.includes('import Element')){ 
-   
-   }
+     
       return copy
   }    
    
+
   
    
    async function gen(){ 
@@ -382,9 +387,11 @@ export async function Compile(){
              'jsxDev':JSON.stringify('this.Element'),
              'jsx':  JSON.stringify('this.Element'),
            }
-       }).transformSync(await Bun.file(process.cwd() + file).text())  
-        let variables = grabVariables(data, file)
-       let contents = await main(data, file)
+       })
+       let contents =  await Bun.file(process.cwd() + file).text() 
+        contents = data.transformSync(await main(contents, file)) 
+        contents = contents.split('\n').filter((line) => !line.includes('vaderjs/client') && !line.includes('vaderjs')).join('\n') 
+        let variables = grabVariables(contents, file) 
         
       variables.forEach((variable) => { 
         contents.split('\n').forEach((line, index) => {
@@ -408,10 +415,14 @@ export async function Compile(){
               fs.mkdirSync(process.cwd() + '/build/pages/' + file.split('/').slice(0, -1).join('/'), { recursive: true })
               file = '/build/pages/' + file.replace('.tsx', '.js').replace('.ts', '.js').replace('.jsx', '.js')
               break;
+            case isUsingProvider === 'vercel': 
+              fs.mkdirSync(process.cwd() + '/build/pages/' + file.split('/').slice(0, -1).join('/'), { recursive: true })
+              file = '/build/pages/' + file.replace('.tsx', '.js').replace('.ts', '.js').replace('.jsx', '.js')
+              break;
             default:
               file = '/build/' + file.replace('./', '').replace('.tsx', '.js').replace('.ts', '.js').replace('.jsx', '.js') 
            }
-        }  
+        }    
         fs.writeFileSync(process.cwd() + file, contents)
 
          
@@ -425,6 +436,74 @@ export async function Compile(){
         await Bun.write(process.cwd() + '/build/src/router.js',  await Bun.file(process.cwd() + '/node_modules/vaderjs/client/runtime/router.js').text())
       }  
     
+      // handle src files
+      const src = new Glob("/src/**/*.{ts,tsx,js,jsx}", {
+        absolute: true,
+        ignore: ["**/node_modules/**"]
+      });
+
+      const publics  = new Glob("/public/**/*", {
+        absolute: true,
+        ignore: ["**/node_modules/**"]
+      })
+      let srcArray = await Array.fromAsync(src.scan())
+      srcArray = srcArray.map((file) => {
+        file = file.replaceAll('\\', '/')
+        file ='./' + file
+        return file
+      })
+
+      for(var file of srcArray){
+        let data =  new Bun.Transpiler({
+          loader: "tsx",
+           tsconfig: {
+             'compilerOptions':{
+               'jsx':'react',
+               'jsxFactory': 'this.Element'
+             }
+           },
+           define:{ 
+             
+             'jsxDev':JSON.stringify('this.Element'),
+             'jsx':  JSON.stringify('this.Element'),
+           }
+       }).transformSync(await Bun.file(process.cwd() + file).text())  
+        let variables = grabVariables(data, file)
+        let contents = await main(data, file)
+        variables.forEach((variable) => { 
+          contents.split('\n').forEach((line, index) => {
+            if(line.includes(variable) && !line.includes('import') && !line.includes('let') && !line.includes('var') && !line.includes('const') 
+            && !line.includes(variable + '()') &&
+            !line.includes('.' + variable) && 
+            // not an occurence like variable1, variable2, variable3 or variabless
+            !line.match(new RegExp(variable + '[0-9]')) && !line.match(new RegExp(variable + '(w+)'))
+            && !line.includes(variable + ':')  
+            ){ 
+              let newLine = line.replaceAll(variable, variable + '()')
+              contents = contents.replace(line, newLine)
+            }
+          });
+        })
+        file = file.split('/src')[1]
+        fs.mkdirSync(process.cwd() + '/build/src/' + file.split('/').slice(0, -1).join('/'), { recursive: true })
+        fs.writeFileSync(process.cwd() +  '/build/src' + file, contents)
+      }
+
+      let publicArray = await Array.fromAsync(publics.scan())
+      publicArray = publicArray.map((file) => {
+        file = file.replaceAll('\\', '/')
+        file ='./' + file
+        return file
+      })
+
+      for(var file of publicArray){
+        file = file.split('/public')[1]
+        fs.mkdirSync(process.cwd() + '/build/public/' + file.split('/').slice(0, -1).join('/'), { recursive: true })
+        let out = `/build/public${file}` 
+        let contents = await Bun.file(process.cwd() + '/public' + file).text()
+        fs.writeFileSync(process.cwd() + out, contents)
+         
+      }
        
       resolve()
     })

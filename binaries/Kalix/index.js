@@ -67,7 +67,7 @@ export class HTMLTextNode {
     }
 
     insertBefore(node) {
-        this.nodeValue = `${node.toString()}${this.nodeValue}`;
+        this.nodeValue = `${node.nodeValue}${this.nodeValue}`;
         return this;
     }
 }
@@ -111,7 +111,7 @@ export class HTMLElement {
                     if (key !== 'style' && key !== 'ref' && !key.startsWith('on')) {
                         props += `${key}="${this.props[key]}" `
                     }
-                } 
+                }  
                 let children = this.children
                     .map((child) => {
                         return child.toString();
@@ -155,12 +155,7 @@ export class HTMLElement {
                     .join(""); 
                 return string;
              
-            case "innerText":
-                return this.children
-                    .map((child) => {
-                        return child.toString();
-                    })
-                    .join("");
+           
             default:
                 break;
         }
@@ -187,8 +182,8 @@ export class HTMLElement {
      * @returns {HTMLElement}
      */
      setContent(content) {
-        let textNode = new HTMLTextNode(content);
-        this.children = [textNode]; 
+        let textNode = new  HTMLTextNode(content)
+        this.children = [textNode];
         this.outerHTML = this.toString("outerHTML");
         this.innerHTML = this.toString("innerHTML");
         return this;
@@ -356,7 +351,7 @@ export class HTMLElement {
                     this.textContent = this.toString("innerText");    
                     this.children.forEach((c) => {
                         if (c.children) {
-                            child = c.children.find((child) => {
+                            child = c.children.find((child) => { 
                                 child.outerHTML = child.toString("outerHTML");
                                 child.innerHTML = child.toString("innerHTML");
                                 return child.tagName === selector;
@@ -566,7 +561,17 @@ function handleStyles(styles, nodeEl) {
  */
 export function Element(tag, props = {}, ...children) {
     if(typeof tag === 'function'){
-        let el = tag(props, children)
+        let childObj = children.map((child) => {
+            if (child.tagName === "TEXT_ELEMENT") {
+                return new HTMLTextNode(child);
+            }
+            if (child instanceof HTMLElement) {
+                return child;
+            }
+            return new HTMLElement(child.tagName, child.props, child.children);
+        })
+        childObj = childObj[0]
+        let el = tag({...props, children: childObj})
         return el
     }
     if(props === null){

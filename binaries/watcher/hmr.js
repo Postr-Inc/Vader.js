@@ -17,6 +17,7 @@ export function watchDir(cwd, _){
             continue;
         }
         watch(process.cwd() + '/' + path, { recursive: true, absolute:true }, (event, filename) => { 
+            if(!filename.endsWith('.ts') && !filename.endsWith('.tsx') && !filename.endsWith('.js') && !filename.endsWith('.jsx')) return
            if(filename && !filename.includes('node_modules') && !globalThis.hasLogged){ 
             console.log(`\x1b[36mwait \x1b[0m  - compiling (client and server)`)
                 globalThis.hasLogged = true 

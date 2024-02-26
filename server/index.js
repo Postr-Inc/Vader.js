@@ -48,7 +48,21 @@ class Component {
 
 }
 export async function renderToString(element, args = []) {   
-    let data = typeof element === 'function' ? await element(args) : element
+    globalThis.isServer = true
+    globalThis.preRender = true
+    let data = typeof element === 'function' ? await element(args) : element  
+    if(data?.tagName === 'html'){
+       let body = data.querySelector('body') || new Document().createElement('body')
+       let innerHTML = body.innerHTML
+       innerHTML = `${innerHTML}`
+       body.tagName = 'div'
+       body.setAttribute('id', 'root')
+       body.innerHTML = innerHTML
+       data.removeChild(data.querySelector('body'))
+       data.appendChild(body)
+    }else if(data){ 
+        data.firstChild.setAttribute('id', 'root')
+    }
     let doc = new Document()
     let el = doc.createElement(data)
     

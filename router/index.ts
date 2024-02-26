@@ -56,7 +56,11 @@ function spawn_ssr_server(config: any ){
          let fileType = handleContentTypes(file)
           if(fs.existsSync(file)){
                  let content = await Bun.file(file).text()
-                 return new Response(content, {status: 200, headers: {'Content-Type': fileType, 'x-powered-by': 'Vader'}})
+                 let data = Buffer.from(content, 'utf-8');
+                 const compressed = Bun.gzipSync(data);
+                 return new Response(compressed, {status: 200, headers: {'Content-Type': fileType, 'x-powered-by': 'Vader', 
+                'Content-Encoding':'gzip',
+                 ...config?.routes.find(route => route.pathname === "*" || route.pathname === url.pathname)?.headers}})
           }
     }
     let routeMatch = routesRouter.match(url.pathname) 
@@ -76,6 +80,7 @@ function spawn_ssr_server(config: any ){
             if(response instanceof Response){ 
                 // set x-powered-by header
                 response.headers.set('x-powered-by', 'Vader')
+                response.headers.set('Content-Type', 'text/html')
                 return response
             }
             throw new Error(`Route ${routeMatch.filePath.split('/routes')[1]} did not return a response in file ${routeMatch.filePath}`)
@@ -89,11 +94,12 @@ function spawn_ssr_server(config: any ){
     }
    }
    let server =  Bun.serve({
-        port:  config.env.PORT || 3000,
-        hostname: config.host.hostname || 'localhost', 
+        port:  config?.env?.PORT || 3000,
+        hostname: config?.host?.hostname || 'localhost', 
         reusePort: true,
         lowMemoryMode: true,
         development: false, 
+        ...(config?.Router?.tls && {tls: {cert: config.Router.tls.cert, key: config.Router.tls.key}}),
         websocket: {
         message(event){
             
@@ -137,21 +143,42 @@ function spawnServer(config: any){
             if(url.pathname.includes('.')){
                url.pathname = url.pathname.replace('/\/', '/')
                url.pathname = url.pathname.replace('/build/', '') 
-               if(url.pathname.includes('/build')){
-                     url.pathname = url.pathname.replace('/build', '')
-               }
-               let file = process.cwd() + '/build' + url.pathname   
+               
+               let file = process.cwd() + '/build' + url.pathname  
                let fileType = handleContentTypes(file)
                 if(fs.existsSync(file)){
                      let content = await Bun.file(file).text()
-                     return new Response(content, {status: 200, headers: {'Content-Type': fileType, 'x-powered-by': 'Vader'}})
+                     let data = Buffer.from(content, 'utf-8');
+                     const compressed = Bun.gzipSync(data);
+
+                     return new Response(compressed, {status: 200, headers: {'Content-Type': fileType, 'x-powered-by': 'Vader',  'x-powered-by': 'Vader', 
+                     'Content-Encoding':'gzip',
+                     'Accept-Encoding': 'gzip, deflate, br','Connection': 'keep-alive', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache', 'Expires': '0',  ...config?.Router?.headers}})
                 }
             }
             let route = router.match(url.pathname)
             if(route){ 
+              let isParamRoute = route.filePath.includes('[') && route.filePath.includes(']')
               let path = route.filePath.split('/pages')[1].replace('.jsx', '.js').replace('.tsx', '.js').replace('.ts', '.js')  
+              path = isParamRoute ?  'index.html' : path
               let html = fs.readFileSync(process.cwd() + `/build/${path.replace('.js', '.html')}`).toString()
-              return new Response(html, {status: 200, headers: {'Content-Type': 'text/html', 'x-powered-by': 'Vader'}})
+              html = html + `
+              <script>
+               let ws = new WebSocket('ws://${config.host.hostname || 'localhost'}:${config.env.PORT || 3000}')
+                ws.onmessage = function(event){
+                     console.log(event.data)
+                }
+                ws.onclose = function(event){
+                    window.location.reload()
+                }
+              </script>
+              ` 
+              const data = Buffer.from(html, 'utf-8');
+              const compressed = Bun.gzipSync(data);
+              return new Response(compressed, {status: 200, headers: {'Content-Type': 'text/html', 'x-powered-by': 'Vader', 
+              'Content-Encoding':'gzip',
+              'Accept-Encoding': 'gzip, deflate, br','Connection': 'keep-alive', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache', 'Expires': '0',
+              ...config?.Router?.headers}})
             }
             return new Response('Not Found', {status: 404})
         }

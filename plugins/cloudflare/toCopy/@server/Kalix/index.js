@@ -10,10 +10,40 @@ export class DOMParser {
      */
     parseFromString(html) {
         let doc = new Document();
-        return {
-            error: "Not implemented",
-        }
-       
+        let t = new Bun.Transpiler({
+            loader: "tsx", // "js | "jsx" | "ts" | "tsx",
+            target: "browser",
+            define: {
+                "jsxDEV": "Element",
+                "jsx": "Element"
+            }
+        });
+
+        let el = t.transformSync(`
+
+        const html = ${html}
+        function Doc() { 
+            return (
+               <html>
+               <body>${html}</body>
+               </html>
+            )
+          }
+         return Doc()
+        ` )
+        el = el.replaceAll(`jsxDEV`, `Element`)
+        let evaluated = eval(`(function(){${el}})()`)
+        evaluated.children.forEach((child) => {
+            child.outerHTML = child.toString()
+        })
+        doc.tree = evaluated.children
+        doc.body = evaluated.children[0]
+        doc.body.outerHTML = evaluated.children[0].toString()
+        doc.body.firstChild = evaluated.children[0].children[0]
+        doc.documentElement = evaluated
+        doc.documentElement.outerHTML = evaluated.children[0].toString()
+        this.tree = evaluated.children
+        return doc
     }
     /**
      * @description - Returns a string containing the HTML serialization of the element's descendants.
@@ -37,7 +67,7 @@ export class HTMLTextNode {
     }
 
     insertBefore(node) {
-        this.nodeValue = `${node.toString()}${this.nodeValue}`;
+        this.nodeValue = `${node.nodeValue}${this.nodeValue}`;
         return this;
     }
 }
@@ -81,7 +111,7 @@ export class HTMLElement {
                     if (key !== 'style' && key !== 'ref' && !key.startsWith('on')) {
                         props += `${key}="${this.props[key]}" `
                     }
-                } 
+                }  
                 let children = this.children
                     .map((child) => {
                         return child.toString();
@@ -123,7 +153,9 @@ export class HTMLElement {
                         } 
                     })
                     .join(""); 
-                return string; 
+                return string;
+             
+           
             default:
                 break;
         }
@@ -150,8 +182,8 @@ export class HTMLElement {
      * @returns {HTMLElement}
      */
      setContent(content) {
-        let textNode = new HTMLTextNode(content);
-        this.children = [textNode]; 
+        let textNode = new  HTMLTextNode(content)
+        this.children = [textNode];
         this.outerHTML = this.toString("outerHTML");
         this.innerHTML = this.toString("innerHTML");
         return this;
@@ -319,7 +351,7 @@ export class HTMLElement {
                     this.textContent = this.toString("innerText");    
                     this.children.forEach((c) => {
                         if (c.children) {
-                            child = c.children.find((child) => {
+                            child = c.children.find((child) => { 
                                 child.outerHTML = child.toString("outerHTML");
                                 child.innerHTML = child.toString("innerHTML");
                                 return child.tagName === selector;
@@ -407,6 +439,9 @@ export class Document {
      * @returns {HTMLElement}
      */
     createElement(nodeData) {
+        if(!nodeData){
+            return new HTMLElement("div", {}, [])
+        }
         if (typeof nodeData === 'string') {
             return new HTMLElement(nodeData, {}, [])
         }
@@ -526,7 +561,17 @@ function handleStyles(styles, nodeEl) {
  */
 export function Element(tag, props = {}, ...children) {
     if(typeof tag === 'function'){
-        let el = tag(props, children)
+        let childObj = children.map((child) => {
+            if (child.tagName === "TEXT_ELEMENT") {
+                return new HTMLTextNode(child);
+            }
+            if (child instanceof HTMLElement) {
+                return child;
+            }
+            return new HTMLElement(child.tagName, child.props, child.children);
+        })
+        childObj = childObj[0]
+        let el = tag({...props, children: childObj})
         return el
     }
     if(props === null){
@@ -592,9 +637,12 @@ export function Element(tag, props = {}, ...children) {
 
         node.children = children
         delete props.children
-    }
-
+    } 
     for (var i = 0; i < children.length; i++) {
+        if(typeof children[i] === 'undefined'){
+            delete children[i]
+            continue;
+        }
         if (typeof children[i] === "string" || typeof children[i] === "number") {
             children[i] = {
                 tagName: "TEXT_ELEMENT",
@@ -607,7 +655,7 @@ export function Element(tag, props = {}, ...children) {
         } else {
             if (children[i]) {
                 children[i].parentNode = { tagName: tag, props: props, children: children };
-            }
+            } 
 
             children[i] = new HTMLElement(children[i].tagName, children[i].props, children[i].children)
         }
