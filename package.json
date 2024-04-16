@@ -1,24 +1,12 @@
 {
-  "name": "vaderjs",
-  "description": "A reactive framework for building fast and scalable web applications",
-  "version": "1.4.2-jpiml56", 
-  "author": {
-    "name": "Malikwhitten67",
-    "email": "malikwhitterb@gmail.com"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Postr-Inc/Vader.js"
-  },
-  "type": "module",
-  "bin":{
-    "vader":"./vader_dev.js"
-  },
-  "dependencies": {
-    "ws": "latest"
-  },
-  "devDependencies": { 
-    "ws": "latest"
-  }
+    "name": "vaderjs",
+    "version": "1.5.0",
+    "description": "A simple and powerful JavaScript library for building modern web applications.",
+    "main":"./index.js",
+    "bin": {
+        "vaderjs": "./main.js"
+    },
+    "dependencies": {
+        "ansi-colors":"latest"
+    }
 }
