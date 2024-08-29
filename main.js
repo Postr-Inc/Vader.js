@@ -293,8 +293,9 @@ watcher.on('change', handleFileChangeDebounced);
             }
 
             let url = new URL(req.url)
-            if (url.pathname.includes('.')) {
-                let file = await Bun.file(path.join(process.cwd() + '/dist' + url.pathname))
+            if (url.pathname.includes('.')) { 
+                let p = url.pathname.replaceAll("%5B", "[").replaceAll("%5D", "]")
+                let file = await Bun.file(path.join(process.cwd() + '/dist' +p)) 
                 if (!await file.exists()) return new Response('Not found', { status: 404 })
                 return new Response(await file.text(), {
                     headers: {
@@ -315,6 +316,7 @@ watcher.on('change', handleFileChangeDebounced);
             let base = path.dirname(route.filePath)
             base = base.replace(path.join(process.cwd() + '/app'), '')
             base = base.replace(/\\/g, '/').replace('/app', '/dist')
+            base = process.cwd() + "/dist/" + base
             return new Response(await Bun.file(path.join(base, 'index.html')).text() + `
             <script>
             let ws = new WebSocket('ws://localhost:${server.port}')
