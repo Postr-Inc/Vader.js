@@ -136,7 +136,7 @@ async function generateApp() {
         let route = window.location.pathname.split('/').filter(v => v !== '') 
         let params = {
             ${Object.keys(routes.match(route).params || {}).length > 0 ? Object.keys(routes.match(route).params || {}).map(p => {
-                return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p) + 1}]`
+                return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p)}]`
             }).join(',') : ""}
         }
         \n${code}
