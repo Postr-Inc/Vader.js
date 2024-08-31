@@ -74,15 +74,20 @@ const generatePage = async (
     if (head) {
         headHtml = document(head()); 
     }
- 
+
+    console.log(route)
     await Bun.write(
         process.cwd() + "/dist/" + route + "/index.html",
-        `<!DOCTYPE html><head>${headHtml}</head>${h}
-              <script type="module"> 
-              import c from '${process.env.filePath}'
-              import {render} from '/src/vader/index.js'
-              render(c, document.body.firstChild)
-              </script>
+        `<!DOCTYPE html>
+        <head>
+               ${headHtml}
+        </head>
+        ${h}
+        <script type="module"> 
+          import c from '${process.env.filePath}'
+          import {render} from '/src/vader/index.js'
+          render(c, document.body.firstChild)
+        </script>
               `
     );
     console.log(
