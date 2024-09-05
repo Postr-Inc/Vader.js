@@ -13,11 +13,15 @@ export const document = (element: any) => {
          continue;
       }
       if (key === "style") {
-         let style = "";
-         for (let styleKey in attributes[key]) {
-            style += `${styleKey}:${attributes[key][styleKey]};`;
+         // convert style object to string
+         let styles = attributes[key];
+         let styleString = "";
+        // convert camelCase to kebab-case
+         for (let style in styles) {
+            let kebabStyle = style.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase();
+            styleString += `${kebabStyle}:${styles[style]};`;
          }
-         el += ` style="${style}"`;
+         el += ` style="${styleString}"`;
          continue;
       }
       //@ts-ignore

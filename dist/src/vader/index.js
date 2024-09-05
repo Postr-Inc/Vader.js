@@ -42,7 +42,9 @@ export const e = (element, props, ...children) => {
     case typeof element === "function":
       instance = new Component;
       instance.render = element;
-      return instance.render();
+      let firstEl = instance.render(props);
+      firstEl.props = { key: instance.key, ...firstEl.props };
+      return firstEl;
     default:
       return { type: element, props: props || {}, children: children || [] };
   }
@@ -63,7 +65,7 @@ export class Component {
   key;
   prevState;
   constructor() {
-    this.key = Math.random().toString(36).substring(7);
+    this.key = crypto.randomUUID();
     this.props = {};
     this.state = {};
     this.effect = [];
@@ -84,6 +86,9 @@ export class Component {
     }
   }
   useState(key, defaultValue) {
+    if (typeof window === "undefined")
+      return [defaultValue, () => {
+      }];
     let value = sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
     if (typeof value === "string") {
       try {
@@ -91,7 +96,7 @@ export class Component {
       } catch (error) {
       }
     }
-    if (!window["listener" + key]) {
+    if (!window["listener" + key] && !isServer) {
       window["listener" + key] = true;
       window.addEventListener("beforeunload", () => {
         sessionStorage.removeItem("state_" + key);
@@ -108,14 +113,14 @@ export class Component {
     const loadingKey = "loading_" + url;
     const errorKey = "error" + url;
     const dataKey = "_data" + url;
-    let [loading, setLoading] = this.useState(loadingKey, false);
+    let [loading, setLoading] = this.useState(loadingKey, true);
     let [error, setError] = this.useState(errorKey, null);
     let [data, setData] = this.useState(dataKey, null);
+    console.log(loading, error, data);
     if (loading && !error && !data) {
-      this.state[this.key][loadingKey] = true;
-      fetch(url, options).then((res) => res.json()).then((data) => {
+      fetch(url, options).then((res) => res.json()).then((data2) => {
         setLoading(false);
-        setData(data);
+        setData(data2);
         this.forceUpdate(this.key);
       }).catch((err) => {
         setError(err);
@@ -129,6 +134,7 @@ export class Component {
       return el2.key === key;
     })[0];
     let newl = this.toElement();
+    console.log(newl, el);
     if (newl.key !== key) {
       newl = Array.from(newl.children).filter((el2) => el2.key === key)[0];
     }
@@ -202,7 +208,13 @@ export class Component {
           });
         }
         if (typeof child === "function") {
-          el.appendChild(this.parseToElement(child()));
+          console.log("child is function");
+          let comp = memoizeClassComponent(Component);
+          comp.Mounted = true;
+          comp.render = child;
+          let el2 = comp.toElement();
+          el2.setAttribute("key", comp.key);
+          el.appendChild(el2);
         } else if (typeof child === "object") {
           el.appendChild(this.parseToElement(child));
         } else {
@@ -255,6 +267,7 @@ export function render(element, container) {
     memoizedInstance.Mounted = true;
     memoizedInstance.render = element.bind(memoizedInstance);
     let el = memoizedInstance.toElement();
+    el.key = memoizedInstance.key;
     container.innerHTML = "";
     container.replaceWith(el);
   }

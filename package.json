@@ -3,6 +3,9 @@
     "version": "1.5.0",
     "description": "A simple and powerful JavaScript library for building modern web applications.",
     "main": "./index.js",
+    "scripts": {
+        "dev":"bun run index.js dev"
+    },
     "bin": {
         "vaderjs": "./main.js"
     },

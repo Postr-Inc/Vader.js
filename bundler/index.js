@@ -10,6 +10,7 @@ import {
 import { document } from "vaderjs/document";
 import fs from "fs";
 import ansiColors from "ansi-colors";
+import path from "path";
 let path2 = require("path");
 globalThis.Fragment = Fragment;
 globalThis.window = {
@@ -39,7 +40,30 @@ await Bun.build({
     outdir: process.cwd() + "/dist/",
     format: "esm",
     ...(process.env.DEV ? { sourcemap: "inline" } : {}),
+    external:['*.jsx', '*.js']
 });
+
+let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
+function handleReplacements(code) {
+    let lines = code.split("\n");
+    let newLines = [];
+    for (let line of lines) {
+        let hasImport = line.includes('import')
+        if(hasImport && line.includes('from')){
+            try { 
+                let url = line.includes("'") ? line.split("'")[1] : line.split('"')[1]
+                let exactFile = path.resolve(url)
+                // replace url with exact file path
+                line = line.replace(url, exactFile) 
+            } catch (error) { 
+                continue;
+            }
+        }
+    }
+    return lines.join("\n");
+}
+builtCode = handleReplacements(builtCode) 
+fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
 let isClass = function (element) {
     return element.toString().startsWith("class");
 };
@@ -74,15 +98,20 @@ const generatePage = async (
     if (head) {
         headHtml = document(head()); 
     }
- 
+
+    console.log(route)
     await Bun.write(
         process.cwd() + "/dist/" + route + "/index.html",
-        `<!DOCTYPE html><head>${headHtml}</head>${h}
-              <script type="module"> 
-              import c from '${process.env.filePath}'
-              import {render} from '/src/vader/index.js'
-              render(c, document.body.firstChild)
-              </script>
+        `<!DOCTYPE html>
+        <head>
+               ${headHtml}
+        </head>
+        ${h}
+        <script type="module"> 
+          import c from '${process.env.filePath}'
+          import {render} from '/src/vader/index.js'
+          render(c, document.body.firstChild)
+        </script>
               `
     );
     console.log(
@@ -95,7 +124,7 @@ const generatePage = async (
     process.exit(0);
 };
  try {
-    generatePage({ path: process.env.INPUT, route: process.env.OUT });
+    process.env.isImport == undefined && generatePage({ path: process.env.INPUT, route: process.env.OUT });
  } catch (error) {
     console.log(ansiColors.red(error))
  }

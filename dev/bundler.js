@@ -10,6 +10,7 @@ import {
 import { document } from "vaderjs/document";
 import fs from "fs";
 import ansiColors from "ansi-colors";
+import path from "path";
 let path2 = require("path");
 globalThis.Fragment = Fragment;
 globalThis.window = {
@@ -39,7 +40,38 @@ await Bun.build({
     outdir: process.cwd() + "/dist/",
     format: "esm",
     ...(process.env.DEV ? { sourcemap: "inline" } : {}),
-});
+    external:['*.jsx', '*.js']
+}); 
+let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
+
+function handleReplacements(code) {
+    let lines = code.split("\n");
+    let newLines = [];
+
+    for (let line of lines) {
+        if (line.includes('import') && line.includes('from')) {
+            try {
+                let quoteType = line.includes("'") ? "'" : '"';
+                let url = line.split(quoteType)[1];
+
+                if (url.endsWith('.jsx')) {
+                    let newUrl = url.replace('.jsx', '.js');
+                    line = line.replace(url, newUrl);
+                }
+            } catch (error) {
+                continue;
+            }
+        }
+        newLines.push(line);
+    }
+
+    return newLines.join("\n");
+}
+ 
+builtCode = handleReplacements(builtCode)  
+if(fs.existsSync(path.join(process.cwd(), 'dist', process.env.filePath))){
+    fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
+} 
 let isClass = function (element) {
     return element.toString().startsWith("class");
 };
@@ -100,7 +132,7 @@ const generatePage = async (
     process.exit(0);
 };
  try {
-    generatePage({ path: process.env.INPUT, route: process.env.OUT });
+    process.env.isImport == undefined && generatePage({ path: process.env.INPUT, route: process.env.OUT });
  } catch (error) {
     console.log(ansiColors.red(error))
  }

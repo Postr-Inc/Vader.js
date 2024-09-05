@@ -87,21 +87,21 @@ globalThis.Fragment = Fragment;
  * @param children 
  * @returns 
  */
-export const e = (element: any, props: any, ...children: any[]) => {
+export const e = (element, props, ...children) => {
   let instance;
-  switch (true){
+  switch (true) {
     case isClassComponent(element):
-       instance = new element();
+      instance = new element;
       instance.props = props;
       instance.children = children;
-      return instance.render();
+      return instance.render(props);
     case typeof element === "function":
-      instance = new Component();
+      instance = new Component;
       instance.render = element;
       return instance.render();
     default:
       return { type: element, props: props || {}, children: children || [] };
-  } 
+  }
 };
 
 /**
@@ -135,119 +135,103 @@ export const useState = <T>(initialState: T) => {
  *  render(<App name="John" />, document.getElementById("root"));
  */
 export class Component {
-  props: any;
-  state: any;
-  element: any;
-  Mounted: boolean;
-  effect: any[];
-  key: string;
-  prevState: any;
+  props;
+  state;
+  element;
+  Mounted;
+  effect;
+  key;
+  prevState;
   constructor() {
-    this.key = Math.random().toString(36).substring(7);
+    this.key = crypto.randomUUID();
     this.props = {};
     this.state = {};
     this.effect = [];
     this.Mounted = false;
-    this.element = null; 
+    this.element = null;
   }
-   
-
-  useEffect(callback: any, dependencies: any[]) {
-    if (dependencies.length === 0 && this.Mounted && this.effect.length === 0) { 
+  useEffect(callback, dependencies) {
+    if (dependencies.length === 0 && this.Mounted && this.effect.length === 0) {
       callback();
       this.effect.push(callback);
-    }else{
-      for (let i = 0; i < dependencies.length; i++) {
+    } else {
+      for (let i = 0;i < dependencies.length; i++) {
         if (this.effect[i] !== dependencies[i]) {
           this.effect = dependencies;
           callback();
-        } 
+        }
       }
     }
-  }  
-   useState<T>(key: string, defaultValue: T) {
+  }
+  useState(key, defaultValue) {
+    if (typeof window === "undefined")
+      return [defaultValue, () => {
+      }];
     let value = sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
-  
-    // Parse value if it's a stringified object or number
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       try {
         value = JSON.parse(value);
       } catch (error) {
-        // Not a valid JSON, keep it as is
       }
     }
-  
-    // Add listener for unload event to save state
-    if (!window['listener' + key]) {
-      window['listener' + key] = true;
-      window.addEventListener('beforeunload', () => {
-        sessionStorage.removeItem('state_' + key)
+    if (!window["listener" + key] && !isServer) {
+      window["listener" + key] = true;
+      window.addEventListener("beforeunload", () => {
+        sessionStorage.removeItem("state_" + key);
       });
     }
-  
-    const setValue = (newValue: T) => {
+    const setValue = (newValue) => {
       value = newValue;
       sessionStorage.setItem("state_" + key, JSON.stringify({ type: typeof newValue, value: newValue }));
-      this.forceUpdate(this.key)
+      this.forceUpdate(this.key);
     };
-  
-    return [value as T, setValue];
+    return [value, setValue];
   }
-  
- 
-
-  useFetch(url: string, options: any) { 
+  useFetch(url, options) {
     const loadingKey = "loading_" + url;
     const errorKey = "error" + url;
-    const dataKey = "_data" + url; 
-     let [loading, setLoading] = this.useState(loadingKey, false);
-     let [error, setError] = this.useState(errorKey, null);
-     let [data, setData] = this.useState(dataKey, null);
-
+    const dataKey = "_data" + url;
+    let [loading, setLoading] = this.useState(loadingKey, true);
+    let [error, setError] = this.useState(errorKey, null);
+    let [data, setData] = this.useState(dataKey, null);
+    console.log(loading, error, data);
     if (loading && !error && !data) {
-        this.state[this.key][loadingKey] = true;
-
-        fetch(url, options)
-            .then((res) => res.json())
-            .then((data) => {
-              //@ts-ignore
-                setLoading(false); 
-                setData(data);
-                this.forceUpdate(this.key);
-            })
-            .catch((err) => {
-                setError(err);
-                this.forceUpdate(this.key);
-            });
+      fetch(url, options).then((res) => res.json()).then((data2) => { 
+        setLoading(false);
+        setData(data2);
+        this.forceUpdate(this.key);
+      }).catch((err) => {
+        setError(err);
+        this.forceUpdate(this.key);
+      });
     }
-
     return [data, loading, error];
-}
-
-
+  }
   forceUpdate(key) { 
-    //@ts-ignore
-    let el = Array.from(document.querySelectorAll("*")).filter((el2: any) =>{ return el2.key === key})[0]; 
-    let newl = this.toElement(); 
-    if(newl.key !== key){  
-      //@ts-ignore 
+    let el = Array.from(document.querySelectorAll("*")).filter((el2) => {
+      return el2.getAttribute("key") === key;
+    })[0];
+    let newl = this.toElement();
+    console.log(newl, el);
+    if (newl.key !== key) {
       newl = Array.from(newl.children).filter((el2) => el2.key === key)[0];
-    }  
+    }
     this.Reconciler.update(el, newl);
   }
   Reconciler = {
-    update: (oldElement, newElement) => {  
-      if(!oldElement || !newElement) return;
-      if (this.Reconciler.shouldUpdate(oldElement, newElement) && oldElement.tagName == newElement.tagName){ 
-          oldElement.replaceWith(newElement)
+    update: (oldElement, newElement) => {
+      if (!oldElement || !newElement)
+        return;
+      if (this.Reconciler.shouldUpdate(oldElement, newElement) && oldElement.tagName == newElement.tagName) {
+        oldElement.replaceWith(newElement);
       } else {
         let children = oldElement.childNodes;
-        for (let i = 0; i < children.length; i++) { 
+        for (let i = 0;i < children.length; i++) {
           this.Reconciler.update(children[i], newElement.childNodes[i]);
         }
       }
     },
-     shouldUpdate(oldElement, newElement) {  
+    shouldUpdate(oldElement, newElement) {
       if (oldElement.nodeType !== newElement.nodeType) {
         return true;
       }
@@ -262,10 +246,10 @@ export class Component {
       }
       return false;
     }
-  }; 
-   
-  parseToElement = (element: any) => { 
-    if(!element) return document.createElement("div");
+  };
+  parseToElement = (element) => {
+    if (!element)
+      return document.createElement("div");
     let el = document.createElement(element.type);
     let isText = typeof element === "string" || typeof element === "number" || typeof element === "boolean";
     if (isText) {
@@ -274,8 +258,8 @@ export class Component {
       let attributes = element.props;
       let children = element.children;
       for (let key in attributes) {
-        if(key === "key"){ 
-          el.key = attributes[key];
+        if (key === "key") {
+          el.setAttribute("key", attributes[key]);
           continue;
         }
         if (key === "className") {
@@ -288,8 +272,7 @@ export class Component {
           }
           continue;
         }
-        //@ts-ignore
-        if (key.startsWith("on")) {  
+        if (key.startsWith("on")) {
           el.addEventListener(key.substring(2).toLowerCase(), attributes[key]);
           continue;
         }
@@ -302,41 +285,43 @@ export class Component {
             el.appendChild(this.parseToElement(c));
           });
         }
-        if(typeof child === "function"){
-          el.appendChild(this.parseToElement(child()));
-        }else
-        if (typeof child === "object") {
-        el.appendChild(this.parseToElement(child));
-        }else{ 
-           let span = document.createElement("span");
-            span.innerHTML = child;
-            el.appendChild(span);
+        if (typeof child === "function") { 
+          console.log("child is function");
+          let comp = memoizeClassComponent(Component);
+          comp.Mounted = true;
+          comp.render = child;
+          let el2 = comp.toElement();
+          el2.setAttribute("key", comp.key);
+          el.appendChild(el2);
+        } else if (typeof child === "object") {
+          el.appendChild(this.parseToElement(child));
+        } else {
+          let span = document.createElement("span");
+          span.innerHTML = child;
+          el.appendChild(span);
         }
       }
     }
     return el;
   };
-  e(element: string | Function, props: any, ...children: any[]) {
-    if(typeof element === "function"){
+  e(element, props, ...children) {
+    if (typeof element === "function") {
       return element();
     }
     return { type: element, props: props || {}, children: children || [] };
   }
-  toElement() { 
+  toElement() {
     let children = this.render();
-    //@ts-ignore
-    if(children.props['key']){
-      this.key = children.props['key'];
+    if (children.props["key"]) {
+      this.key = children.props["key"];
     }
     let el = this.parseToElement(children);
-    el.key = this.key;  
+    el.key = this.key;
     return el;
   }
   render() {
     return "";
   }
-
-  
 }
  
 function memoizeClassComponent(Component: any) {
@@ -354,21 +339,21 @@ function memoizeClassComponent(Component: any) {
  * @param element 
  * @param container 
  */
-export function render(element: any, container: HTMLElement) {
+export function render(element, container) { 
   if (isClassComponent(element)) {
-    const instance = new element();  
-    instance.Mounted = true;  
-    let el = instance.toElement();  
-    instance.element = el;  
-    container.innerHTML = ""; 
+    const instance = new element;
+    instance.Mounted = true;
+    let el = instance.toElement();
+    instance.element = el;
+    container.innerHTML = "";
     container.replaceWith(el);
-  } else { 
-     let memoizedInstance = memoizeClassComponent(Component);
-      memoizedInstance.Mounted = true;
-      memoizedInstance.render =  element.bind(memoizedInstance);
-      let el = memoizedInstance.toElement(); 
-      container.innerHTML = "";
-      container.replaceWith(el);
-
+  } else {
+    let memoizedInstance = memoizeClassComponent(Component);
+    memoizedInstance.Mounted = true;
+    memoizedInstance.render = element.bind(memoizedInstance);
+    let el = memoizedInstance.toElement(); 
+    el.setAttribute("key", memoizedInstance.key);
+    container.innerHTML = "";
+    container.replaceWith(el);
   }
 }
