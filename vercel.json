@@ -1,8 +1,0 @@
-{
-    "rewrites": [
-        {
-            "source": "/:people/:cop",
-            "destination": "/[people]/index.html"
-        }
-    ]
-}
