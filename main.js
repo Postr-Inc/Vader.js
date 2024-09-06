@@ -12,18 +12,6 @@ if (!fs.existsSync(process.cwd() + '/app')) {
 if (!fs.existsSync(process.cwd() + '/public')) {
     fs.mkdirSync(process.cwd() + '/public')
 }
-if(!fs.existsSync(process.cwd() + '/src')){
-    fs.mkdirSync(process.cwd() + '/src')
-}
-if(!fs.existsSync(process.cwd() + '/vader.config.ts')){
-    fs.writeFileSync(process.cwd() + '/vader.config.ts', 
-`
-import defineConfig from 'vaderjs/config'    
-export default  defineConfig({ 
-    port: 8080,
-    host_provider: 'apache'
-})`)
-}
 const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : null
 if (!mode) {
     console.log(`
@@ -59,9 +47,9 @@ if (!fs.existsSync(process.cwd() + '/jsconfig.json')) {
     await Bun.write(process.cwd() + '/jsconfig.json', JSON.stringify(json, null, 4))
 }
 
-var bindes = []
+const bindes = []
 
-const handleReplacements = (code ) => {
+const handleReplacements = (code, file) => {
     let lines = code.split('\n')
     let newLines = []
     for (let line of lines) {
@@ -69,23 +57,14 @@ const handleReplacements = (code ) => {
         
         if (hasImport && line.includes('.css')) {
             try {
-                 let isSmallColon = line.includes("'")
-                 let url = isSmallColon ? line.split("'")[1] : line.split('"')[1]
-                 // start from "/" not "/app" 
-                 // remvoe all ./ and ../
-                  url = url.replaceAll('./', '/').replaceAll('../', '/') 
-                  
-                 let p = path.join(process.cwd() , '/', url) 
-                 line = '';
-                 url = url.replace(process.cwd() + '/app', '')
-                 url = url.replace(/\\/g, '/')
-                 if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
-                     bindes.push(`
-                    <style>
-                      ${fs.readFileSync(p, 'utf-8')}
-                    </style>    
-                    `)
-                 }
+                let url = path.join('/' + line.split("'")[1])
+                let css = fs.readFileSync(process.cwd() + url, 'utf-8')
+                line = '';
+                if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
+                    bindes.push(`<link rel="stylesheet" href="${url}">`)
+                }
+                fs.mkdirSync(process.cwd() + '/dist' + path.dirname(url), { recursive: true })
+                fs.writeFileSync(process.cwd() + '/dist' + url, css)
             } catch (error) {
                 console.error(error)
             }
@@ -135,7 +114,7 @@ async function generateApp() {
     }
     return new Promise(async (resolve, reject) => {
         let routes = new Bun.FileSystemRouter({
-            dir: path.join(process.cwd(), '/app'),
+            dir: process.cwd() + '/app',
             style: 'nextjs'
         })
         routes.reload()
@@ -153,7 +132,7 @@ async function generateApp() {
         let route = window.location.pathname.split('/').filter(v => v !== '') 
         let params = {
             ${Object.keys(routes.match(route).params || {}).length > 0 ? Object.keys(routes.match(route).params || {}).map(p => {
-                return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p) +  Object.keys(routes.match(route).params).length}]`
+                return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p)}]`
             }).join(',') : ""}
         }
         \n${code}
@@ -181,13 +160,11 @@ async function generateApp() {
                     file: process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r),
                     DEV: mode === 'development',
                     size,
-                    bindes: bindes.join('\n'),
                     filePath: r,
                     INPUT: `../app/${r.replace('.js', '.jsx')}`,
                 },
                 onExit({ exitCode: code }) {
                     if (code === 0) {
-                        bindes = []
                         console.log(`Built ${r} in ${Date.now() - start}ms`)
                         resolve()
                     } else {
@@ -206,7 +183,8 @@ async function generateApp() {
                 }
 
                 for (let route in routes.routes) { 
-                    let { filePath, kind, name, params, pathname, query } = routes.match(route) 
+                    let { filePath, kind, name, params, pathname, query } = routes.match(route)
+                    console.log({ filePath, kind, name, params, pathname, query })
                     let r = route
 
                     if (r.includes('[')) {
@@ -245,7 +223,7 @@ function handleFiles() {
             }
             let glob2 = new Glob('src/**/*')
             for await (var i of glob2.scan()) {
-              var file = i 
+              var file = i
                 fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
                  // turn jsx to js
                 if (file.includes('.jsx')) { 
@@ -276,34 +254,6 @@ function handleFiles() {
                             }
                         }
                     })
-                }else if(file.includes('.ts')){
-                    let code = await Bun.file(file).text()
-                    code = handleReplacements(code)
-                    file = file.replace('.ts', '.js')
-                    fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.ts', '.js')), code)
-                    await Bun.spawn({
-                        cmd: ['bun', 'run', './dev/bundler.js'],
-                        cwd: process.cwd(),
-                        stdout: 'inherit',
-                        env: {
-                            ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.ts', '.js')),
-                            ROOT: process.cwd() + '/app/',
-                            OUT: path.dirname(file),
-                            file: process.cwd() + '/dist/' + file.replace('.ts', '.js'),
-                            DEV: mode === 'development',
-                            isTS: true,
-                            size: code.length / 1024,
-                            filePath: file.replace('.ts', '.js'),
-                            INPUT:  path.join(process.cwd() , file.replace('.js', '.jsx')),
-                        },
-                        onExit({ exitCode: code }) {
-                            if (code === 0) {
-                                resolve()
-                            } else {
-                                reject()
-                            }
-                        }
-                    })
                 }
                  
             }
@@ -318,29 +268,25 @@ await handleFiles()
 globalThis.clients = []
 
 if (mode === 'development') {
-    const watcher = fs.watch(path.join(process.cwd() + '/'), { recursive: true }) 
+    const watcher = fs.watch(path.join(process.cwd() + '/app'), { recursive: true })
+    const publicWatcher = fs.watch(path.join(process.cwd() + '/public'), { recursive: true })
     let isBuilding = false; // Flag to track build status
 
     // Initialize a variable to hold the timeout ID
     let debounceTimeout;
 
     // Function to handle file changes with debounce
-    const handleFileChangeDebounced = async (change, file) => {
-        if(file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts') ) {
-            if(file.includes('dist')) return
-            clearTimeout(debounceTimeout);
+    const handleFileChangeDebounced = async () => {
+        clearTimeout(debounceTimeout);
         debounceTimeout = setTimeout(async () => {
             if (!isBuilding) { // Check if not already building
                 isBuilding = true; // Set build flag to true
                 try {
                     await generateApp();
                     await handleFiles();
-                    let t = setTimeout(() => {
-                        clients.forEach(c => {
-                            c.send('reload');
-                        });
-                        clearTimeout(t)
-                    }, 1000)
+                    clients.forEach(c => {
+                        c.send('reload');
+                    });
                 } catch (error) {
                     console.error(error);
                 } finally {
@@ -348,11 +294,12 @@ if (mode === 'development') {
                 }
             }
         }, 500);
-        }
     };
 
-    // Event listeners with debounced handling 
-    watcher.on('change', handleFileChangeDebounced); 
+    // Event listeners with debounced handling
+    publicWatcher.on('change', handleFileChangeDebounced);
+    watcher.on('change', handleFileChangeDebounced);
+
     let server = Bun.serve({
         port: port || 8080,
         websocket: {
@@ -374,15 +321,13 @@ if (mode === 'development') {
 
             let url = new URL(req.url)
             if (url.pathname.includes('.')) {
-                let p = url.pathname.replaceAll("%5B", "[").replaceAll("%5D", "]") 
+                let p = url.pathname.replaceAll("%5B", "[").replaceAll("%5D", "]")
                 let file = await Bun.file(path.join(process.cwd() + '/dist' + p))
                 if (!await file.exists()) return new Response('Not found', { status: 404 })
-                let imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp', 'image/tiff', 'image/bmp', 'image/ico', 'image/cur', 'image/jxr', 'image/jpg']
- 
-                return new Response(imageTypes.includes(file.type) ? await file.arrayBuffer() : await file.text(), {
+                return new Response(await file.text(), {
                     headers: {
                         'Content-Type': file.type,
-                        'Cache-Control': imageTypes.includes(file.type) ? 'max-age=31536000' : 'no-cache',
+                        'Cache-Control': 'no-cache',
                         'Access-Control-Allow-Origin': '*'
                     }
                 })
@@ -398,10 +343,9 @@ if (mode === 'development') {
             }
             let p = route.pathname;
             let base = path.dirname(route.filePath)
-            base = base.replace(/\\/g, '/')
-            base = base.replace(path.join(process.cwd() + '/app').replace(/\\/g, '/'), '') 
+            base = base.replace(path.join(process.cwd() + '/app'), '')
             base = base.replace(/\\/g, '/').replace('/app', '/dist')
-            base = process.cwd() + "/dist/" + base 
+            base = process.cwd() + "/dist/" + base
             let data = await Bun.file(path.join(base, 'index.html')).text()
             if (mode == "development") {
                 return new Response(data + `

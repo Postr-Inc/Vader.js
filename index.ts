@@ -70,24 +70,6 @@ export const useEffect = (callback:any, dependencies: any[]) => {
   }
 } 
 
-// make a switch function component
-
-
-export const A  = (props: any, children: any) => {
-   function handleClick(e) {
-    e.preventDefault();
-    window.history.pushState({}, "", props.href);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-    window.location.reload();
-   }
-  return  {
-    type: "a",
-    props: {...props, onClick: handleClick},
-    children: children || [],
-  }
-}
-
-
 export const Fragment = (props: any, children: any) => { 
   return  {
     type: isServer ? null : "div",
@@ -115,43 +97,13 @@ export const e = (element, props, ...children) => {
       return instance.render(props);
     case typeof element === "function":
       instance = new Component;
-      instance.render = element;  
-      let firstEl = instance.render({key: instance.key, children: children, ...props}, children);
-      instance.children = children;  
-      if (!firstEl) firstEl = {type: "div", props: {key: instance.key,  ...props}, children: children}; 
-      firstEl.props = { key: instance.key,  ...firstEl.props, ...props };
-      return firstEl;
+      instance.render = element;
+      return instance.render();
     default:
       return { type: element, props: props || {}, children: children || [] };
   }
 };
 
-/*
-  * @description - Switch component
-  * @param element
-  * @param props
-  * @param children
-  * @returns
-  */
-
-
-export function Switch({ children }) {
-  for (let child of children) {
-    if (child.props.when) {
-      return child;
-    }
-  }
-  return  { type: "div", props: {}, children: [] };
-}
-
-/**
- * @description - Match component
- * @param param0 
- * @returns 
- */
-export function Match({ when, children }) {
-  return when ? children : { type: "div", props: {}, children: [] };
-}
 /**
  * @description -  Manage state and forceupdate specific affected elements
  * @param key 
@@ -339,7 +291,7 @@ export class Component {
       let children = element.children;
       for (let key in attributes) {
         if (key === "key") {
-          el.key = attributes[key];
+          el.setAttribute("key", attributes[key]);
           continue;
         }
         if (key === "className") {
@@ -362,8 +314,6 @@ export class Component {
         }
         el.setAttribute(key, attributes[key]);
       }
-      if (children === undefined)
-        return el;
       for (let i = 0;i < children.length; i++) {
         let child = children[i];
         if (Array.isArray(child)) {

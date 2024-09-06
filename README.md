@@ -19,7 +19,20 @@
 npx vaderjs @latest
 ```
 
-
+```ts
+import { useSate, e } from "vaderjs"
+export default function(){
+  let [count, setCount] = useState(0)
+  return (
+    <div>
+     <p>Count is {count} </p>
+     <button onClick={()=>setCount(count++)}>
+      Increment +1
+      </button>
+    </div>
+  )
+}
+```
 
 # Project Setup 
 Create a pages folder - which allows you to have nextjs page like routing via buns file based router
