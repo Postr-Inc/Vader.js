@@ -70,10 +70,14 @@ export const useEffect = (callback:any, dependencies: any[]) => {
   }
 } 
 
+// make a switch function component
+
+
+
 export const Fragment = (props: any, children: any) => {
   return  {
-    type: "div",
-    props: props || {},
+    type: isServer ? null : "div",
+    props:{},
     children: children || [],
   }
 }
@@ -97,13 +101,44 @@ export const e = (element, props, ...children) => {
       return instance.render(props);
     case typeof element === "function":
       instance = new Component;
-      instance.render = element;
-      return instance.render();
+      instance.render = element;  
+      let firstEl = instance.render({key: instance.key, children: children, ...props}); 
+      instance.children = children;  
+      if (!firstEl) firstEl = {type: "div", props: {key: instance.key, children: [], ...props}, children: []};
+      firstEl.props = {key: instance.key, ...props}; 
+      firstEl.children = children;
+      return firstEl;
     default:
       return { type: element, props: props || {}, children: children || [] };
   }
 };
 
+/*
+  * @description - Switch component
+  * @param element
+  * @param props
+  * @param children
+  * @returns
+  */
+
+
+export function Switch({ children }) {
+  for (let child of children) {
+    if (child.props.when) {
+      return child;
+    }
+  }
+  return null;
+}
+
+/**
+ * @description - Match component
+ * @param param0 
+ * @returns 
+ */
+export function Match({ when, children }) {
+  return when ? children : null;
+}
 /**
  * @description -  Manage state and forceupdate specific affected elements
  * @param key 
@@ -193,8 +228,7 @@ export class Component {
     const dataKey = "_data" + url;
     let [loading, setLoading] = this.useState(loadingKey, true);
     let [error, setError] = this.useState(errorKey, null);
-    let [data, setData] = this.useState(dataKey, null);
-    console.log(loading, error, data);
+    let [data, setData] = this.useState(dataKey, null); 
     if (loading && !error && !data) {
       fetch(url, options).then((res) => res.json()).then((data2) => { 
         setLoading(false);
@@ -209,10 +243,9 @@ export class Component {
   }
   forceUpdate(key) { 
     let el = Array.from(document.querySelectorAll("*")).filter((el2) => {
-      return el2.getAttribute("key") === key;
+      return el2.key === key;
     })[0];
-    let newl = this.toElement();
-    console.log(newl, el);
+    let newl = this.toElement(); 
     if (newl.key !== key) {
       newl = Array.from(newl.children).filter((el2) => el2.key === key)[0];
     }
@@ -258,8 +291,8 @@ export class Component {
       let attributes = element.props;
       let children = element.children;
       for (let key in attributes) {
-        if (key === "key") {
-          el.setAttribute("key", attributes[key]);
+        if (key === "key") { 
+           el.key = attributes[key];
           continue;
         }
         if (key === "className") {
@@ -277,8 +310,9 @@ export class Component {
           continue;
         }
         el.setAttribute(key, attributes[key]);
-      }
-      for (let i = 0;i < children.length; i++) {
+      } 
+       if(children === undefined) return el;
+       for (let i = 0;i < children.length; i++) {
         let child = children[i];
         if (Array.isArray(child)) {
           child.forEach((c) => {
@@ -351,8 +385,8 @@ export function render(element, container) {
     let memoizedInstance = memoizeClassComponent(Component);
     memoizedInstance.Mounted = true;
     memoizedInstance.render = element.bind(memoizedInstance);
-    let el = memoizedInstance.toElement(); 
-    el.setAttribute("key", memoizedInstance.key);
+    let el = memoizedInstance.toElement();  
+    el.key = memoizedInstance.key;
     container.innerHTML = "";
     container.replaceWith(el);
   }
