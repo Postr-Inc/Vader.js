@@ -1,39 +1,43 @@
-export const document = (element: any) => {
+export const document = (element: any) => { 
    let type = element.type;
-   let el = `<${type}`;
+   let el =  type ===  null ? `` : `<${type}`
+   console.log(el)
    let attributes = element.props;
    let children = element.children;
-    for (let key in attributes) {
-      if(key === "key"){ 
-         el += ` key="${attributes[key]}"`;
-         continue;
-      }
-      if (key === "className") {
-         el += ` class="${attributes[key]}"`;
-         continue;
-      }
-      if (key === "style") {
-         // convert style object to string
-         let styles = attributes[key];
-         let styleString = "";
-        // convert camelCase to kebab-case
-         for (let style in styles) {
-            let kebabStyle = style.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase();
-            styleString += `${kebabStyle}:${styles[style]};`;
+     if(type != null){
+      for (let key in attributes) {
+         if(key === "key"){ 
+            el += ` key="${attributes[key]}"`;
+            continue;
          }
-         el += ` style="${styleString}"`;
-         continue;
-      }
-      //@ts-ignore
-      if (key.startsWith("on")){
-         continue;
-      }
-      el += ` ${key}="${attributes[key]}"`;
-
-    }
-    el += ">";
+         if (key === "className") {
+            el += ` class="${attributes[key]}"`;
+            continue;
+         }
+         if (key === "style") {
+            // convert style object to string
+            let styles = attributes[key];
+            let styleString = "";
+           // convert camelCase to kebab-case
+            for (let style in styles) {
+               let kebabStyle = style.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase();
+               styleString += `${kebabStyle}:${styles[style]};`;
+            }
+            el += ` style="${styleString}"`;
+            continue;
+         }
+         //@ts-ignore
+         if (key.startsWith("on")){
+            continue;
+         }
+         el += ` ${key}="${attributes[key]}"`;
+   
+       }
+     }
+    el += type === null ? `` : `>`
     for (let i = 0;i < children.length; i++) {
       let child = children[i];
+      console.log(child)
       if (Array.isArray(child)) {
          child.forEach((c) => {
             el += document(c);
@@ -48,6 +52,6 @@ export const document = (element: any) => {
          el += child;
       }
     }
-    el += `</${type}>`;
+    el += type ===  null ? `` : `</${type}>`
     return el;
 }
