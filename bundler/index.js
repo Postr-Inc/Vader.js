@@ -52,15 +52,18 @@ function handleReplacements(code) {
         if(hasImport && line.includes('from')){
             try { 
                 let url = line.includes("'") ? line.split("'")[1] : line.split('"')[1]
-                let exactFile = path.resolve(url)
-                // replace url with exact file path
-                line = line.replace(url, exactFile) 
+                 
+                line = line.replace(url, url.replace('.jsx', '.js'))
+                newLines.push(line)
             } catch (error) { 
                 continue;
             }
+        }else{
+            newLines.push(line)
         }
+        
     }
-    return lines.join("\n");
+    return  newLines.join('\n')
 }
 builtCode = handleReplacements(builtCode) 
 fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
@@ -98,8 +101,7 @@ const generatePage = async (
     if (head) {
         headHtml = document(head()); 
     }
-
-    console.log(route)
+  
     await Bun.write(
         process.cwd() + "/dist/" + route + "/index.html",
         `<!DOCTYPE html>
@@ -109,7 +111,8 @@ const generatePage = async (
         ${h}
         <script type="module"> 
           import c from '${process.env.filePath}'
-          import {render} from '/src/vader/index.js'
+          import {render, e} from '/src/vader/index.js'
+          window.e = e
           render(c, document.body.firstChild)
         </script>
               `
