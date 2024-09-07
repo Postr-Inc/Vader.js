@@ -12,6 +12,18 @@ if (!fs.existsSync(process.cwd() + '/app')) {
 if (!fs.existsSync(process.cwd() + '/public')) {
     fs.mkdirSync(process.cwd() + '/public')
 }
+if(!fs.existsSync(process.cwd() + '/src')){
+    fs.mkdirSync(process.cwd() + '/src')
+}
+if(!fs.existsSync(process.cwd() + '/vader.config.ts')){
+    fs.writeFileSync(process.cwd() + '/vader.config.ts', 
+`
+import defineConfig from 'vaderjs/config'    
+export default  defineConfig({ 
+    port: 8080,
+    host_provider: 'apache'
+})`)
+}
 const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : null
 if (!mode) {
     console.log(`
