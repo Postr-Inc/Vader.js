@@ -135,7 +135,7 @@ async function generateApp() {
     }
     return new Promise(async (resolve, reject) => {
         let routes = new Bun.FileSystemRouter({
-            dir: process.cwd() + '/app',
+            dir: path.join(process.cwd(), '/app'),
             style: 'nextjs'
         })
         routes.reload()
@@ -153,7 +153,7 @@ async function generateApp() {
         let route = window.location.pathname.split('/').filter(v => v !== '') 
         let params = {
             ${Object.keys(routes.match(route).params || {}).length > 0 ? Object.keys(routes.match(route).params || {}).map(p => {
-                return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p)}]`
+                return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p) +  Object.keys(routes.match(route).params).length}]`
             }).join(',') : ""}
         }
         \n${code}
