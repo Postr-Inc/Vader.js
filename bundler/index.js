@@ -107,6 +107,7 @@ const generatePage = async (
         `<!DOCTYPE html>
         <head>
                ${headHtml}
+               ${process.env.bindes}
         </head>
         ${h}
         <script type="module"> 
