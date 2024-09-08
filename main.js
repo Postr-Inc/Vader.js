@@ -341,7 +341,9 @@ if (mode === 'development') {
                 let p = url.pathname.replaceAll("%5B", "[").replaceAll("%5D", "]") 
                 let file = await Bun.file(path.join(process.cwd() + '/dist' + p))
                 if (!await file.exists()) return new Response('Not found', { status: 404 })
-                return new Response(await file.text(), {
+                let imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp', 'image/tiff', 'image/bmp', 'image/ico', 'image/cur', 'image/jxr', 'image/jpg']
+ 
+                return new Response(imageTypes.includes(file.type) ? await file.arrayBuffer() : await file.text(), {
                     headers: {
                         'Content-Type': file.type,
                         'Cache-Control': 'no-cache',
