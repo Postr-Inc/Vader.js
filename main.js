@@ -61,7 +61,7 @@ if (!fs.existsSync(process.cwd() + '/jsconfig.json')) {
 
 const bindes = []
 
-const handleReplacements = (code, file) => {
+const handleReplacements = (code ) => {
     let lines = code.split('\n')
     let newLines = []
     for (let line of lines) {
@@ -69,14 +69,19 @@ const handleReplacements = (code, file) => {
         
         if (hasImport && line.includes('.css')) {
             try {
-                let url = path.join('/' + line.split("'")[1])
-                let css = fs.readFileSync(process.cwd() + url, 'utf-8')
-                line = '';
-                if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
-                    bindes.push(`<link rel="stylesheet" href="${url}">`)
-                }
-                fs.mkdirSync(process.cwd() + '/dist' + path.dirname(url), { recursive: true })
-                fs.writeFileSync(process.cwd() + '/dist' + url, css)
+                 let isSmallColon = line.includes("'")
+                 let url = isSmallColon ? line.split("'")[1] : line.split('"')[1]
+                 // start from "/" not "/app" 
+                 // remvoe all ./ and ../
+                  url = url.replaceAll('./', '/').replaceAll('../', '/') 
+                  
+                 let p = path.join(process.cwd() , '/', url) 
+                 line = '';
+                 url = url.replace(process.cwd() + '/app', '')
+                 url = url.replace(/\\/g, '/')
+                 if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
+                     bindes.push(`<link rel="stylesheet" href="${url}">`)
+                 }
             } catch (error) {
                 console.error(error)
             }
@@ -172,6 +177,7 @@ async function generateApp() {
                     file: process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r),
                     DEV: mode === 'development',
                     size,
+                    bindes: bindes.join('\n'),
                     filePath: r,
                     INPUT: `../app/${r.replace('.js', '.jsx')}`,
                 },
