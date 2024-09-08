@@ -59,7 +59,7 @@ if (!fs.existsSync(process.cwd() + '/jsconfig.json')) {
     await Bun.write(process.cwd() + '/jsconfig.json', JSON.stringify(json, null, 4))
 }
 
-const bindes = []
+var bindes = []
 
 const handleReplacements = (code ) => {
     let lines = code.split('\n')
@@ -80,7 +80,11 @@ const handleReplacements = (code ) => {
                  url = url.replace(process.cwd() + '/app', '')
                  url = url.replace(/\\/g, '/')
                  if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
-                     bindes.push(`<link rel="stylesheet" href="${url}">`)
+                     bindes.push(`
+                    <style>
+                      ${fs.readFileSync(p, 'utf-8')}
+                    </style>    
+                    `)
                  }
             } catch (error) {
                 console.error(error)
@@ -183,6 +187,7 @@ async function generateApp() {
                 },
                 onExit({ exitCode: code }) {
                     if (code === 0) {
+                        bindes = []
                         console.log(`Built ${r} in ${Date.now() - start}ms`)
                         resolve()
                     } else {
