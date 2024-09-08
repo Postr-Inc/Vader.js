@@ -38,9 +38,10 @@ await Bun.build({
     minify: false,
     root: process.cwd() + "/dist/",
     outdir: process.cwd() + "/dist/",
+    
     format: "esm",
     ...(process.env.DEV ? { sourcemap: "inline" } : {}),
-    external:['*.jsx', '*.js']
+    external:['*.jsx', '*.js', '*.ts']
 });
 
 let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
@@ -54,6 +55,7 @@ function handleReplacements(code) {
                 let url = line.includes("'") ? line.split("'")[1] : line.split('"')[1]
                  
                 line = line.replace(url, url.replace('.jsx', '.js'))
+                line  = line.replace(url, url.replace('.ts', '.js'))
                 newLines.push(line)
             } catch (error) { 
                 continue;
@@ -65,8 +67,11 @@ function handleReplacements(code) {
     }
     return  newLines.join('\n')
 }
+if(!process.env.isTs){
+    
 builtCode = handleReplacements(builtCode) 
 fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
+}
 let isClass = function (element) {
     return element.toString().startsWith("class");
 };
@@ -108,6 +113,8 @@ const generatePage = async (
         <head>
                ${headHtml}
                ${process.env.bindes}
+               <meta charset="UTF-8">
+               <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
         ${h}
         <script type="module"> 
@@ -128,7 +135,11 @@ const generatePage = async (
     process.exit(0);
 };
  try {
-    process.env.isImport == undefined && generatePage({ path: process.env.INPUT, route: process.env.OUT });
+    if(process.env.isTs == undefined &&  process.env.isImport) {
+        generatePage({ path: process.env.INPUT, route: process.env.OUT }) 
+    }else if(process.env.isTs == undefined){
+        generatePage({ path: process.env.INPUT, route: process.env.OUT })
+    } 
  } catch (error) {
     console.log(ansiColors.red(error))
  }
