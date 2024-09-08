@@ -105,8 +105,7 @@ export const e = (element, props, ...children) => {
       let firstEl = instance.render({key: instance.key, children: children, ...props}); 
       instance.children = children;  
       if (!firstEl) firstEl = {type: "div", props: {key: instance.key, children: [], ...props}, children: []};
-      firstEl.props = {key: instance.key, ...props}; 
-      firstEl.children = children;
+      firstEl.props = {key: instance.key, ...props};  
       return firstEl;
     default:
       return { type: element, props: props || {}, children: children || [] };
