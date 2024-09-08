@@ -245,7 +245,7 @@ function handleFiles() {
             }
             let glob2 = new Glob('src/**/*')
             for await (var i of glob2.scan()) {
-              var file = i
+              var file = i 
                 fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
                  // turn jsx to js
                 if (file.includes('.jsx')) { 
@@ -266,6 +266,34 @@ function handleFiles() {
                             DEV: mode === 'development',
                             size: code.length / 1024,
                             filePath: file.replace('.jsx', '.js'),
+                            INPUT:  path.join(process.cwd() , file.replace('.js', '.jsx')),
+                        },
+                        onExit({ exitCode: code }) {
+                            if (code === 0) {
+                                resolve()
+                            } else {
+                                reject()
+                            }
+                        }
+                    })
+                }else if(file.includes('.ts')){
+                    let code = await Bun.file(file).text()
+                    code = handleReplacements(code)
+                    file = file.replace('.ts', '.js')
+                    fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.ts', '.js')), code)
+                    await Bun.spawn({
+                        cmd: ['bun', 'run', './dev/bundler.js'],
+                        cwd: process.cwd(),
+                        stdout: 'inherit',
+                        env: {
+                            ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.ts', '.js')),
+                            ROOT: process.cwd() + '/app/',
+                            OUT: path.dirname(file),
+                            file: process.cwd() + '/dist/' + file.replace('.ts', '.js'),
+                            DEV: mode === 'development',
+                            isTS: true,
+                            size: code.length / 1024,
+                            filePath: file.replace('.ts', '.js'),
                             INPUT:  path.join(process.cwd() , file.replace('.js', '.jsx')),
                         },
                         onExit({ exitCode: code }) {
@@ -298,7 +326,7 @@ if (mode === 'development') {
 
     // Function to handle file changes with debounce
     const handleFileChangeDebounced = async (change, file) => {
-        if(file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css')) {
+        if(file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts') ) {
             if(file.includes('dist')) return
             clearTimeout(debounceTimeout);
         debounceTimeout = setTimeout(async () => {
@@ -307,9 +335,12 @@ if (mode === 'development') {
                 try {
                     await generateApp();
                     await handleFiles();
-                    clients.forEach(c => {
-                        c.send('reload');
-                    });
+                    let t = setTimeout(() => {
+                        clients.forEach(c => {
+                            c.send('reload');
+                        });
+                        clearTimeout(t)
+                    }, 1000)
                 } catch (error) {
                     console.error(error);
                 } finally {
