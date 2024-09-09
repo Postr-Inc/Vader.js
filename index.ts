@@ -74,7 +74,7 @@ export const useEffect = (callback:any, dependencies: any[]) => {
 
 
 
-export const Fragment = (props: any, children: any) => {
+export const Fragment = (props: any, children: any) => { 
   return  {
     type: isServer ? null : "div",
     props:{},
@@ -91,7 +91,7 @@ globalThis.Fragment = Fragment;
  * @param children 
  * @returns 
  */
-export const e = (element, props, ...children) => {
+export const e = (element, props, ...children) => { 
   let instance;
   switch (true) {
     case isClassComponent(element):
@@ -102,9 +102,9 @@ export const e = (element, props, ...children) => {
     case typeof element === "function":
       instance = new Component;
       instance.render = element;  
-      let firstEl = instance.render({key: instance.key, children: children, ...props}); 
+      let firstEl = instance.render({key: instance.key, children: children, ...props}, children);
       instance.children = children;  
-      if (!firstEl) firstEl = {type: "div", props: {key: instance.key, children: [], ...props}, children: []};
+      if (!firstEl) firstEl = {type: "div", props: {key: instance.key,  ...props}, children: children}; 
       firstEl.props = { key: instance.key,  ...firstEl.props, ...props };
       return firstEl;
     default:
@@ -127,7 +127,7 @@ export function Switch({ children }) {
       return child;
     }
   }
-  return null;
+  return  { type: "div", props: {}, children: [] };
 }
 
 /**
@@ -136,7 +136,7 @@ export function Switch({ children }) {
  * @returns 
  */
 export function Match({ when, children }) {
-  return when ? children : null;
+  return when ? children : { type: "div", props: {}, children: [] };
 }
 /**
  * @description -  Manage state and forceupdate specific affected elements
@@ -148,7 +148,11 @@ export const useState = <T>(initialState: T) => {
   const setState = (newState: T) => {
     initialState = newState;
   }
-  return [initialState, setState];
+  const getVal = () => {
+    return initialState;
+  }
+
+  return [getVal, setState];
 } 
 
 /**
@@ -201,7 +205,8 @@ export class Component {
     if (typeof window === "undefined")
       return [defaultValue, () => {
       }];
-    let value = sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
+     let value = sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
+    
     if (typeof value === "string") {
       try {
         value = JSON.parse(value);
@@ -215,11 +220,14 @@ export class Component {
       });
     }
     const setValue = (newValue) => {
-      value = newValue;
-      sessionStorage.setItem("state_" + key, JSON.stringify({ type: typeof newValue, value: newValue }));
+      console.log("setting value", newValue);
+      sessionStorage.setItem("state_" + key, JSON.stringify({ value: newValue }));
       this.forceUpdate(this.key);
     };
-    return [value, setValue];
+    const getVal = () => {
+      return sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
+    }
+    return [getVal, setValue];
   }
   useFetch(url, options) {
     const loadingKey = "loading_" + url;
@@ -247,19 +255,18 @@ export class Component {
     let newl = this.toElement(); 
     if (newl.key !== key) {
       newl = Array.from(newl.children).filter((el2) => el2.key === key)[0];
-    }
+    }  
     this.Reconciler.update(el, newl);
   }
   Reconciler = {
     update: (oldElement, newElement) => {
-      if (!oldElement || !newElement)
-        return;
-      if (this.Reconciler.shouldUpdate(oldElement, newElement) && oldElement.tagName == newElement.tagName) {
+
+      if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
+        console.log("should update");
         oldElement.replaceWith(newElement);
       } else {
-        let children = oldElement.childNodes;
-        for (let i = 0;i < children.length; i++) {
-          this.Reconciler.update(children[i], newElement.childNodes[i]);
+        for (let i = 0; i < newElement.childNodes.length; i++) {
+          this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i]);
         }
       }
     },
@@ -273,6 +280,9 @@ export class Component {
       if (oldElement.nodeName !== newElement.nodeName) {
         return true;
       }
+      if (oldElement.innerHTML !== newElement.innerHTML) {
+        return true;
+      }
       if (oldElement.childNodes.length !== newElement.childNodes.length) {
         return true;
       }
@@ -281,17 +291,19 @@ export class Component {
   };
   parseToElement = (element) => {
     if (!element)
-      return document.createElement("div");
-    let el = document.createElement(element.type);
+      return document.createElement("div"); 
+    // create either a element or svg element
+    let svg = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"];
+    let el =  svg.includes(element.type) ? document.createElementNS("http://www.w3.org/2000/svg", element.type) : document.createElement(element.type);
     let isText = typeof element === "string" || typeof element === "number" || typeof element === "boolean";
     if (isText) {
-      el.textContent = element;
+      el.innerHTML = element;
     } else {
       let attributes = element.props;
       let children = element.children;
       for (let key in attributes) {
-        if (key === "key") { 
-           el.key = attributes[key];
+        if (key === "key") {
+          el.key = attributes[key];
           continue;
         }
         if (key === "className") {
@@ -299,8 +311,12 @@ export class Component {
           continue;
         }
         if (key === "style") {
-          for (let styleKey in attributes[key]) {
-            el.style[styleKey] = attributes[key][styleKey];
+          try {
+            for (let styleKey in attributes[key]) {
+              el.style[styleKey] = attributes[key][styleKey];
+            }
+          } catch (error) {
+            
           }
           continue;
         }
@@ -309,22 +325,23 @@ export class Component {
           continue;
         }
         el.setAttribute(key, attributes[key]);
-      } 
-       if(children === undefined) return el;
-       for (let i = 0;i < children.length; i++) {
+      }
+      if (children === undefined)
+        return el;
+      for (let i = 0;i < children.length; i++) {
         let child = children[i];
         if (Array.isArray(child)) {
           child.forEach((c) => {
             el.appendChild(this.parseToElement(c));
           });
         }
-        if (typeof child === "function") { 
+        if (typeof child === "function") {
           console.log("child is function");
           let comp = memoizeClassComponent(Component);
           comp.Mounted = true;
           comp.render = child;
           let el2 = comp.toElement();
-          el2.setAttribute("key", comp.key);
+          el2.key = comp.key;
           el.appendChild(el2);
         } else if (typeof child === "object") {
           el.appendChild(this.parseToElement(child));
@@ -345,9 +362,7 @@ export class Component {
   }
   toElement() {
     let children = this.render();
-    if (children.props["key"]) {
-      this.key = children.props["key"];
-    }
+  
     let el = this.parseToElement(children);
     el.key = this.key;
     return el;
