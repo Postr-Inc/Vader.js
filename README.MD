@@ -39,6 +39,7 @@ Keyword folders - all files are passed from these folders to the build folder
 ```md
 1. app - used for jsx route files 
 2. public - used for anything / css / json etc
+3. Src - components utilities etc
 ```
 
 
