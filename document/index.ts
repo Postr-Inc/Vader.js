@@ -1,7 +1,6 @@
 export const document = (element: any) => { 
    let type = element.type;
-   let el =  type ===  null ? `` : `<${type}`
-   console.log(el)
+   let el =  type ===  null ? `` : `<${type}` 
    let attributes = element.props;
    let children = element.children;
      if(type != null){
@@ -35,9 +34,11 @@ export const document = (element: any) => {
        }
      }
     el += type === null ? `` : `>`
+    if(children === null || children === undefined){
+      return el;
+    }
     for (let i = 0;i < children.length; i++) {
-      let child = children[i];
-      console.log(child)
+      let child = children[i]; 
       if (Array.isArray(child)) {
          child.forEach((c) => {
             el += document(c);
