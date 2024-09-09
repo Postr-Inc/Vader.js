@@ -382,7 +382,7 @@ if (mode === 'development') {
                 return new Response(imageTypes.includes(file.type) ? await file.arrayBuffer() : await file.text(), {
                     headers: {
                         'Content-Type': file.type,
-                        'Cache-Control': 'no-cache',
+                        'Cache-Control': imageTypes.includes(file.type) ? 'max-age=31536000' : 'no-cache',
                         'Access-Control-Allow-Origin': '*'
                     }
                 })
