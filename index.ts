@@ -73,6 +73,20 @@ export const useEffect = (callback:any, dependencies: any[]) => {
 // make a switch function component
 
 
+export const A  = (props: any, children: any) => {
+   function handleClick(e) {
+    e.preventDefault();
+    window.history.pushState({}, "", props.href);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.location.reload();
+   }
+  return  {
+    type: "a",
+    props: {...props, onClick: handleClick},
+    children: children || [],
+  }
+}
+
 
 export const Fragment = (props: any, children: any) => { 
   return  {
@@ -262,15 +276,19 @@ export class Component {
     update: (oldElement, newElement) => {
 
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
-        console.log("should update");
-        oldElement.replaceWith(newElement);
+         let part = this.Reconciler.shouldUpdate(oldElement, newElement, true);
+        if (part === true) {
+          oldElement.replaceWith(newElement);
+        } else if (part.type === "attribute") {
+          oldElement.setAttribute(part.name, part.value);
+        }
       } else {
         for (let i = 0; i < newElement.childNodes.length; i++) {
-          this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i]);
+          this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i], true);
         }
       }
     },
-    shouldUpdate(oldElement, newElement) {
+    shouldUpdate(oldElement, newElement, isChild = false) {
       if (oldElement.nodeType !== newElement.nodeType) {
         return true;
       }
@@ -280,9 +298,15 @@ export class Component {
       if (oldElement.nodeName !== newElement.nodeName) {
         return true;
       }
-      if (oldElement.innerHTML !== newElement.innerHTML) {
-        return true;
+       
+      // replace attributes if they are different
+      for (let i = 0; i < newElement.attributes.length; i++) {
+        let attr = newElement.attributes[i];
+        if (oldElement.getAttribute(attr.name) !== attr.value) {
+          return  { type: "attribute", name: attr.name, value: attr.value };
+        }
       }
+
       if (oldElement.childNodes.length !== newElement.childNodes.length) {
         return true;
       }
@@ -290,8 +314,7 @@ export class Component {
     }
   };
   parseToElement = (element) => {
-    if (!element)
-      return document.createElement("div"); 
+    if (!element) return document.createElement("div"); 
     // create either a element or svg element
     let svg = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"];
     let el =  svg.includes(element.type) ? document.createElementNS("http://www.w3.org/2000/svg", element.type) : document.createElement(element.type);
