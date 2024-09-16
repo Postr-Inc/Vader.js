@@ -5,21 +5,46 @@ import { Glob } from 'bun'
 const args = Bun.argv.slice(2)
 import fs from 'fs'
 import path from 'path'
-if (!fs.existsSync(process.cwd() + '/app')) {
+if (!fs.existsSync(process.cwd() + '/app') && !args.includes('init')) {
     console.error(`App directory not found in ${process.cwd()}/app`)
     process.exit(1)
 }
 if (!fs.existsSync(process.cwd() + '/public')) {
     fs.mkdirSync(process.cwd() + '/public')
 }
-const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : null
+if (!fs.existsSync(process.cwd() + '/src')) {
+    fs.mkdirSync(process.cwd() + '/src')
+}
+if (!fs.existsSync(process.cwd() + '/vader.config.ts')) {
+    fs.writeFileSync(process.cwd() + '/vader.config.ts',
+        `
+import defineConfig from 'vaderjs/config'    
+export default  defineConfig({ 
+    port: 8080,
+    host_provider: 'apache'
+})`)
+}
+const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : args.includes('init') ? 'init' : null
 if (!mode) {
     console.log(`
     Usage:
      bun vaderjs dev - Start development server output in dist/
      bun vaderjs prod - Build for production output in dist/
+     bun vaderjs init - Initialize a new vaderjs project
     `)
     process.exit(1)
+}
+
+if (mode === 'init') {
+    if (fs.existsSync(process.cwd() + '/app')) {
+        console.error('App directory already exists: just run `bun vaderjs dev` to start the development server')
+        process.exit(1)
+    }
+    fs.mkdirSync(process.cwd() + '/app')  
+    fs.copyFileSync(path.join(process.cwd(), "/node_modules/vaderjs/example/counter/index.jsx"), path.join(process.cwd(), "/app/index.jsx"))
+
+    console.log('Initialized new vaderjs project: run `bun vaderjs dev` to start the development server')
+    procss.exit(1)
 }
 
 console.log(
@@ -30,6 +55,8 @@ console.log(
     `
 )
 
+
+console.log(ansiColors.green('Building...'))
 let start = Date.now()
 console.log(`Starting build at ${new Date().toLocaleTimeString()}`)
 let { port, host, host_provider } = require(process.cwd() + '/vader.config.ts').default
@@ -47,24 +74,33 @@ if (!fs.existsSync(process.cwd() + '/jsconfig.json')) {
     await Bun.write(process.cwd() + '/jsconfig.json', JSON.stringify(json, null, 4))
 }
 
-const bindes = []
+var bindes = []
 
-const handleReplacements = (code, file) => {
+const handleReplacements = (code) => {
     let lines = code.split('\n')
     let newLines = []
     for (let line of lines) {
         let hasImport = line.includes('import')
-        
+
         if (hasImport && line.includes('.css')) {
             try {
-                let url = path.join('/' + line.split("'")[1])
-                let css = fs.readFileSync(process.cwd() + url, 'utf-8')
+                let isSmallColon = line.includes("'")
+                let url = isSmallColon ? line.split("'")[1] : line.split('"')[1]
+                // start from "/" not "/app" 
+                // remvoe all ./ and ../
+                url = url.replaceAll('./', '/').replaceAll('../', '/')
+
+                let p = path.join(process.cwd(), '/', url)
                 line = '';
+                url = url.replace(process.cwd() + '/app', '')
+                url = url.replace(/\\/g, '/')
                 if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
-                    bindes.push(`<link rel="stylesheet" href="${url}">`)
+                    bindes.push(`
+                    <style>
+                      ${fs.readFileSync(p, 'utf-8')}
+                    </style>    
+                    `)
                 }
-                fs.mkdirSync(process.cwd() + '/dist' + path.dirname(url), { recursive: true })
-                fs.writeFileSync(process.cwd() + '/dist' + url, css)
             } catch (error) {
                 console.error(error)
             }
@@ -114,11 +150,11 @@ async function generateApp() {
     }
     return new Promise(async (resolve, reject) => {
         let routes = new Bun.FileSystemRouter({
-            dir: process.cwd() + '/app',
+            dir: path.join(process.cwd(), '/app'),
             style: 'nextjs'
         })
         routes.reload()
-        globalThis.routes = routes.routes 
+        globalThis.routes = routes.routes
         Object.keys(routes.routes).forEach(async (route) => {
 
             let r = routes.routes[route]
@@ -132,7 +168,7 @@ async function generateApp() {
         let route = window.location.pathname.split('/').filter(v => v !== '') 
         let params = {
             ${Object.keys(routes.match(route).params || {}).length > 0 ? Object.keys(routes.match(route).params || {}).map(p => {
-                return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p)}]`
+                return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p) + Object.keys(routes.match(route).params).length}]`
             }).join(',') : ""}
         }
         \n${code}
@@ -160,11 +196,13 @@ async function generateApp() {
                     file: process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r),
                     DEV: mode === 'development',
                     size,
+                    bindes: bindes.join('\n'),
                     filePath: r,
                     INPUT: `../app/${r.replace('.js', '.jsx')}`,
                 },
                 onExit({ exitCode: code }) {
                     if (code === 0) {
+                        bindes = []
                         console.log(`Built ${r} in ${Date.now() - start}ms`)
                         resolve()
                     } else {
@@ -182,9 +220,8 @@ async function generateApp() {
                     rewrites: []
                 }
 
-                for (let route in routes.routes) { 
+                for (let route in routes.routes) {
                     let { filePath, kind, name, params, pathname, query } = routes.match(route)
-                    console.log({ filePath, kind, name, params, pathname, query })
                     let r = route
 
                     if (r.includes('[')) {
@@ -192,8 +229,8 @@ async function generateApp() {
                     }
                     if (r === '/') {
                         continue
-                    } 
-                    
+                    }
+
                     vercelData.rewrites.push({
                         source: r,
                         destination: `${path.dirname(routes.routes[route]).replace(process.cwd().replace(/\\/g, '/') + '/app', '')}/index.html`
@@ -223,13 +260,13 @@ function handleFiles() {
             }
             let glob2 = new Glob('src/**/*')
             for await (var i of glob2.scan()) {
-              var file = i
+                var file = i
                 fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
-                 // turn jsx to js
-                if (file.includes('.jsx')) { 
+                // turn jsx to js
+                if (file.includes('.jsx')) {
                     let code = await Bun.file(file).text()
                     code = handleReplacements(code)
-                    
+
                     file = file.replace('.jsx', '.js')
                     fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.jsx', '.js')), code)
                     await Bun.spawn({
@@ -244,7 +281,35 @@ function handleFiles() {
                             DEV: mode === 'development',
                             size: code.length / 1024,
                             filePath: file.replace('.jsx', '.js'),
-                            INPUT:  path.join(process.cwd() , file.replace('.js', '.jsx')),
+                            INPUT: path.join(process.cwd(), file.replace('.js', '.jsx')),
+                        },
+                        onExit({ exitCode: code }) {
+                            if (code === 0) {
+                                resolve()
+                            } else {
+                                reject()
+                            }
+                        }
+                    })
+                } else if (file.includes('.ts')) {
+                    let code = await Bun.file(file).text()
+                    code = handleReplacements(code)
+                    file = file.replace('.ts', '.js')
+                    fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.ts', '.js')), code)
+                    await Bun.spawn({
+                        cmd: ['bun', 'run', './dev/bundler.js'],
+                        cwd: process.cwd(),
+                        stdout: 'inherit',
+                        env: {
+                            ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.ts', '.js')),
+                            ROOT: process.cwd() + '/app/',
+                            OUT: path.dirname(file),
+                            file: process.cwd() + '/dist/' + file.replace('.ts', '.js'),
+                            DEV: mode === 'development',
+                            isTS: true,
+                            size: code.length / 1024,
+                            filePath: file.replace('.ts', '.js'),
+                            INPUT: path.join(process.cwd(), file.replace('.js', '.jsx')),
                         },
                         onExit({ exitCode: code }) {
                             if (code === 0) {
@@ -255,9 +320,9 @@ function handleFiles() {
                         }
                     })
                 }
-                 
+
             }
-             
+
             resolve()
         } catch (error) {
             reject(error)
@@ -268,38 +333,41 @@ await handleFiles()
 globalThis.clients = []
 
 if (mode === 'development') {
-    const watcher = fs.watch(path.join(process.cwd() + '/app'), { recursive: true })
-    const publicWatcher = fs.watch(path.join(process.cwd() + '/public'), { recursive: true })
+    const watcher = fs.watch(path.join(process.cwd() + '/'), { recursive: true })
     let isBuilding = false; // Flag to track build status
 
     // Initialize a variable to hold the timeout ID
     let debounceTimeout;
 
     // Function to handle file changes with debounce
-    const handleFileChangeDebounced = async () => {
-        clearTimeout(debounceTimeout);
-        debounceTimeout = setTimeout(async () => {
-            if (!isBuilding) { // Check if not already building
-                isBuilding = true; // Set build flag to true
-                try {
-                    await generateApp();
-                    await handleFiles();
-                    clients.forEach(c => {
-                        c.send('reload');
-                    });
-                } catch (error) {
-                    console.error(error);
-                } finally {
-                    isBuilding = false; // Reset build flag
+    const handleFileChangeDebounced = async (change, file) => {
+        if (file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts')) {
+            if (file.includes('dist')) return
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(async () => {
+                if (!isBuilding) { // Check if not already building
+                    isBuilding = true; // Set build flag to true
+                    try {
+                        await generateApp();
+                        await handleFiles();
+                        let t = setTimeout(() => {
+                            clients.forEach(c => {
+                                c.send('reload');
+                            });
+                            clearTimeout(t)
+                        }, 1000)
+                    } catch (error) {
+                        console.error(error);
+                    } finally {
+                        isBuilding = false; // Reset build flag
+                    }
                 }
-            }
-        }, 500);
+            }, 500);
+        }
     };
 
-    // Event listeners with debounced handling
-    publicWatcher.on('change', handleFileChangeDebounced);
+    // Event listeners with debounced handling 
     watcher.on('change', handleFileChangeDebounced);
-
     let server = Bun.serve({
         port: port || 8080,
         websocket: {
@@ -324,10 +392,12 @@ if (mode === 'development') {
                 let p = url.pathname.replaceAll("%5B", "[").replaceAll("%5D", "]")
                 let file = await Bun.file(path.join(process.cwd() + '/dist' + p))
                 if (!await file.exists()) return new Response('Not found', { status: 404 })
-                return new Response(await file.text(), {
+                let imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp', 'image/tiff', 'image/bmp', 'image/ico', 'image/cur', 'image/jxr', 'image/jpg']
+
+                return new Response(imageTypes.includes(file.type) ? await file.arrayBuffer() : await file.text(), {
                     headers: {
                         'Content-Type': file.type,
-                        'Cache-Control': 'no-cache',
+                        'Cache-Control': imageTypes.includes(file.type) ? 'max-age=31536000' : 'no-cache',
                         'Access-Control-Allow-Origin': '*'
                     }
                 })
@@ -343,7 +413,8 @@ if (mode === 'development') {
             }
             let p = route.pathname;
             let base = path.dirname(route.filePath)
-            base = base.replace(path.join(process.cwd() + '/app'), '')
+            base = base.replace(/\\/g, '/')
+            base = base.replace(path.join(process.cwd() + '/app').replace(/\\/g, '/'), '')
             base = base.replace(/\\/g, '/').replace('/app', '/dist')
             base = process.cwd() + "/dist/" + base
             let data = await Bun.file(path.join(base, 'index.html')).text()
@@ -358,9 +429,9 @@ if (mode === 'development') {
             } 
             </script>
             `, {
-                   headers:{
-                      'Content-Type': 'text/html'
-                   }
+                    headers: {
+                        'Content-Type': 'text/html'
+                    }
                 })
             } else {
                 return new Response(data, {
@@ -376,3 +447,5 @@ if (mode === 'development') {
     console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`)
     process.exit(0)
 }
+
+console.log(ansiColors.green('Server started at http://localhost:' + port || 8080))

@@ -73,6 +73,7 @@ builtCode = handleReplacements(builtCode)
 fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
 }
 let isClass = function (element) {
+    if (!element) return false;
     return element.toString().startsWith("class");
 };
 const generatePage = async (
@@ -84,6 +85,10 @@ const generatePage = async (
     let { head } = await import(path).then((m) => m);
     let isFunction = false;
     globalThis.isServer = true;
+    if(!html) {
+        console.log(ansiColors.red(`No default export found in ${path}`))
+        process.exit(0)
+    }
     if (isClass(html)) {
         html = new html();
         html.Mounted = true;
