@@ -156,15 +156,19 @@ export function Match({ when, children }) {
  * @description -  Manage state and forceupdate specific affected elements
  * @param key 
  * @param initialState 
- * @returns {state,  (newState: any, Element: string) => void, key}
+ * @param persist - persist state on reload
+ * @returns {()=> T,  (newState: any, Element: string) => void, key}
  */
-export const useState = <T>(initialState: T) => {
+export const useState = <T>(initialState: T, persist: false) => {
   const setState = (newState: T) => {
     initialState = newState;
   }
+  /** 
+   * @returns {T}
+   */
   const getVal = () => {
-    return initialState;
-  }
+    return initialState as T
+  } 
 
   return [getVal, setState];
 } 
@@ -215,7 +219,7 @@ export class Component {
       }
     }
   }
-  useState(key, defaultValue) {
+  useState(key, defaultValue, persist = false) {
     if (typeof window === "undefined")
       return [defaultValue, () => {
       }];
@@ -230,7 +234,7 @@ export class Component {
     if (!window["listener" + key] && !isServer) {
       window["listener" + key] = true;
       window.addEventListener("beforeunload", () => {
-        sessionStorage.removeItem("state_" + key);
+        !persist && sessionStorage.removeItem("state_" + key);
       });
     }
     const setValue = (newValue) => {
@@ -276,12 +280,16 @@ export class Component {
     update: (oldElement, newElement) => {
 
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
-         let part = this.Reconciler.shouldUpdate(oldElement, newElement, true);
+        let part = this.Reconciler.shouldUpdate(oldElement, newElement, true);
         if (part === true) {
-          oldElement.replaceWith(newElement);
+          if (oldElement.nodeType === 3) {
+            oldElement.nodeValue = newElement.nodeValue;
+          } else {
+            oldElement.innerHTML = newElement.innerHTML;
+          }
         } else if (part.type === "attribute") {
           oldElement.setAttribute(part.name, part.value);
-        }
+        } 
       } else {
         for (let i = 0; i < newElement.childNodes.length; i++) {
           this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i], true);
@@ -290,26 +298,31 @@ export class Component {
     },
     shouldUpdate(oldElement, newElement, isChild = false) {
       if (oldElement.nodeType !== newElement.nodeType) {
-        return true;
+        // and both do not contain same text
+
+        return oldElement.innerHTML !== newElement.innerHTML ? { type: 'innerHTML' } : true;
       }
       if (oldElement.nodeType === 3 && newElement.nodeType === 3) {
-        return oldElement.textContent !== newElement.textContent;
+        if (oldElement.nodeValue !== newElement.nodeValue) {
+          return true;
+        }
       }
       if (oldElement.nodeName !== newElement.nodeName) {
         return true;
+      } 
+      if (oldElement.childNodes.length !== newElement.childNodes.length) {
+        return true;
       }
-       
-      // replace attributes if they are different
+     if(newElement.attributes){
       for (let i = 0; i < newElement.attributes.length; i++) {
         let attr = newElement.attributes[i];
         if (oldElement.getAttribute(attr.name) !== attr.value) {
           return  { type: "attribute", name: attr.name, value: attr.value };
         }
       }
-
-      if (oldElement.childNodes.length !== newElement.childNodes.length) {
-        return true;
-      }
+     }
+      
+  
       return false;
     }
   };
@@ -369,8 +382,7 @@ export class Component {
         } else if (typeof child === "object") {
           el.appendChild(this.parseToElement(child));
         } else {
-          let span = document.createElement("span");
-          span.innerHTML = child;
+          let span = document.createTextNode(child) 
           el.appendChild(span);
         }
       }
