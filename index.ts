@@ -193,6 +193,7 @@ export class Component {
   Mounted;
   effect;
   key;
+  effectCalls: any[]
   prevState;
   constructor() {
     this.key = crypto.randomUUID();
@@ -201,20 +202,66 @@ export class Component {
     this.effect = [];
     this.Mounted = false;
     this.element = null;
+    this.effectCalls = []
+    this.errorThreshold = 1000
+    this.maxIntervalCalls  = 10
   }
   useEffect(callback, dependencies) {
-    if (dependencies.length === 0 && this.Mounted && this.effect.length === 0) {
-      callback();
-      this.effect.push(callback);
-    } else {
-      for (let i = 0;i < dependencies.length; i++) {
-        if (this.effect[i] !== dependencies[i]) {
-          this.effect = dependencies;
-          callback();
-        }
-      }
+    const callbackId = callback.toString();
+ 
+    if (!this.effectCalls.some(s => s.id === callbackId)) {
+        this.effectCalls.push({ id: callbackId, count: 0, lastCall: Date.now() });
     }
-  }
+
+    const effectCall = this.effectCalls.find(s => s.id === callbackId);
+ 
+    const executeCallback = () => {
+        const now = Date.now();
+        const timeSinceLastCall = now - effectCall.lastCall;
+ 
+        if (timeSinceLastCall < this.errorThreshold) {
+            effectCall.count += 1;
+            if (effectCall.count > this.maxIntervalCalls) {
+                throw new Error(`Woah wayy too many calls, ensure you are not overlooping you can change the maxThresholdCalls and errorThreshold depending on needs`) 
+            }
+        } else {
+            effectCall.count = 1;   
+        }
+ 
+        effectCall.lastCall = now;
+ 
+        setTimeout(() => {
+            try {
+                callback();
+            } catch (error) {
+                console.error(error);
+            }
+        }, 0);
+    };
+ 
+    if (dependencies.length === 0 && this.Mounted && this.effect.length === 0) {
+        executeCallback();
+        this.effect.push(callbackId);
+    } else {
+        // Check if dependencies have changed
+        let dependenciesChanged = false;
+        if (dependencies.length !== this.effect.length) {
+            dependenciesChanged = true;
+        } else {
+            for (let i = 0; i < dependencies.length; i++) {
+                if (this.effect[i] !== dependencies[i]) {
+                    dependenciesChanged = true;
+                    break;
+                }
+            }
+        }
+ 
+        if (dependenciesChanged) {
+            this.effect = [...dependencies];
+            executeCallback();
+        }
+    }
+}
   useState(key, defaultValue, persist = false) {
     if (typeof window === "undefined")
       return [defaultValue, () => {
@@ -233,8 +280,7 @@ export class Component {
         !persist && sessionStorage.removeItem("state_" + key);
       });
     }
-    const setValue = (newValue) => {
-      console.log("setting value", newValue);
+    const setValue = (newValue) => { 
       sessionStorage.setItem("state_" + key, JSON.stringify({ value: newValue }));
       this.forceUpdate(this.key);
     };
@@ -274,7 +320,7 @@ export class Component {
   }
   Reconciler = {
     update: (oldElement, newElement) => {
-
+      if(!oldElement || !newElement) return;
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
         let part = this.Reconciler.shouldUpdate(oldElement, newElement, true);
         if (part === true) {

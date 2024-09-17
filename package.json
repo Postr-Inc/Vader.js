@@ -6,6 +6,6 @@
         "vaderjs": "./main.js"
     },
     "dependencies": {
-        "ansi-colors": "latest", 
+        "ansi-colors": "latest"
     }
 }
