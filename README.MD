@@ -2,7 +2,7 @@
   <a href="https://vader-js.pages.dev">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="/icon.jpeg">
-      <img src="./logo.png" height="128">
+      <img src="https://github.com/Postr-Inc/Vader.js/blob/main/logo.png" height="128">
     </picture>
     <h1 align="center">Vader.js</h1>
   </a>
