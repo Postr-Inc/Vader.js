@@ -286,6 +286,7 @@ function handleFiles() {
                             DEV: mode === 'development',
                             size: code.length / 1024,
                             filePath: file.replace('.jsx', '.js'),
+                            isTs: file.includes('.tsx'),
                             INPUT: path.join(process.cwd(), file.replace('.js', '.jsx').replace('.tsx', '.js')),
                         },
                         onExit({ exitCode: code }) {
