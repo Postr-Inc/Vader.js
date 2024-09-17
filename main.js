@@ -3,6 +3,7 @@
 import ansiColors from 'ansi-colors'
 import { Glob } from 'bun'
 const args = Bun.argv.slice(2)
+globalThis.isBuilding = false;
 import fs from 'fs'
 import path from 'path'
 if (!fs.existsSync(process.cwd() + '/app') && !args.includes('init')) {
@@ -23,10 +24,11 @@ export default  defineConfig({
     host_provider: 'apache'
 })`)
 }
-const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : args.includes('init') ? 'init' : null
+const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : args.includes('init') ? 'init' : args.includes('serve') ? 'serve' : null;
 if (!mode) {
     console.log(`
     Usage:
+     bun vaderjs serve - Start the server
      bun vaderjs dev - Start development server output in dist/
      bun vaderjs prod - Build for production output in dist/
      bun vaderjs init - Initialize a new vaderjs project
@@ -39,7 +41,7 @@ if (mode === 'init') {
         console.error('App directory already exists: just run `bun vaderjs dev` to start the development server')
         process.exit(1)
     }
-    fs.mkdirSync(process.cwd() + '/app')  
+    fs.mkdirSync(process.cwd() + '/app')
     fs.copyFileSync(path.join(process.cwd(), "/node_modules/vaderjs/example/counter/index.jsx"), path.join(process.cwd(), "/app/index.jsx"))
 
     console.log('Initialized new vaderjs project: run `bun vaderjs dev` to start the development server')
@@ -51,13 +53,11 @@ console.log(
   Mode: ${mode}
   SSR: ${require(process.cwd() + '/vader.config.ts').default.ssr ? 'Enabled' : 'Disabled'}
   PORT: ${require(process.cwd() + '/vader.config.ts').default.port || 8080}
+  ${mode == 'serve' ? `SSL: ${require(process.cwd() + '/vader.config.ts').default?.ssl?.enabled ? 'Enabled' : 'Disabled'} ` : ``}
     `
 )
 
 
-console.log(ansiColors.green('Building...'))
-let start = Date.now()
-console.log(`Starting build at ${new Date().toLocaleTimeString()}`)
 let { port, host, host_provider } = require(process.cwd() + '/vader.config.ts').default
 if (host_provider === 'apache' && mode === 'development') {
     console.warn('Note: SSR will not work with Apache')
@@ -140,7 +140,11 @@ const handleReplacements = (code) => {
 }
 
 
+let start = Date.now()
 async function generateApp() {
+    globalThis.isBuilding = true;
+    console.log(ansiColors.green('Building...'))
+    console.log(`Starting build at ${new Date().toLocaleTimeString()}`)
     // remove files from dist
     if (mode === 'development') {
         fs.rmdirSync(process.cwd() + '/dist', { recursive: true })
@@ -240,14 +244,13 @@ async function generateApp() {
                 break;
             case 'apache':
                 let data = ''
-                
+
         }
 
     })
 
 }
 
-await generateApp()
 function handleFiles() {
     return new Promise(async (resolve, reject) => {
         try {
@@ -331,10 +334,11 @@ function handleFiles() {
         }
     })
 }
-await handleFiles()
 globalThis.clients = []
 
 if (mode === 'development') {
+    await generateApp()
+    await handleFiles()
     const watcher = fs.watch(path.join(process.cwd() + '/'), { recursive: true })
     let isBuilding = false; // Flag to track build status
 
@@ -370,6 +374,19 @@ if (mode === 'development') {
 
     // Event listeners with debounced handling 
     watcher.on('change', handleFileChangeDebounced);
+
+} 
+else if(mode == 'production'){  
+    await handleFiles()
+    await generateApp() 
+}
+else {
+    if (isBuilding) console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`);
+
+}
+
+
+if (mode == 'development' || mode == 'serve') {
     let server = Bun.serve({
         port: port || 8080,
         websocket: {
@@ -426,6 +443,7 @@ if (mode === 'development') {
             let ws = new WebSocket('ws://localhost:${server.port}')
             ws.onmessage = (e) => {
                 if(e.data === 'reload'){
+                    console.log('Reloading to display changes from server')
                     window.location.reload()
                 }  
             } 
@@ -445,9 +463,6 @@ if (mode === 'development') {
 
         }
     })
-} else {
-    console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`)
-    process.exit(0)
-}
-
-console.log(ansiColors.green('Server started at http://localhost:' + port || 8080))
+    
+    console.log(ansiColors.green('Server started at http://localhost:' + port || 8080))
+} 
