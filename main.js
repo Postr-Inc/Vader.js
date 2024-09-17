@@ -17,8 +17,7 @@ if (!fs.existsSync(process.cwd() + '/src')) {
 }
 if (!fs.existsSync(process.cwd() + '/vader.config.ts')) {
     fs.writeFileSync(process.cwd() + '/vader.config.ts',
-        `
-import defineConfig from 'vaderjs/config'    
+        `import defineConfig from 'vaderjs/config'    
 export default  defineConfig({ 
     port: 8080,
     host_provider: 'apache'
@@ -162,7 +161,7 @@ async function generateApp() {
             code = handleReplacements(code)
             let size = code.length / 1024
             r = r.replace(process.cwd().replace(/\\/g, '/') + '/app', '')
-            r = r.replace('.jsx', '.js')
+            r = r.replace('.jsx', '.js').replace('.tsx', '.js')
             fs.mkdirSync(path.dirname(process.cwd() + '/dist/' + r), { recursive: true })
             fs.writeFileSync(process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r), `
         let route = window.location.pathname.split('/').filter(v => v !== '') 
@@ -198,7 +197,7 @@ async function generateApp() {
                     size,
                     bindes: bindes.join('\n'),
                     filePath: r,
-                    INPUT: `../app/${r.replace('.js', '.jsx')}`,
+                    INPUT: `../app/${r.replace('.js', '.jsx').replace('.tsx', '.js')}`,
                 },
                 onExit({ exitCode: code }) {
                     if (code === 0) {
@@ -239,6 +238,9 @@ async function generateApp() {
 
                 fs.writeFileSync(process.cwd() + '/vercel.json', JSON.stringify(vercelData, null, 4))
                 break;
+            case 'apache':
+                let data = ''
+                
         }
 
     })
@@ -263,25 +265,25 @@ function handleFiles() {
                 var file = i
                 fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
                 // turn jsx to js
-                if (file.includes('.jsx')) {
+                if (file.includes('.jsx') || file.includes('.tsx')) {
                     let code = await Bun.file(file).text()
                     code = handleReplacements(code)
 
-                    file = file.replace('.jsx', '.js')
-                    fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.jsx', '.js')), code)
+                    file = file.replace('.jsx', '.js').replace('.tsx', '.js')
+                    fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.jsx', '.js').replace('.tsx', '.js')), code)
                     await Bun.spawn({
                         cmd: ['bun', 'run', './dev/bundler.js'],
                         cwd: process.cwd(),
                         stdout: 'inherit',
                         env: {
-                            ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.jsx', '.js')),
+                            ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js')),
                             ROOT: process.cwd() + '/app/',
                             OUT: path.dirname(file),
-                            file: process.cwd() + '/dist/' + file.replace('.jsx', '.js'),
+                            file: process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js'),
                             DEV: mode === 'development',
                             size: code.length / 1024,
                             filePath: file.replace('.jsx', '.js'),
-                            INPUT: path.join(process.cwd(), file.replace('.js', '.jsx')),
+                            INPUT: path.join(process.cwd(), file.replace('.js', '.jsx').replace('.tsx', '.js')),
                         },
                         onExit({ exitCode: code }) {
                             if (code === 0) {

@@ -37,11 +37,10 @@ await Bun.build({
     entrypoints: [process.env.ENTRYPOINT],
     minify: false,
     root: process.cwd() + "/dist/",
-    outdir: process.cwd() + "/dist/",
-    
+    outdir: process.cwd() + "/dist/", 
     format: "esm",
     ...(process.env.DEV ? { sourcemap: "inline" } : {}),
-    external:['*.jsx', '*.js', '*.ts']
+    external:['*.jsx', '*.js', '*.ts', '*.tsx']
 });
 
 let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
@@ -54,8 +53,8 @@ function handleReplacements(code) {
             try { 
                 let url = line.includes("'") ? line.split("'")[1] : line.split('"')[1]
                  
-                line = line.replace(url, url.replace('.jsx', '.js'))
-                line  = line.replace(url, url.replace('.ts', '.js'))
+                line = line.replace(url, url.replace('.jsx', '.js').replace('.tsx', '.js'))
+                line  = line.replace(url, url.replace('.ts', '.js').replace('.tsx', '.js'))
                 newLines.push(line)
             } catch (error) { 
                 continue;
