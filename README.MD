@@ -16,7 +16,7 @@
 # Installation
 
 ```js
-npx vaderjs @latest
+bun install vaderjs @latest
 ```
 
 
