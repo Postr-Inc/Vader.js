@@ -1,6 +1,6 @@
 {
     "name": "vaderjs",
-    "version": "1.6.1",
+    "version": "1.6.2",
     "description": "A simple and powerful JavaScript library for building modern web applications.", 
     "bin": {
         "vaderjs": "./main.js"
@@ -9,6 +9,7 @@
         "type": "git",
         "url": "https://github.com/Postr-Inc/Vader.js"
     },
+    "license":"MIT",
     "dependencies": {
         "ansi-colors": "latest"
     }
