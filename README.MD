@@ -23,7 +23,7 @@ export default function(){
       <Match when={count() > 10}>
            <h1>Count is greater than 10 </h1>
       </Match>
-      <Match when={count < 10}>
+      <Match when={count() < 10}>
        <h1>Count is less than 10 </h1>
       </Match>
    </div>
