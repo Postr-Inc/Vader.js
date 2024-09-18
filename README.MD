@@ -12,7 +12,24 @@
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/Postr-Inc/Vader.js/blob/main/LICENSE) [![npm version](https://img.shields.io/npm/v/vaderjs.svg?style=flat)](https://www.npmjs.com/package/vaderjs)
 
+```tsx
+import { useState, Switch, Match } from "vaderjs"
 
+export default function(){
+  let [count, setCount] = useState(0)
+  return(
+    <div>
+     <Switch>
+      <Match when={count() > 10}>
+           <h1>Count is greater than 10 </h1>
+      <Match />
+      <Match when={count < 10}>
+       <h1>Count is less than 10 </h1>
+      <Match />
+   </div>
+  )
+}
+```
 # Installation
 
 ```js
