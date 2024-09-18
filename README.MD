@@ -22,10 +22,10 @@ export default function(){
      <Switch>
       <Match when={count() > 10}>
            <h1>Count is greater than 10 </h1>
-      <Match />
+      </Match>
       <Match when={count < 10}>
        <h1>Count is less than 10 </h1>
-      <Match />
+      </Match>
    </div>
   )
 }
