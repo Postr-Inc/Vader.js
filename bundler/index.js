@@ -37,42 +37,39 @@ await Bun.build({
     entrypoints: [process.env.ENTRYPOINT],
     minify: false,
     root: process.cwd() + "/dist/",
-    outdir: process.cwd() + "/dist/", 
+    outdir: process.cwd() + "/dist/",
+    
     format: "esm",
     ...(process.env.DEV ? { sourcemap: "inline" } : {}),
-    external:['*.jsx', '*.js', '*.ts', '*.tsx']
+    external:['*.jsx', '*.js', '*.ts']
 });
 
 let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
+ 
 function handleReplacements(code) {
     let lines = code.split("\n");
     let newLines = [];
     for (let line of lines) {
         let hasImport = line.includes('import')
-        if(hasImport && line.includes('from')){
-            try { 
+        if(hasImport && line.includes('from') && !newLines.includes(line)){
+            try {
                 let url = line.includes("'") ? line.split("'")[1] : line.split('"')[1]
-                 
                 line = line.replace(url, url.replace('.jsx', '.js').replace('.tsx', '.js'))
                 line  = line.replace(url, url.replace('.ts', '.js').replace('.tsx', '.js'))
                 newLines.push(line)
-            } catch (error) { 
+            } catch (error) {
                 continue;
             }
         }else{
-            newLines.push(line)
+              newLines.push(line)
         }
-        
     }
-    return  newLines.join('\n')
+    return newLines.join("\n");
 }
-if(!process.env.isTs){
-    
-builtCode = handleReplacements(builtCode) 
+builtCode = handleReplacements(builtCode)
 fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
-}
+
 let isClass = function (element) {
-    if (!element) return false;
     return element.toString().startsWith("class");
 };
 const generatePage = async (
@@ -84,10 +81,6 @@ const generatePage = async (
     let { head } = await import(path).then((m) => m);
     let isFunction = false;
     globalThis.isServer = true;
-    if(!html) {
-        console.log(ansiColors.red(`No default export found in ${path}`))
-        process.exit(0)
-    }
     if (isClass(html)) {
         html = new html();
         html.Mounted = true;
@@ -107,8 +100,8 @@ const generatePage = async (
         });
     }
     let headHtml = "";
-    if (head) {
-        headHtml = document(head()); 
+    if (head) { 
+        headHtml = document(head());  
     }
   
     await Bun.write(
