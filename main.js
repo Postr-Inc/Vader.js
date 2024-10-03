@@ -6,6 +6,29 @@ const args = Bun.argv.slice(2)
 globalThis.isBuilding = false;
 import fs from 'fs'
 import path from 'path'
+
+const vader = {
+    onFileChange: (file, cb) => {
+        fs.watch(file, cb)
+    },
+    runCommand: (cmd) => {
+        return new Promise((resolve, reject) => {
+              Bun.spawn(cmd, {
+                stdout: 'inherit',
+                cwd: process.cwd(),
+                onExit({ exitCode: code }) {
+                    if (code === 0) {
+                        resolve()
+                    } else {
+                        reject()
+                    }
+                }
+            })
+            
+
+        })
+    }
+}
 if (!fs.existsSync(process.cwd() + '/app') && !args.includes('init')) {
     console.error(`App directory not found in ${process.cwd()}/app`)
     process.exit(1)
@@ -24,6 +47,7 @@ export default  defineConfig({
     host_provider: 'apache'
 })`)
 }
+const config =  require(process.cwd() + '/vader.config.ts').default
 const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : args.includes('init') ? 'init' : args.includes('serve') ? 'serve' : null;
 if (!mode) {
     console.log(`
@@ -133,6 +157,7 @@ const handleReplacements = (code) => {
             b4 = line.replace('useRef(', `this.useRef('${key}',`)
             line = b4
         }
+        
         newLines.push(line)
     }
     let c = newLines.join('\n')
@@ -246,9 +271,16 @@ async function generateApp() {
                 let data = ''
 
         }
-
+  // run all plugins that have onBuildFinish
+  let plugins = config.plugins || []
+  for (let plugin of plugins) {
+      if (plugin.onBuildFinish) {
+          await plugin.onBuildFinish(vader)
+      }
+  } 
     })
 
+   
 }
 
 function handleFiles() {
