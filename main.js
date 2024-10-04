@@ -7,28 +7,7 @@ globalThis.isBuilding = false;
 import fs from 'fs'
 import path from 'path'
 
-const vader = {
-    onFileChange: (file, cb) => {
-        fs.watch(file, cb)
-    },
-    runCommand: (cmd) => {
-        return new Promise((resolve, reject) => {
-              Bun.spawn(cmd, {
-                stdout: 'inherit',
-                cwd: process.cwd(),
-                onExit({ exitCode: code }) {
-                    if (code === 0) {
-                        resolve()
-                    } else {
-                        reject()
-                    }
-                }
-            })
-            
 
-        })
-    }
-}
 if (!fs.existsSync(process.cwd() + '/app') && !args.includes('init')) {
     console.error(`App directory not found in ${process.cwd()}/app`)
     process.exit(1)
@@ -47,7 +26,7 @@ export default  defineConfig({
     host_provider: 'apache'
 })`)
 }
-const config =  require(process.cwd() + '/vader.config.ts').default
+const config = require(process.cwd() + '/vader.config.ts').default
 const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : args.includes('init') ? 'init' : args.includes('serve') ? 'serve' : null;
 if (!mode) {
     console.log(`
@@ -98,7 +77,37 @@ if (!fs.existsSync(process.cwd() + '/jsconfig.json')) {
 }
 
 var bindes = []
+var fnmap = []
+const vader = {
+    onFileChange: (file, cb) => {
+        fs.watch(file, cb)
+    },
+    runCommand: (cmd) => {
+        return new Promise((resolve, reject) => {
+            Bun.spawn(cmd, {
+                stdout: 'inherit',
+                cwd: process.cwd(),
+                onExit({ exitCode: code }) {
+                    if (code === 0) {
+                        resolve()
+                    } else {
+                        reject()
+                    }
+                }
+            })
 
+
+        })
+    },
+    onBuildStart: (cb) => {
+        if (!fnmap.find(v => v.code == cb.toString())) {
+            fnmap.push({ code: cb.toString(), fn: cb })
+        }
+    },
+    injectHTML: (html) => {
+        bindes.push(html)
+    },
+}
 const handleReplacements = (code) => {
     let lines = code.split('\n')
     let newLines = []
@@ -157,7 +166,7 @@ const handleReplacements = (code) => {
             b4 = line.replace('useRef(', `this.useRef('${key}',`)
             line = b4
         }
-        
+
         newLines.push(line)
     }
     let c = newLines.join('\n')
@@ -170,6 +179,10 @@ async function generateApp() {
     globalThis.isBuilding = true;
     console.log(ansiColors.green('Building...'))
     console.log(`Starting build at ${new Date().toLocaleTimeString()}`)
+    for (let fn of fnmap) {
+        await fn.fn(vader)
+        fnmap = fnmap.filter(v => v.code !== fn.code)
+    }
     // remove files from dist
     if (mode === 'development') {
         fs.rmdirSync(process.cwd() + '/dist', { recursive: true })
@@ -271,16 +284,16 @@ async function generateApp() {
                 let data = ''
 
         }
-  // run all plugins that have onBuildFinish
-  let plugins = config.plugins || []
-  for (let plugin of plugins) {
-      if (plugin.onBuildFinish) {
-          await plugin.onBuildFinish(vader)
-      }
-  } 
+        // run all plugins that have onBuildFinish
+        let plugins = config.plugins || []
+        for (let plugin of plugins) {
+            if (plugin.onBuildFinish) {
+                await plugin.onBuildFinish(vader)
+            }
+        }
     })
 
-   
+
 }
 
 function handleFiles() {
@@ -408,10 +421,10 @@ if (mode === 'development') {
     // Event listeners with debounced handling 
     watcher.on('change', handleFileChangeDebounced);
 
-} 
-else if(mode == 'production'){  
+}
+else if (mode == 'production') {
     await handleFiles()
-    await generateApp() 
+    await generateApp()
 }
 else {
     if (isBuilding) console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`);
@@ -496,6 +509,6 @@ if (mode == 'development' || mode == 'serve') {
 
         }
     })
-    
+
     console.log(ansiColors.green('Server started at http://localhost:' + port || 8080))
 } 
