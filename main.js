@@ -179,11 +179,13 @@ async function generateApp() {
     globalThis.isBuilding = true;
     console.log(ansiColors.green('Building...'))
     console.log(`Starting build at ${new Date().toLocaleTimeString()}`)
-    for (let fn of fnmap) {
-        await fn.fn(vader)
-        fnmap = fnmap.filter(v => v.code !== fn.code)
+    let plugins = config.plugins || []
+    for (let plugin of plugins) {
+        if (plugin.onBuildStart) {
+            await plugin.onBuildStart(vader)
+        }
     }
-    // remove files from dist
+
     if (mode === 'development') {
         fs.rmdirSync(process.cwd() + '/dist', { recursive: true })
     } else {
