@@ -20,13 +20,13 @@ if (!fs.existsSync(process.cwd() + '/src')) {
 }
 if (!fs.existsSync(process.cwd() + '/vader.config.ts')) {
     fs.writeFileSync(process.cwd() + '/vader.config.ts',
-        `import defineConfig from 'vaderjs/config'    
-export default  defineConfig({ 
+        `import defineConfig from 'vaderjs/config'
+export default  defineConfig({
     port: 8080,
     host_provider: 'apache'
 })`)
 }
-const config = require(process.cwd() + '/vader.config.ts').default
+var config = require(process.cwd() + '/vader.config.ts').default
 const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : args.includes('init') ? 'init' : args.includes('serve') ? 'serve' : null;
 if (!mode) {
     console.log(`
@@ -44,11 +44,10 @@ if (mode === 'init') {
         console.error('App directory already exists: just run `bun vaderjs dev` to start the development server')
         process.exit(1)
     }
-    fs.mkdirSync(process.cwd() + '/app')
-    fs.copyFileSync(path.join(process.cwd(), "/node_modules/vaderjs/example/counter/index.jsx"), path.join(process.cwd(), "/app/index.jsx"))
-
+    let counterText = await Bun.file(path.join(process.cwd(), "/node_modules/vaderjs/examples/counter/index.jsx")).text()
+    await Bun.write(path.join(process.cwd(), "/app/index.jsx"), counterText)
     console.log('Initialized new vaderjs project: run `bun vaderjs dev` to start the development server')
-    procss.exit(1)
+    process.exit(0)
 }
 
 console.log(
@@ -118,7 +117,7 @@ const handleReplacements = (code) => {
             try {
                 let isSmallColon = line.includes("'")
                 let url = isSmallColon ? line.split("'")[1] : line.split('"')[1]
-                // start from "/" not "/app" 
+                // start from "/" not "/app"
                 // remvoe all ./ and ../
                 url = url.replaceAll('./', '/').replaceAll('../', '/')
 
@@ -130,7 +129,7 @@ const handleReplacements = (code) => {
                     bindes.push(`
                     <style>
                       ${fs.readFileSync(p, 'utf-8')}
-                    </style>    
+                    </style>
                     `)
                 }
             } catch (error) {
@@ -208,7 +207,7 @@ async function generateApp() {
             r = r.replace('.jsx', '.js').replace('.tsx', '.js')
             fs.mkdirSync(path.dirname(process.cwd() + '/dist/' + r), { recursive: true })
             fs.writeFileSync(process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r), `
-        let route = window.location.pathname.split('/').filter(v => v !== '') 
+        let route = window.location.pathname.split('/').filter(v => v !== '')
         let params = {
             ${Object.keys(routes.match(route).params || {}).length > 0 ? Object.keys(routes.match(route).params || {}).map(p => {
                 return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p) + Object.keys(routes.match(route).params).length}]`
@@ -301,6 +300,7 @@ async function generateApp() {
 function handleFiles() {
     return new Promise(async (resolve, reject) => {
         try {
+            console.log(Glob)
             let glob = new Glob('public/**/*')
             for await (var i of glob.scan()) {
                 let file = i
@@ -395,7 +395,20 @@ if (mode === 'development') {
 
     // Function to handle file changes with debounce
     const handleFileChangeDebounced = async (change, file) => {
-        if (file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts')) {
+        if (file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts')
+        && !file.includes('node_module')
+        ) {
+            // delete files cache
+            if (file.endsWith('vader.config.ts')){
+                delete require.cache[require.resolve(process.cwd() + '/vader.config.ts')]
+
+                config = require(process.cwd() + '/vader.config.ts').default
+                port = config.port;
+                host_provider = config.host_provider
+                host = config.host
+
+                globalThis.config = config
+            }
             if (file.includes('dist')) return
             clearTimeout(debounceTimeout);
             debounceTimeout = setTimeout(async () => {
@@ -420,7 +433,7 @@ if (mode === 'development') {
         }
     };
 
-    // Event listeners with debounced handling 
+    // Event listeners with debounced handling
     watcher.on('change', handleFileChangeDebounced);
 
 }
@@ -493,8 +506,8 @@ if (mode == 'development' || mode == 'serve') {
                 if(e.data === 'reload'){
                     console.log('Reloading to display changes from server')
                     window.location.reload()
-                }  
-            } 
+                }
+            }
             </script>
             `, {
                     headers: {
@@ -513,4 +526,4 @@ if (mode == 'development' || mode == 'serve') {
     })
 
     console.log(ansiColors.green('Server started at http://localhost:' + port || 8080))
-} 
+}
