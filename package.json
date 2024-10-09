@@ -1,6 +1,6 @@
 {
     "name": "vaderjs",
-    "version": "1.6.7",
+    "version": "1.6.9",
     "description": "A simple and powerful JavaScript library for building modern web applications.", 
     "bin": {
         "vaderjs": "./main.js"
