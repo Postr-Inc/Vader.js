@@ -1,19 +1,19 @@
 //@ts-nocheck
 let isClassComponent = function(element) {
   return element.toString().startsWith("class");
-}; 
+};
 
 const memoizes = new Map();
 //@ts-ignore
- 
+
 declare global {
   interface Window {
     onbeforeunload: any;
     localStorage: any;
     sessionStorage: any;
     state: any;
-  } 
-  const genKey: any; 
+  }
+  const genKey: any;
   /**
    * @description Allows you to check if current session is server or  client
    */
@@ -42,13 +42,13 @@ globalThis.params = {
     }
   },
 };
- 
- 
+
+
 
 /**
  * @description useFetch allows you to make POST - GET - PUT - DELETE requests then returns the data, loading state and error
- * @param url 
- * @param options 
+ * @param url
+ * @param options
  * @returns  [data, loading, error]
  */
 export const useFetch = (url: string, options: any) => {
@@ -56,9 +56,9 @@ export const useFetch = (url: string, options: any) => {
 };
 
 /**
- * @description  - Handle asyncronous promises and return the data or error; 
- * @param promise 
- * @returns 
+ * @description  - Handle asyncronous promises and return the data or error;
+ * @param promise
+ * @returns
  */
 export const useAsyncState = (promise: Promise<any>) => {
   return [null, () => {}];
@@ -68,17 +68,35 @@ export const useEffect = (callback:any, dependencies: any[]) => {
   if (dependencies.length === 0) {
     callback();
   }
-} 
+}
 
 // make a switch function component
 
 
-export const A  = (props: any, children: any) => {
+export const A  = (props: {
+  /**
+  * @description Set the elements classlist
+  */
+  class: string;
+  /**
+  * @description Once clicked send user to a different link
+  */
+  href: string;
+  style: string;
+  openInNewTab: boolean
+  onClick: () => void;
+  onChange: () => void;
+}, children: any) => {
    function handleClick(e) {
     e.preventDefault();
+    if(props.openInNewTab){
+      window.open(props.href, "_blank");
+      return void 0;
+    }
     window.history.pushState({}, "", props.href);
     window.dispatchEvent(new PopStateEvent("popstate"));
     window.location.reload();
+     return void 0;
    }
   return  {
     type: "a",
@@ -88,33 +106,39 @@ export const A  = (props: any, children: any) => {
 }
 
 
-export const Fragment = (props: any, children: any) => { 
-  return  children[0];
+export const Fragment = (props: any, children: any) => {
+  return  {
+    type:null,
+    props: props,
+    children
+  }
 }
 
 globalThis.Fragment = Fragment;
 
 /**
  * @description - Create a new element
- * @param element 
- * @param props 
- * @param children 
- * @returns 
+ * @param element
+ * @param props
+ * @param children
+ * @returns
  */
-export const e = (element, props, ...children) => { 
+export const e = (element, props, ...children) => {
   let instance;
   switch (true) {
     case isClassComponent(element):
       instance = new element;
       instance.props = props;
       instance.children = children;
+      instance.Mounted = true;
       return instance.render(props);
     case typeof element === "function":
       instance = new Component;
-      instance.render = element;  
+      instance.render = element;
+      instance.Mounted = true;
       let firstEl = instance.render({key: instance.key, children: children, ...props}, children);
-      instance.children = children;  
-      if (!firstEl) firstEl = {type: "div", props: {key: instance.key,  ...props}, children: children}; 
+      instance.children = children;
+      if (!firstEl) firstEl = {type: "div", props: {key: instance.key,  ...props}, children: children};
       firstEl.props = { key: instance.key,  ...firstEl.props, ...props };
       return firstEl;
     default:
@@ -142,16 +166,16 @@ export function Switch({ children }) {
 
 /**
  * @description - Match component
- * @param param0 
- * @returns 
+ * @param param0
+ * @returns
  */
 export function Match({ when, children }) {
   return when ? children : { type: "div", props: {}, children: [] };
 }
 /**
  * @description -  Manage state and forceupdate specific affected elements
- * @param key 
- * @param initialState 
+ * @param key
+ * @param initialState
  * @param persist - persist state on reload
  * @returns {()=> T,  (newState: any, Element: string) => void, key}
  */
@@ -159,15 +183,20 @@ export const useState = <T>(initialState: T, persist: false) => {
   const setState = (newState: T) => {
     initialState = newState;
   }
-  /** 
+  /**
    * @returns {T}
    */
   const getVal = () => {
-    return initialState as T
-  } 
+    return initialState as T;
+  }
 
   return [getVal, setState];
-} 
+}
+
+if (!isServer) {
+  window.effects = []
+}
+
 
 /**
  * @description -  Create a new component
@@ -183,7 +212,7 @@ export const useState = <T>(initialState: T, persist: false) => {
  *     </div>
  *    )
  *  }
- * 
+ *
  *  render(<App name="John" />, document.getElementById("root"));
  */
 export class Component {
@@ -194,6 +223,7 @@ export class Component {
   effect;
   key;
   effectCalls: any[]
+  eventRegistry: any
   prevState;
   constructor() {
     this.key = crypto.randomUUID();
@@ -205,31 +235,32 @@ export class Component {
     this.effectCalls = []
     this.errorThreshold = 1000
     this.maxIntervalCalls  = 10
+    this.eventRegistry = new Map();
   }
-  useEffect(callback, dependencies) {
+  useEffect(callback, dependencies = []) {
     const callbackId = callback.toString();
- 
+
     if (!this.effectCalls.some(s => s.id === callbackId)) {
-        this.effectCalls.push({ id: callbackId, count: 0, lastCall: Date.now() });
+        this.effectCalls.push({ id: callbackId, count: 0, lastCall: Date.now(), runOnce: dependencies.length === 0 });
     }
 
     const effectCall = this.effectCalls.find(s => s.id === callbackId);
- 
+
     const executeCallback = () => {
         const now = Date.now();
         const timeSinceLastCall = now - effectCall.lastCall;
- 
+
         if (timeSinceLastCall < this.errorThreshold) {
             effectCall.count += 1;
             if (effectCall.count > this.maxIntervalCalls) {
-                throw new Error(`Woah wayy too many calls, ensure you are not overlooping you can change the maxThresholdCalls and errorThreshold depending on needs`) 
+                throw new Error(`Woah wayy too many calls, ensure you are not overlooping you can change the maxThresholdCalls and errorThreshold depending on needs`)
             }
         } else {
-            effectCall.count = 1;   
+            effectCall.count = 1;
         }
- 
+
         effectCall.lastCall = now;
- 
+
         setTimeout(() => {
             try {
                 callback();
@@ -238,10 +269,11 @@ export class Component {
             }
         }, 0);
     };
- 
-    if (dependencies.length === 0 && this.Mounted && this.effect.length === 0) {
+
+    if (dependencies.length === 0 && this.Mounted && this.effect.length === 0 && !effects.includes(callbackId)){
         executeCallback();
         this.effect.push(callbackId);
+        effects.push(callbackId);
     } else {
         // Check if dependencies have changed
         let dependenciesChanged = false;
@@ -255,7 +287,7 @@ export class Component {
                 }
             }
         }
- 
+
         if (dependenciesChanged) {
             this.effect = [...dependencies];
             executeCallback();
@@ -267,7 +299,7 @@ export class Component {
       return [defaultValue, () => {
       }];
      let value = sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
-    
+
     if (typeof value === "string") {
       try {
         value = JSON.parse(value);
@@ -280,7 +312,10 @@ export class Component {
         !persist && sessionStorage.removeItem("state_" + key);
       });
     }
-    const setValue = (newValue) => { 
+    const setValue = (newValue) => {
+      if (typeof newValue === "function") {
+        newValue = newValue(value);
+      }
       sessionStorage.setItem("state_" + key, JSON.stringify({ value: newValue }));
       this.forceUpdate(this.key);
     };
@@ -295,9 +330,9 @@ export class Component {
     const dataKey = "_data" + url;
     let [loading, setLoading] = this.useState(loadingKey, true);
     let [error, setError] = this.useState(errorKey, null);
-    let [data, setData] = this.useState(dataKey, null); 
+    let [data, setData] = this.useState(dataKey, null);
     if (loading && !error && !data) {
-      fetch(url, options).then((res) => res.json()).then((data2) => { 
+      fetch(url, options).then((res) => res.json()).then((data2) => {
         setLoading(false);
         setData(data2);
         this.forceUpdate(this.key);
@@ -308,19 +343,23 @@ export class Component {
     }
     return [data, loading, error];
   }
-  forceUpdate(key) { 
+  forceUpdate(key) {
     let el = Array.from(document.querySelectorAll("*")).filter((el2) => {
       return el2.key === key;
     })[0];
-    let newl = this.toElement(); 
+    let newl = this.toElement();
     if (newl.key !== key) {
       newl = Array.from(newl.children).filter((el2) => el2.key === key)[0];
-    }  
+    }
     this.Reconciler.update(el, newl);
   }
   Reconciler = {
     update: (oldElement, newElement) => {
-      if(!oldElement || !newElement) return;
+      if (!oldElement || !newElement) return;
+
+      // Store and re-attach events before updating
+      const events = this.eventRegistry.get(oldElement) || [];
+
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
         let part = this.Reconciler.shouldUpdate(oldElement, newElement, true);
         if (part === true) {
@@ -328,25 +367,36 @@ export class Component {
             oldElement.nodeValue = newElement.nodeValue;
           } else {
             oldElement.innerHTML = newElement.innerHTML;
-            // swap attributes
+
+            // Swap attributes
             for (let i = 0; i < newElement.attributes.length; i++) {
               let attr = newElement.attributes[i];
               oldElement.setAttribute(attr.name, attr.value);
             }
+
+            // Re-attach events
+            for (const { event, handler } of events) {
+              oldElement.addEventListener(event, handler);
+            }
+
+            // Update children recursively
+            for (let i = 0; i < newElement.childNodes.length; i++) {
+              this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i], true);
+            }
           }
         } else if (part.type === "attribute") {
           oldElement.setAttribute(part.name, part.value);
-        } 
+        }
       } else {
+        // Update children recursively
         for (let i = 0; i < newElement.childNodes.length; i++) {
           this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i], true);
         }
       }
     },
-    shouldUpdate(oldElement, newElement, isChild = false) {
-      if (oldElement.nodeType !== newElement.nodeType) {
-        // and both do not contain same text
 
+    shouldUpdate: (oldElement, newElement, isChild = false) => {
+      if (oldElement.nodeType !== newElement.nodeType) {
         return oldElement.innerHTML !== newElement.innerHTML ? { type: 'innerHTML' } : true;
       }
       if (oldElement.nodeType === 3 && newElement.nodeType === 3) {
@@ -356,25 +406,24 @@ export class Component {
       }
       if (oldElement.nodeName !== newElement.nodeName) {
         return true;
-      } 
+      }
       if (oldElement.childNodes.length !== newElement.childNodes.length) {
         return true;
       }
-     if(newElement.attributes){
-      for (let i = 0; i < newElement.attributes.length; i++) {
-        let attr = newElement.attributes[i];
-        if (oldElement.getAttribute(attr.name) !== attr.value) {
-          return  { type: "attribute", name: attr.name, value: attr.value };
+      if (newElement.attributes) {
+        for (let i = 0; i < newElement.attributes.length; i++) {
+          let attr = newElement.attributes[i];
+          if (oldElement.getAttribute(attr.name) !== attr.value) {
+            return { type: "attribute", name: attr.name, value: attr.value };
+          }
         }
       }
-     }
-      
-  
       return false;
     }
   };
+
   parseToElement = (element) => {
-    if (!element) return document.createElement("div"); 
+    if (!element) return document.createElement("div");
     // create either a element or svg element
     let svg = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"];
     let el =  svg.includes(element.type) ? document.createElementNS("http://www.w3.org/2000/svg", element.type) : document.createElement(element.type);
@@ -399,12 +448,13 @@ export class Component {
               el.style[styleKey] = attributes[key][styleKey];
             }
           } catch (error) {
-            
+
           }
           continue;
         }
         if (key.startsWith("on")) {
           el.addEventListener(key.substring(2).toLowerCase(), attributes[key]);
+          this.eventRegistry.set(el, [...(this.eventRegistry.get(el) || []), { event: key.substring(2).toLowerCase(), handler: attributes[key] }]);
           continue;
         }
         el.setAttribute(key, attributes[key]);
@@ -429,7 +479,7 @@ export class Component {
         } else if (typeof child === "object") {
           el.appendChild(this.parseToElement(child));
         } else {
-          let span = document.createTextNode(child) 
+          let span = document.createTextNode(child)
           el.appendChild(span);
         }
       }
@@ -444,7 +494,7 @@ export class Component {
   }
   toElement() {
     let children = this.render();
-  
+
     let el = this.parseToElement(children);
     el.key = this.key;
     return el;
@@ -453,7 +503,7 @@ export class Component {
     return "";
   }
 }
- 
+
 function memoizeClassComponent(Component: any) {
   let key = Component.toString();
   if (memoizes.has(key)) {
@@ -466,10 +516,10 @@ function memoizeClassComponent(Component: any) {
 }
 /**
  * @description - Render jsx Componenet to the DOM
- * @param element 
- * @param container 
+ * @param element
+ * @param container
  */
-export function render(element, container) { 
+export function render(element, container) {
   if (isClassComponent(element)) {
     const instance = new element;
     instance.Mounted = true;
@@ -481,7 +531,7 @@ export function render(element, container) {
     let memoizedInstance = memoizeClassComponent(Component);
     memoizedInstance.Mounted = true;
     memoizedInstance.render = element.bind(memoizedInstance);
-    let el = memoizedInstance.toElement();  
+    let el = memoizedInstance.toElement();
     el.key = memoizedInstance.key;
     container.innerHTML = "";
     container.replaceWith(el);

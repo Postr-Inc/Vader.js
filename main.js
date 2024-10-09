@@ -317,6 +317,7 @@ function handleFiles() {
                 // turn jsx to js
                 if (file.includes('.jsx') || file.includes('.tsx')) {
                     let code = await Bun.file(file).text()
+
                     code = handleReplacements(code)
 
                     file = file.replace('.jsx', '.js').replace('.tsx', '.js')
@@ -329,6 +330,7 @@ function handleFiles() {
                             ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js')),
                             ROOT: process.cwd() + '/app/',
                             OUT: path.dirname(file),
+                            shouldReplace: true,
                             file: process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js'),
                             DEV: mode === 'development',
                             size: code.length / 1024,
