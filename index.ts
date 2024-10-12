@@ -63,8 +63,8 @@ export const useFetch = (url: string, options: any) => {
 export const useAsyncState = (promise: Promise<any>) => {
   return [null, () => {}];
 }
-export const useEffect = (callback:any, dependencies: any[]) => {
-  dependencies = dependencies.map((dep) => dep.toString());
+export const useEffect = (callback:any, dependencies: any[] = []) => {
+  dependencies = dependencies.map((dep) =>  JSON.stringify(dep));
   if (dependencies.length === 0) {
     callback();
   }
@@ -225,6 +225,7 @@ export class Component {
   effectCalls: any[]
   eventRegistry: any
   prevState;
+  refs: HTMLElement[] | any[]
   constructor() {
     this.key = crypto.randomUUID();
     this.props = {};
@@ -236,6 +237,14 @@ export class Component {
     this.errorThreshold = 1000
     this.maxIntervalCalls  = 10
     this.eventRegistry = new Map();
+    this.refs = []
+  }
+  useRef = (key, value) => {
+     if(!this.refs.find((r)=> r.key == key)){
+        this.refs.push({key, value});
+     }
+
+      return this.refs.find((r)=> r.key == key).value;
   }
   useEffect(callback, dependencies = []) {
     const callbackId = callback.toString();
@@ -263,7 +272,10 @@ export class Component {
 
         setTimeout(() => {
             try {
-                callback();
+
+              effects.push(callbackId);
+
+                callback()
             } catch (error) {
                 console.error(error);
             }
@@ -273,7 +285,6 @@ export class Component {
     if (dependencies.length === 0 && this.Mounted && this.effect.length === 0 && !effects.includes(callbackId)){
         executeCallback();
         this.effect.push(callbackId);
-        effects.push(callbackId);
     } else {
         // Check if dependencies have changed
         let dependenciesChanged = false;
@@ -312,6 +323,9 @@ export class Component {
         !persist && sessionStorage.removeItem("state_" + key);
       });
     }
+    const clear = () =>{
+      sessionStorage.removeItem("state_" + key)
+    }
     const setValue = (newValue) => {
       if (typeof newValue === "function") {
         newValue = newValue(value);
@@ -322,26 +336,31 @@ export class Component {
     const getVal = () => {
       return sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
     }
-    return [getVal, setValue];
+    return [getVal, setValue, clear];
   }
   useFetch(url, options) {
     const loadingKey = "loading_" + url;
     const errorKey = "error" + url;
     const dataKey = "_data" + url;
-    let [loading, setLoading] = this.useState(loadingKey, true);
-    let [error, setError] = this.useState(errorKey, null);
-    let [data, setData] = this.useState(dataKey, null);
-    if (loading && !error && !data) {
+    let [loading, setLoading, _clear1] = this.useState(loadingKey, true);
+    let [error, setError, _clear2] = this.useState(errorKey, null);
+    let [data, setData, clear] = this.useState(dataKey, null);
+    if (loading() && !error() && !data()) {
       fetch(url, options).then((res) => res.json()).then((data2) => {
         setLoading(false);
         setData(data2);
         this.forceUpdate(this.key);
+        setTimeout(()=> {
+          _clear1()
+          _clear2()
+          clear()
+        }, 1500)
       }).catch((err) => {
         setError(err);
         this.forceUpdate(this.key);
       });
     }
-    return [data, loading, error];
+    return { loading, error, data };
   }
   forceUpdate(key) {
     let el = Array.from(document.querySelectorAll("*")).filter((el2) => {
@@ -358,7 +377,8 @@ export class Component {
       if (!oldElement || !newElement) return;
 
       // Store and re-attach events before updating
-      const events = this.eventRegistry.get(oldElement) || [];
+      const events = this.eventRegistry.get(oldElement.toString()) || [];
+
 
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
         let part = this.Reconciler.shouldUpdate(oldElement, newElement, true);
@@ -375,9 +395,11 @@ export class Component {
             }
 
             // Re-attach events
-            for (const { event, handler } of events) {
+            events.forEach(ev => {
+              const { event, handler } = ev
               oldElement.addEventListener(event, handler);
-            }
+              newElement.addEventListener(event, handler)
+            });
 
             // Update children recursively
             for (let i = 0; i < newElement.childNodes.length; i++) {
@@ -388,6 +410,11 @@ export class Component {
           oldElement.setAttribute(part.name, part.value);
         }
       } else {
+        events.forEach(ev => {
+          const { event, handler } = ev
+          oldElement.addEventListener(event, handler);
+          newElement.addEventListener(event, handler)
+        });
         // Update children recursively
         for (let i = 0; i < newElement.childNodes.length; i++) {
           this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i], true);
@@ -428,7 +455,8 @@ export class Component {
     let svg = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"];
     let el =  svg.includes(element.type) ? document.createElementNS("http://www.w3.org/2000/svg", element.type) : document.createElement(element.type);
     let isText = typeof element === "string" || typeof element === "number" || typeof element === "boolean";
-    if (isText) {
+    if (isText && element){
+      console.log(element)
       el.innerHTML = element;
     } else {
       let attributes = element.props;
@@ -454,7 +482,7 @@ export class Component {
         }
         if (key.startsWith("on")) {
           el.addEventListener(key.substring(2).toLowerCase(), attributes[key]);
-          this.eventRegistry.set(el, [...(this.eventRegistry.get(el) || []), { event: key.substring(2).toLowerCase(), handler: attributes[key] }]);
+          this.eventRegistry.set(el.toString(), [...(this.eventRegistry.get(el) || []), { event: key.substring(2).toLowerCase(), handler: attributes[key] }]);
           continue;
         }
         el.setAttribute(key, attributes[key]);
@@ -478,7 +506,7 @@ export class Component {
           el.appendChild(el2);
         } else if (typeof child === "object") {
           el.appendChild(this.parseToElement(child));
-        } else {
+        } else if(child){
           let span = document.createTextNode(child)
           el.appendChild(span);
         }
