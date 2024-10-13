@@ -377,7 +377,7 @@ export class Component {
       if (!oldElement || !newElement) return;
 
       // Store and re-attach events before updating
-      const events = this.eventRegistry.get(oldElement.toString()) || [];
+      const events = this.eventRegistry.get(oldElement.id) || [];
 
 
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
@@ -397,6 +397,7 @@ export class Component {
             // Re-attach events
             events.forEach(ev => {
               const { event, handler } = ev
+              console.log(event, handler)
               oldElement.addEventListener(event, handler);
               newElement.addEventListener(event, handler)
             });
@@ -467,7 +468,7 @@ export class Component {
           continue;
         }
         if (key === "className") {
-          el.className = attributes[key];
+          el.setAttribute("class", attributes[key]);
           continue;
         }
         if (key === "style") {
@@ -482,7 +483,8 @@ export class Component {
         }
         if (key.startsWith("on")) {
           el.addEventListener(key.substring(2).toLowerCase(), attributes[key]);
-          this.eventRegistry.set(el.toString(), [...(this.eventRegistry.get(el) || []), { event: key.substring(2).toLowerCase(), handler: attributes[key] }]);
+          el.id = el.id || Math.random().toString(36).substring(7);
+          this.eventRegistry.set(el.id, [...(this.eventRegistry.get(el) || []), { event: key.substring(2).toLowerCase(), handler: attributes[key] }]);
           continue;
         }
         el.setAttribute(key, attributes[key]);
