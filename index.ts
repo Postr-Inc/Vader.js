@@ -138,9 +138,12 @@ export const e = (element, props, ...children) => {
       instance.Mounted = true;
       let firstEl = instance.render({key: instance.key, children: children, ...props}, children);
       instance.children = children;
-      if (!firstEl) firstEl = {type: "div", props: {key: instance.key,  ...props}, children: children};
+      if (!firstEl) {
+        return {type: "div", props: {key: instance.key,  ...props}, children: children};
+      }
+
       firstEl.props = { key: instance.key,  ...firstEl.props, ...props };
-      return firstEl;
+      return { type: "ghost", props:{}, children: [firstEl]}
     default:
       return { type: element, props: props || {}, children: children || [] };
   }
@@ -177,20 +180,15 @@ export function Match({ when, children }) {
  * @param key
  * @param initialState
  * @param persist - persist state on reload
- * @returns {()=> T,  (newState: any, Element: string) => void, key}
+ * @returns {T,  (newState: any, Element: string) => void, key}
  */
 export const useState = <T>(initialState: T, persist: false) => {
   const setState = (newState: T) => {
     initialState = newState;
   }
-  /**
-   * @returns {T}
-   */
-  const getVal = () => {
-    return initialState as T;
-  }
 
-  return [getVal, setState];
+
+  return [initialState, setState];
 }
 
 if (!isServer) {
@@ -215,6 +213,19 @@ if (!isServer) {
  *
  *  render(<App name="John" />, document.getElementById("root"));
  */
+
+ // create a hidden object on window
+ //
+if(!isServer){
+  Object.defineProperty(window, "state", {
+    value: [],
+    writable: true,
+    enumerable: true,
+  })
+
+}else{
+  globalThis.state = []
+}
 export class Component {
   props;
   state;
@@ -226,12 +237,13 @@ export class Component {
   eventRegistry: any
   prevState;
   refs: HTMLElement[] | any[]
+  state: any[] = []
   constructor() {
     this.key = crypto.randomUUID();
     this.props = {};
-    this.state = {};
     this.effect = [];
     this.Mounted = false;
+    this.state = [];
     this.element = null;
     this.effectCalls = []
     this.errorThreshold = 1000
@@ -306,37 +318,47 @@ export class Component {
     }
 }
   useState(key, defaultValue, persist = false) {
+
     if (typeof window === "undefined")
       return [defaultValue, () => {
       }];
-     let value = sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
 
+     let value = this.state.find((v) => v.key == key) ?  this.state.find((v) => v.key == key).value : defaultValue;
+
+    if(!this.state.find(i => i.key === key)){
+      this.state.push({key: key, value: defaultValue})
+    }
     if (typeof value === "string") {
       try {
         value = JSON.parse(value);
       } catch (error) {
       }
     }
-    if (!window["listener" + key] && !isServer) {
-      window["listener" + key] = true;
-      window.addEventListener("beforeunload", () => {
-        !persist && sessionStorage.removeItem("state_" + key);
-      });
-    }
+
     const clear = () =>{
-      sessionStorage.removeItem("state_" + key)
+      this.state =  this.state.filter((v) => v.key !== key);
     }
     const setValue = (newValue) => {
+      // If newValue is a function, call it with the current value
       if (typeof newValue === "function") {
-        newValue = newValue(value);
+        const item = this.state.find(i => i.key === key);
+        newValue = item ? newValue(item.value) : newValue;
       }
-      sessionStorage.setItem("state_" + key, JSON.stringify({ value: newValue }));
+
+
+      let itemIndex = this.state.findIndex(i => i.key === key);
+
+      if (itemIndex !== -1) {
+        this.state[itemIndex].value = newValue;
+      } else {
+        this.state.push({ key: key, value: newValue });
+      }
+
       this.forceUpdate(this.key);
     };
-    const getVal = () => {
-      return sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
-    }
-    return [getVal, setValue, clear];
+
+
+    return [value, setValue, clear];
   }
   useFetch(url, options) {
     const loadingKey = "loading_" + url;
@@ -382,6 +404,7 @@ export class Component {
 
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
         let part = this.Reconciler.shouldUpdate(oldElement, newElement, true);
+        console.log(part)
         if (part === true) {
           if (oldElement.nodeType === 3) {
             oldElement.nodeValue = newElement.nodeValue;
@@ -397,18 +420,23 @@ export class Component {
             // Re-attach events
             events.forEach(ev => {
               const { event, handler } = ev
-              console.log(event, handler)
               oldElement.addEventListener(event, handler);
               newElement.addEventListener(event, handler)
             });
 
             // Update children recursively
             for (let i = 0; i < newElement.childNodes.length; i++) {
+              let children = {old: oldElement.childNodes[i], new:newElement.childNodes[i] }
+
               this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i], true);
             }
           }
-        } else if (part.type === "attribute") {
-          oldElement.setAttribute(part.name, part.value);
+        } else if (part.type === "Attributes") {
+          for (var i = 0; i < part.attributes.length; i++){
+            const _part = part.attributes[i]
+            oldElement.setAttribute(_part.name, _part.value);
+          }
+
         }
       } else {
         events.forEach(ev => {
@@ -416,38 +444,70 @@ export class Component {
           oldElement.addEventListener(event, handler);
           newElement.addEventListener(event, handler)
         });
+
         // Update children recursively
         for (let i = 0; i < newElement.childNodes.length; i++) {
+
           this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i], true);
         }
       }
     },
 
     shouldUpdate: (oldElement, newElement, isChild = false) => {
+      // Check for node type differences
       if (oldElement.nodeType !== newElement.nodeType) {
         return oldElement.innerHTML !== newElement.innerHTML ? { type: 'innerHTML' } : true;
       }
+
+      // Compare text node content
       if (oldElement.nodeType === 3 && newElement.nodeType === 3) {
         if (oldElement.nodeValue !== newElement.nodeValue) {
           return true;
         }
       }
+
+      // Compare node names
       if (oldElement.nodeName !== newElement.nodeName) {
         return true;
       }
+
+      // Compare child nodes length
       if (oldElement.childNodes.length !== newElement.childNodes.length) {
         return true;
       }
-      if (newElement.attributes) {
-        for (let i = 0; i < newElement.attributes.length; i++) {
-          let attr = newElement.attributes[i];
-          if (oldElement.getAttribute(attr.name) !== attr.value) {
-            return { type: "attribute", name: attr.name, value: attr.value };
-          }
+
+      // Compare attributes
+      const oldAttributes = oldElement.attributes || [];
+      const newAttributes = newElement.attributes || [];
+
+      // Check if an attribute was added or changed
+      //
+      var attributes = []
+      for (let i = 0; i < newAttributes.length; i++) {
+        const attr = newAttributes[i];
+        if (oldElement.getAttribute(attr.name) !== attr.value) {
+         attributes.push({ type: 'attribute', name: attr.name, value: attr.value })
         }
       }
+
+      // Check if an attribute was removed
+      for (let i = 0; i < oldAttributes.length; i++) {
+        const attr = oldAttributes[i];
+        if (!newElement.hasAttribute(attr.name)) {
+           attributes.push({ type: 'attribute', name: attr.name, value: null })
+        }
+      }
+
+      if (attributes.length > 0 ){
+        return {
+          type: "Attributes",
+          attributes
+        }
+      }
+
       return false;
     }
+
   };
 
   parseToElement = (element) => {
@@ -456,8 +516,7 @@ export class Component {
     let svg = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"];
     let el =  svg.includes(element.type) ? document.createElementNS("http://www.w3.org/2000/svg", element.type) : document.createElement(element.type);
     let isText = typeof element === "string" || typeof element === "number" || typeof element === "boolean";
-    if (isText && element){
-      console.log(element)
+    if (isText && element){ 
       el.innerHTML = element;
     } else {
       let attributes = element.props;
@@ -498,8 +557,7 @@ export class Component {
             el.appendChild(this.parseToElement(c));
           });
         }
-        if (typeof child === "function") {
-          console.log("child is function");
+        if (typeof child === "function") { 
           let comp = memoizeClassComponent(Component);
           comp.Mounted = true;
           comp.render = child;
