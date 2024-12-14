@@ -33,16 +33,21 @@ globalThis.document = {
   getElementById: (id) => {},
   querySelector: (query) => {},
 };
-await Bun.build({
-  entrypoints: [process.env.ENTRYPOINT],
-  minify: false,
-  root: process.cwd() + "/dist/",
-  outdir: process.cwd() + "/dist/",
 
-  format: "esm",
-  ...(process.env.DEV ? { sourcemap: "inline" } : {}),
-  external: ["*.jsx", "*.js", "*.ts"],
-});
+try {
+    await Bun.build({
+        entrypoints: [process.env.ENTRYPOINT],
+        minify: false,
+        root: process.cwd() + "/dist/",
+        outdir: process.cwd() + "/dist/",
+        
+        format: "esm",
+        ...(process.env.DEV ? { sourcemap: "inline" } : {}),
+        external:['*.jsx', '*.js', '*.ts']
+    });
+} catch (error) {
+    console.error(error)
+}
 
 let builtCode = fs.readFileSync(
   path.join(process.cwd(), "dist", process.env.filePath),
