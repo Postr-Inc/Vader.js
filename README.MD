@@ -42,6 +42,8 @@ bun install vaderjs @latest
 # Project Setup 
 Create a pages folder - which allows you to have nextjs page like routing via buns file based router
 
+> Note only use this when using production server - not supported by cloudflare, github or vercel
+
 Tip: Each folder can be deep nested up to 4 levels!
 
 ```md 
