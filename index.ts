@@ -406,57 +406,50 @@ export class Component {
   }
   Reconciler = {
     update: (oldElement, newElement) => {
-      if (!oldElement || !newElement) return;
-
-      // If nodes are the same type and can be updated
+      if (!oldElement || !newElement)
+        return;
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
-        // Update attributes of the parent
-        Array.from(oldElement.attributes).forEach(({ name }) => {
-          if (!newElement.hasAttribute(name)) {
-            oldElement.removeAttribute(name);
-          }
-        });
-
-        Array.from(newElement.attributes).forEach(({ name, value }) => {
-          if (oldElement.getAttribute(name) !== value) {
-            oldElement.setAttribute(name, value);
-          }
-        });
-
-        // Update the parent content (if text content differs)
+        console.log(oldElement, newElement)
+        if (oldElement.attributes && Object.keys(oldElement.attributes).length > 0)
+          Array.from(oldElement.attributes).forEach(({ name }) => {
+            if (!newElement.hasAttribute(name)) {
+              oldElement.removeAttribute(name);
+            }
+          });
+        if (newElement.attributes && Object.keys(newElement.attributes).length > 0)
+          Array.from(newElement.attributes).forEach(({ name, value }) => {
+            if (oldElement.getAttribute(name) !== value) {
+              oldElement.setAttribute(name, value);
+            }
+          });
         if (oldElement.childNodes.length === 1 && oldElement.firstChild.nodeType === Node.TEXT_NODE) {
           if (oldElement.textContent !== newElement.textContent) {
             oldElement.textContent = newElement.textContent;
           }
-          return; // No children to reconcile if it's a text node
+          return;
+        }else if(oldElement.nodeType === Node.TEXT_NODE){
+          if (oldElement.textContent !== newElement.textContent) {
+            oldElement.textContent = newElement.textContent;
+          }
+          return;
         }
-
-        // Reconcile child nodes
         const oldChildren = Array.from(oldElement.childNodes);
         const newChildren = Array.from(newElement.childNodes);
-
         const maxLength = Math.max(oldChildren.length, newChildren.length);
-        for (let i = 0; i < maxLength; i++) {
+        for (let i = 0;i < maxLength; i++) {
           if (i >= oldChildren.length) {
-            // Add new children
             const newChildClone = newChildren[i].cloneNode(true);
             oldElement.appendChild(newChildClone);
-
-            // Transfer events for the new child
             const newChildEvents = this.eventRegistry.get(newChildren[i]) || [];
             newChildEvents.forEach(({ type, handler }) => {
               this.addEventListener(newChildClone, type, handler);
             });
           } else if (i >= newChildren.length) {
-            // Remove extra old children
             oldElement.removeChild(oldChildren[i]);
           } else {
-            // Update existing children recursively
             this.Reconciler.update(oldChildren[i], newChildren[i]);
           }
         }
-
-        // Reapply events to the parent
         const parentEvents = this.eventRegistry.get(newElement) || [];
         parentEvents.forEach(({ type, handler }) => {
           this.addEventListener(oldElement, type, handler);
@@ -464,30 +457,23 @@ export class Component {
       } else {
         const oldChildren = Array.from(oldElement.childNodes);
         const newChildren = Array.from(newElement.childNodes);
-
         const maxLength = Math.max(oldChildren.length, newChildren.length);
-        for (let i = 0; i < maxLength; i++) {
+        for (let i = 0;i < maxLength; i++) {
           if (i >= oldChildren.length) {
-            // Add new children
             const newChildClone = newChildren[i].cloneNode(true);
             oldElement.appendChild(newChildClone);
-
-            // Transfer events for the new child
             const newChildEvents = this.eventRegistry.get(newChildren[i]) || [];
             newChildEvents.forEach(({ type, handler }) => {
               this.addEventListener(newChildClone, type, handler);
             });
           } else if (i >= newChildren.length) {
-            // Remove extra old children
             oldElement.removeChild(oldChildren[i]);
-          } else {
-            // Update existing children recursively
+          } else { 
             this.Reconciler.update(oldChildren[i], newChildren[i]);
           }
         }
       }
     },
-
     shouldUpdate: (oldElement, newElement, isChild = false) => {
       if (oldElement.nodeType !== newElement.nodeType) {
         return oldElement.innerHTML !== newElement.innerHTML ? { type: "innerHTML" } : true;
@@ -504,7 +490,7 @@ export class Component {
         return true;
       }
       if (newElement.attributes) {
-        for (let i = 0; i < newElement.attributes.length; i++) {
+        for (let i = 0;i < newElement.attributes.length; i++) {
           let attr = newElement.attributes[i];
           if (oldElement.getAttribute(attr.name) !== attr.value) {
             return { type: "attribute", name: attr.name, value: attr.value };
