@@ -404,165 +404,213 @@ export class Component {
     }
     this.Reconciler.update(el, newl);
   }
+  attachEventsRecursively = (element, source) => {
+    // Rebind events for the current element
+    const events = this.eventRegistry.get(source) || [];
+    events.forEach(({ event, handler }) => {
+      this.addEventListener(element, event, handler);
+    });
+  
+    // Traverse children recursively
+    const children = Array.from(source.childNodes || []);
+    const elementChildren = Array.from(element.childNodes || []);
+  
+    children.forEach((child, index) => {
+      if (elementChildren[index]) {
+        this.attachEventsRecursively(elementChildren[index], child);
+      }
+    });
+  };
+
+
   Reconciler = {
-    update: (oldElement, newElement) => {
-      if (!oldElement || !newElement)
-        return;
+    update: (oldElement, newElement) => { 
+      if (!oldElement || !newElement) return;
+  
+      // Check if the current element needs an update
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
-        console.log(oldElement, newElement)
-        if (oldElement.attributes && Object.keys(oldElement.attributes).length > 0)
-          Array.from(oldElement.attributes).forEach(({ name }) => {
-            if (!newElement.hasAttribute(name)) {
-              oldElement.removeAttribute(name);
-            }
-          });
-        if (newElement.attributes && Object.keys(newElement.attributes).length > 0)
-          Array.from(newElement.attributes).forEach(({ name, value }) => {
-            if (oldElement.getAttribute(name) !== value) {
-              oldElement.setAttribute(name, value);
-            }
-          });
-        if (oldElement.childNodes.length === 1 && oldElement.firstChild.nodeType === Node.TEXT_NODE) {
-          if (oldElement.textContent !== newElement.textContent) {
-            oldElement.textContent = newElement.textContent;
-          }
-          return;
-        }else if(oldElement.nodeType === Node.TEXT_NODE){
-          if (oldElement.textContent !== newElement.textContent) {
-            oldElement.textContent = newElement.textContent;
-          }
-          return;
-        }
+        // Update attributes
         const oldChildren = Array.from(oldElement.childNodes);
         const newChildren = Array.from(newElement.childNodes);
+    
         const maxLength = Math.max(oldChildren.length, newChildren.length);
-        for (let i = 0;i < maxLength; i++) {
+        for (let i = 0; i < maxLength; i++) {
           if (i >= oldChildren.length) {
             const newChildClone = newChildren[i].cloneNode(true);
             oldElement.appendChild(newChildClone);
-            const newChildEvents = this.eventRegistry.get(newChildren[i]) || [];
-            newChildEvents.forEach(({ type, handler }) => {
-              this.addEventListener(newChildClone, type, handler);
-            });
+    
+            // Rebind events to the new child (and its children recursively)
+            this.attachEventsRecursively(newChildClone, newChildren[i]);
           } else if (i >= newChildren.length) {
             oldElement.removeChild(oldChildren[i]);
           } else {
             this.Reconciler.update(oldChildren[i], newChildren[i]);
           }
         }
-        const parentEvents = this.eventRegistry.get(newElement) || [];
-        parentEvents.forEach(({ type, handler }) => {
-          this.addEventListener(oldElement, type, handler);
-        });
-      } else {
-        const oldChildren = Array.from(oldElement.childNodes);
-        const newChildren = Array.from(newElement.childNodes);
-        const maxLength = Math.max(oldChildren.length, newChildren.length);
-        for (let i = 0;i < maxLength; i++) {
-          if (i >= oldChildren.length) {
-            const newChildClone = newChildren[i].cloneNode(true);
-            oldElement.appendChild(newChildClone);
-            const newChildEvents = this.eventRegistry.get(newChildren[i]) || [];
-            newChildEvents.forEach(({ type, handler }) => {
-              this.addEventListener(newChildClone, type, handler);
-            });
-          } else if (i >= newChildren.length) {
-            oldElement.removeChild(oldChildren[i]);
-          } else { 
-            this.Reconciler.update(oldChildren[i], newChildren[i]);
+    
+        Array.from(oldElement.attributes || []).forEach(({ name }) => {
+          if (!newElement.hasAttribute(name)) {
+            oldElement.removeAttribute(name);
           }
+        });
+  
+        Array.from(newElement.attributes || []).forEach(({ name, value }) => {
+          if (oldElement.getAttribute(name) !== value) {
+            oldElement.setAttribute(name, value);
+          }
+        });
+  
+        // Handle text node updates
+        if (oldElement.nodeType === Node.TEXT_NODE) {
+          if (oldElement.textContent !== newElement.textContent) {
+            oldElement.textContent = newElement.textContent;
+          }
+          return;
+        }
+  
+        // If the element has a single text node, update text directly
+        if (
+          oldElement.childNodes.length === 1 &&
+          oldElement.firstChild.nodeType === Node.TEXT_NODE
+        ) {
+          if (oldElement.textContent !== newElement.textContent) {
+            oldElement.textContent = newElement.textContent;
+          }
+          return;
         }
       }
+  
+      // Process children recursively
+      const oldChildren = Array.from(oldElement.childNodes);
+      const newChildren = Array.from(newElement.childNodes);
+  
+      const maxLength = Math.max(oldChildren.length, newChildren.length);
+  
+      for (let i = 0; i < maxLength; i++) {
+        if (i >= oldChildren.length) { 
+          // Add new child if it exists in newChildren but not in oldChildren
+          const newChildClone = newChildren[i].cloneNode(true);
+          oldElement.appendChild(newChildClone);
+  
+          // Attach any event listeners
+          const newChildEvents = this.eventRegistry.get(newChildren[i]) || [];
+          newChildEvents.forEach(({ type, handler }) => {
+            this.addEventListener(newChildClone, type, handler);
+          });
+        } else if (i >= newChildren.length) {
+          // Remove child if it exists in oldChildren but not in newChildren
+          oldElement.removeChild(oldChildren[i]);
+        } else { 
+          this.Reconciler.update(oldChildren[i], newChildren[i]);
+        }
+      }
+  
+      // Reapply events for the current element
+      const parentEvents = this.eventRegistry.get(newElement) || [];
+      parentEvents.forEach(({ type, handler }) => {
+        this.addEventListener(oldElement, type, handler);
+      });
+
     },
-    shouldUpdate: (oldElement, newElement, isChild = false) => {
+    shouldUpdate: (oldElement, newElement) => { 
+      // Check if node types differ
       if (oldElement.nodeType !== newElement.nodeType) {
-        return oldElement.innerHTML !== newElement.innerHTML ? { type: "innerHTML" } : true;
+        return true;
       }
-      if (oldElement.nodeType === 3 && newElement.nodeType === 3) {
-        if (oldElement.nodeValue !== newElement.nodeValue) {
-          return true;
-        }
+  
+      // Check if text content differs
+      if (oldElement.nodeType === Node.TEXT_NODE) {
+        return oldElement.textContent !== newElement.textContent;
       }
+  
+      // Check if node names differ
       if (oldElement.nodeName !== newElement.nodeName) {
         return true;
       }
+  
+      // Check if child counts differ
       if (oldElement.childNodes.length !== newElement.childNodes.length) {
         return true;
       }
-      if (newElement.attributes) {
-        for (let i = 0;i < newElement.attributes.length; i++) {
-          let attr = newElement.attributes[i];
-          if (oldElement.getAttribute(attr.name) !== attr.value) {
-            return { type: "attribute", name: attr.name, value: attr.value };
-          }
+  
+      // Check if attributes differ
+      const newAttributes = Array.from(newElement.attributes || []);
+      for (let { name, value } of newAttributes) {
+        if (oldElement.getAttribute(name) !== value) {
+          return true;
         }
       }
+  
+      // If no differences found, no update needed
       return false;
-    }
-  };
-
+    },
+  } 
+  
   parseToElement = (element) => {
-    if (!element) return document.createElement("div");
-    // create either a element or svg element
-    let svg = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"];
-    let el = svg.includes(element.type) ? document.createElementNS("http://www.w3.org/2000/svg", element.type) : document.createElement(element.type);
-    let isText = typeof element === "string" || typeof element === "number" || typeof element === "boolean";
-    if (isText && element) {
-      el.innerHTML = element;
-    } else {
-      let attributes = element.props;
-      let children = element.children;
-      for (let key in attributes) {
-        if (key === "key") {
-          el.key = attributes[key];
-          continue;
-        }
-        if (key === "className") {
-          el.setAttribute("class", attributes[key]);
-          continue;
-        }
-        if (key === "style") {
-          try {
-            for (let styleKey in attributes[key]) {
-              el.style[styleKey] = attributes[key][styleKey];
-            }
-          } catch (error) {
-
+    if (!element || element.nodeType) return  "" 
+  
+    let svgTags = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"];
+    let isSvg = svgTags.includes(element.type);
+  
+    // Create the element, using proper namespace for SVG
+    let el = isSvg
+      ? document.createElementNS("http://www.w3.org/2000/svg", element.type)
+      : document.createElement(element.type);
+  
+    // Handle text nodes
+    if (typeof element === "string" || typeof element === "number" || typeof element === "boolean") {
+      el.textContent = element; // Safer alternative to innerHTML
+      return el;
+    }
+  
+    // Set attributes
+    let attributes = element.props || {};
+    for (let key in attributes) {
+      if (key === "key") {
+        el.key = attributes[key];
+      } else if (key === "className") {
+        el.setAttribute("class", attributes[key]);
+      } else if (key === "style") {
+        let styleObject = attributes[key];
+        if (typeof styleObject === "object") {
+          for (let styleKey in styleObject) {
+            el.style[styleKey] = styleObject[styleKey];
           }
-          continue;
         }
-        if (key.startsWith("on")) {
-          el.addEventListener(key.substring(2).toLowerCase(), attributes[key]);
-          this.eventRegistry.set(el, [...this.eventRegistry.get(el) || [], { event: key.substring(2).toLowerCase(), handler: attributes[key] }]);
-          this.addEventListener(el, key.substring(2).toLowerCase(), attributes[key])
-          continue;
-        }
+      } else if (key.startsWith("on")) {
+        // Event listeners
+        const eventType = key.substring(2).toLowerCase();
+        const handler = attributes[key];
+        this.eventRegistry.set(el, [...(this.eventRegistry.get(el) || []), { event: eventType, handler }]);
+        this.addEventListener(el, eventType, handler);
+      } else if (attributes[key] !== null && attributes[key] !== undefined) {
+        // General attributes
         el.setAttribute(key, attributes[key]);
       }
-      if (children === undefined)
-        return el;
-      for (let i = 0; i < children.length; i++) {
-        let child = children[i];
-        if (Array.isArray(child)) {
-          child.forEach((c) => {
-            el.appendChild(this.parseToElement(c));
-          });
-        }
-        if (typeof child === "function") {
-          let comp = memoizeClassComponent(Component);
-          comp.Mounted = true;
-          comp.render = child;
-          let el2 = comp.toElement();
-          el2.key = comp.key;
-          el.appendChild(el2);
-        } else if (typeof child === "object") {
-          el.appendChild(this.parseToElement(child));
-        } else if (child) {
-          let span = document.createTextNode(child)
-          el.appendChild(span);
-        }
-      }
     }
+  
+    // Handle children
+    let children = element.children || [];
+    children.forEach((child) => {
+      if (Array.isArray(child)) {
+        // Recursively process nested arrays
+        child.forEach((nestedChild) => el.appendChild(this.parseToElement(nestedChild)));
+      } else if (typeof child === "function") {
+        // Handle functional components
+        let component = memoizeClassComponent(Component);
+        component.Mounted = true;
+        component.render = child;
+        let componentElement = component.toElement();
+        el.appendChild(componentElement);
+      } else if (typeof child === "object") {
+        // Nested object children
+        el.appendChild(this.parseToElement(child));
+      } else if (child !== null && child !== undefined) {
+        // Text nodes
+        el.appendChild(document.createTextNode(child));
+      }
+    });
+  
     return el;
   };
   e(element, props, ...children) {
