@@ -45,7 +45,7 @@ try {
         external: ['*.jsx', '*.js', '*.ts']
     });
 } catch (error) {
-
+  console.error(error)
 }
 
 let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
