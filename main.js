@@ -110,9 +110,7 @@ const vader = {
 const handleReplacements = (code) => {
     let lines = code.split('\n')
     let newLines = []
-    let isDefault
     for (let line of lines) {
-
         let hasImport = line.includes('import')
 
         if (hasImport && line.includes('.css')) {
@@ -206,8 +204,8 @@ async function generateApp() {
             code = handleReplacements(code)
             let size = code.length / 1024
             r = r.replace(process.cwd().replace(/\\/g, '/') + '/app', '')
-            r = r.replace('.jsx', '.js').replace('.tsx', '.js')
-            fs.mkdirSync(path.dirname(process.cwd() + '/dist/' + r), { recursive: true })
+            r = r.replace('.jsx', '.js').replace('.tsx', '.js') 
+            fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(r)), { recursive: true })
             fs.writeFileSync(process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r), `
         let route = window.location.pathname.split('/').filter(v => v !== '')
         let params = {
@@ -302,6 +300,7 @@ async function generateApp() {
 function handleFiles() {
     return new Promise(async (resolve, reject) => {
         try {
+            console.log(Glob)
             let glob = new Glob('public/**/*')
             for await (var i of glob.scan()) {
                 let file = i
@@ -312,42 +311,42 @@ function handleFiles() {
                 fs.copyFileSync(file, path.join(process.cwd() + '/dist', file))
             }
             let glob2 = new Glob('src/**/*')
-          for await (var i of glob2.scan()) {
-            var file = i
-            fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
-            // turn jsx to js
-            if (file.includes('.jsx') || file.includes('.tsx')) {
-              let code = await Bun.file(file).text()
+            for await (var i of glob2.scan()) {
+                var file = i
+                fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
+                // turn jsx to js
+                if (file.includes('.jsx') || file.includes('.tsx')) {
+                    let code = await Bun.file(file).text()
 
-              code = handleReplacements(code)
+                    code = handleReplacements(code)
 
-              file = file.replace('.jsx', '.js').replace('.tsx', '.js')
-              fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.jsx', '.js').replace('.tsx', '.js')), code)
-              await Bun.spawn({
-                cmd: ['bun', 'run', './dev/bundler.js'],
-                cwd: process.cwd(),
-                stdout: 'inherit',
-                env: {
-                  ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js')),
-                  ROOT: process.cwd() + '/app/',
-                  OUT: path.dirname(file),
-                  shouldReplace: true,
-                  file: process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js'),
-                  DEV: mode === 'development',
-                  size: code.length / 1024,
-                  filePath: file.replace('.jsx', '.js'),
-                  isTs:  false,
-                  INPUT: path.join(process.cwd(), file.replace('.js', '.jsx').replace('.tsx', '.js')),
-                },
-                onExit({ exitCode: code }) {
-                  if (code === 0) {
-                    resolve()
-                  } else {
-                    reject()
-                  }
-                }
-              })
-            } else if (file.includes('.ts') || file.includes('.js')) {
+                    file = file.replace('.jsx', '.js').replace('.tsx', '.js')
+                    fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.jsx', '.js').replace('.tsx', '.js')), code)
+                    await Bun.spawn({
+                        cmd: ['bun', 'run', './dev/bundler.js'],
+                        cwd: process.cwd(),
+                        stdout: 'inherit',
+                        env: {
+                            ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js')),
+                            ROOT: process.cwd() + '/app/',
+                            OUT: path.dirname(file),
+                            shouldReplace: true,
+                            file: process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js'),
+                            DEV: mode === 'development',
+                            size: code.length / 1024,
+                            filePath: file.replace('.jsx', '.js'),
+                            isTs: file.includes('.tsx'),
+                            INPUT: path.join(process.cwd(), file.replace('.js', '.jsx').replace('.tsx', '.js')),
+                        },
+                        onExit({ exitCode: code }) {
+                            if (code === 0) {
+                                resolve()
+                            } else {
+                                reject()
+                            }
+                        }
+                    })
+                } else if (file.includes('.ts')) {
                     let code = await Bun.file(file).text()
                     code = handleReplacements(code)
                     file = file.replace('.ts', '.js')
@@ -362,10 +361,10 @@ function handleFiles() {
                             OUT: path.dirname(file),
                             file: process.cwd() + '/dist/' + file.replace('.ts', '.js'),
                             DEV: mode === 'development',
-                            isTs: true,
+                            isTS: true,
                             size: code.length / 1024,
                             filePath: file.replace('.ts', '.js'),
-                            INPUT: path.join(process.cwd(), file.replace('.ts', '.js')),
+                            INPUT: path.join(process.cwd(), file.replace('.js', '.jsx')),
                         },
                         onExit({ exitCode: code }) {
                             if (code === 0) {
@@ -400,7 +399,6 @@ if (mode === 'development') {
     const handleFileChangeDebounced = async (change, file) => {
         if (file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts')
         && !file.includes('node_module')
-        || file.endsWith('.js') && !file.includes('dist')
         ) {
             // delete files cache
             if (file.endsWith('vader.config.ts')){

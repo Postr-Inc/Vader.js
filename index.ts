@@ -1,5 +1,5 @@
 //@ts-nocheck
-let isClassComponent = function(element) {
+let isClassComponent = function (element) {
   return element.toString().startsWith("class");
 };
 
@@ -29,8 +29,8 @@ declare global {
    * console.log(params.name) // John
    * console.log(params.age) // 20
    */
-  let params:  { [key: string]: string };
-  let localStorage : []
+  let params: { [key: string]: string };
+  let localStorage: []
 }
 //@ts-ignore
 globalThis.isServer = typeof window === "undefined";
@@ -61,10 +61,10 @@ export const useFetch = (url: string, options: any) => {
  * @returns
  */
 export const useAsyncState = (promise: Promise<any>) => {
-  return [null, () => {}];
+  return [null, () => { }];
 }
-export const useEffect = (callback:any, dependencies: any[] = []) => {
-  dependencies = dependencies.map((dep) =>  JSON.stringify(dep));
+export const useEffect = (callback: any, dependencies: any[] = []) => {
+  dependencies = dependencies.map((dep) => JSON.stringify(dep));
   if (dependencies.length === 0) {
     callback();
   }
@@ -73,7 +73,7 @@ export const useEffect = (callback:any, dependencies: any[] = []) => {
 // make a switch function component
 
 
-export const A  = (props: {
+export const A = (props: {
   /**
   * @description Set the elements classlist
   */
@@ -87,28 +87,28 @@ export const A  = (props: {
   onClick: () => void;
   onChange: () => void;
 }, children: any) => {
-   function handleClick(e) {
+  function handleClick(e) {
     e.preventDefault();
-    if(props.openInNewTab){
+    if (props.openInNewTab) {
       window.open(props.href, "_blank");
       return void 0;
     }
     window.history.pushState({}, "", props.href);
     window.dispatchEvent(new PopStateEvent("popstate"));
     window.location.reload();
-     return void 0;
-   }
-  return  {
+    return void 0;
+  }
+  return {
     type: "a",
-    props: {...props, onClick: handleClick},
+    props: { ...props, onClick: handleClick },
     children: children || [],
   }
 }
 
 
 export const Fragment = (props: any, children: any) => {
-  return  {
-    type:null,
+  return {
+    type: null,
     props: props,
     children
   }
@@ -136,14 +136,12 @@ export const e = (element, props, ...children) => {
       instance = new Component;
       instance.render = element;
       instance.Mounted = true;
-      let firstEl = instance.render({key: instance.key, children: children, ...props}, children);
+      let firstEl = instance.render({ key: instance.key, children, ...props }, children);
       instance.children = children;
-      if (!firstEl) {
-        return {type: "div", props: {key: instance.key,  ...props}, children: children};
-      }
-
-      firstEl.props = { key: instance.key,  ...firstEl.props, ...props };
-      return { type: "ghost", props:{}, children: [firstEl]}
+      if (!firstEl)
+        firstEl = { type: "div", props: { key: instance.key, ...props }, children };
+      firstEl.props = { key: instance.key, ...firstEl.props, ...props };
+      return firstEl;
     default:
       return { type: element, props: props || {}, children: children || [] };
   }
@@ -164,7 +162,7 @@ export function Switch({ children }) {
       return child;
     }
   }
-  return  { type: "div", props: {}, children: [] };
+  return { type: "div", props: {}, children: [] };
 }
 
 /**
@@ -182,14 +180,16 @@ export function Match({ when, children }) {
  * @param persist - persist state on reload
  * @returns {T,  (newState: any, Element: string) => void, key}
  */
-export const useState = <T>(initialState: T, persist: false) => {
-  const setState = (newState: T) => {
+
+export const useState = (initialState, persist) => {
+  const setState = (newState) => {
     initialState = newState;
-  }
-
-
-  return [initialState, setState];
-}
+  };
+  const getVal = () => {
+    return initialState;
+  };
+  return [getVal, setState];
+};
 
 if (!isServer) {
   window.effects = []
@@ -214,16 +214,16 @@ if (!isServer) {
  *  render(<App name="John" />, document.getElementById("root"));
  */
 
- // create a hidden object on window
- //
-if(!isServer){
+// create a hidden object on window
+//
+if (!isServer) {
   Object.defineProperty(window, "state", {
     value: [],
     writable: true,
     enumerable: true,
   })
 
-}else{
+} else {
   globalThis.state = []
 }
 export class Component {
@@ -247,118 +247,103 @@ export class Component {
     this.element = null;
     this.effectCalls = []
     this.errorThreshold = 1000
-    this.maxIntervalCalls  = 10
-    this.eventRegistry = new Map();
+    this.maxIntervalCalls = 10
+    this.eventRegistry = new WeakMap();
     this.refs = []
   }
   useRef = (key, value) => {
-     if(!this.refs.find((r)=> r.key == key)){
-        this.refs.push({key, value});
-     }
+    if (!this.refs.find((r) => r.key == key)) {
+      this.refs.push({ key, value });
+    }
 
-      return this.refs.find((r)=> r.key == key).value;
+    return this.refs.find((r) => r.key == key).value;
   }
   useEffect(callback, dependencies = []) {
     const callbackId = callback.toString();
 
     if (!this.effectCalls.some(s => s.id === callbackId)) {
-        this.effectCalls.push({ id: callbackId, count: 0, lastCall: Date.now(), runOnce: dependencies.length === 0 });
+      this.effectCalls.push({ id: callbackId, count: 0, lastCall: Date.now(), runOnce: dependencies.length === 0 });
     }
 
     const effectCall = this.effectCalls.find(s => s.id === callbackId);
 
     const executeCallback = () => {
-        const now = Date.now();
-        const timeSinceLastCall = now - effectCall.lastCall;
+      const now = Date.now();
+      const timeSinceLastCall = now - effectCall.lastCall;
 
-        if (timeSinceLastCall < this.errorThreshold) {
-            effectCall.count += 1;
-            if (effectCall.count > this.maxIntervalCalls) {
-                throw new Error(`Woah wayy too many calls, ensure you are not overlooping you can change the maxThresholdCalls and errorThreshold depending on needs`)
-            }
-        } else {
-            effectCall.count = 1;
+      if (timeSinceLastCall < this.errorThreshold) {
+        effectCall.count += 1;
+        if (effectCall.count > this.maxIntervalCalls) {
+          throw new Error(`Woah wayy too many calls, ensure you are not overlooping you can change the maxThresholdCalls and errorThreshold depending on needs`)
         }
+      } else {
+        effectCall.count = 1;
+      }
 
-        effectCall.lastCall = now;
+      effectCall.lastCall = now;
 
-        setTimeout(() => {
-            try {
+      setTimeout(() => {
+        try {
 
-              effects.push(callbackId);
+          effects.push(callbackId);
 
-                callback()
-            } catch (error) {
-                console.error(error);
-            }
-        }, 0);
+          callback()
+        } catch (error) {
+          console.error(error);
+        }
+      }, 0);
     };
 
-    if (dependencies.length === 0 && this.Mounted && this.effect.length === 0 && !effects.includes(callbackId)){
-        executeCallback();
-        this.effect.push(callbackId);
+    if (dependencies.length === 0 && this.Mounted && this.effect.length === 0 && !effects.includes(callbackId)) {
+      executeCallback();
+      this.effect.push(callbackId);
     } else {
-        // Check if dependencies have changed
-        let dependenciesChanged = false;
-        if (dependencies.length !== this.effect.length) {
+      // Check if dependencies have changed
+      let dependenciesChanged = false;
+      if (dependencies.length !== this.effect.length) {
+        dependenciesChanged = true;
+      } else {
+        for (let i = 0; i < dependencies.length; i++) {
+          if (this.effect[i] !== dependencies[i]) {
             dependenciesChanged = true;
-        } else {
-            for (let i = 0; i < dependencies.length; i++) {
-                if (this.effect[i] !== dependencies[i]) {
-                    dependenciesChanged = true;
-                    break;
-                }
-            }
+            break;
+          }
         }
+      }
 
-        if (dependenciesChanged) {
-            this.effect = [...dependencies];
-            executeCallback();
-        }
+      if (dependenciesChanged) {
+        this.effect = [...dependencies];
+        executeCallback();
+      }
     }
-}
-  useState(key, defaultValue, persist = false) {
-
+  } useState(key, defaultValue, persist = false) {
     if (typeof window === "undefined")
       return [defaultValue, () => {
       }];
-
-     let value = this.state.find((v) => v.key == key) ?  this.state.find((v) => v.key == key).value : defaultValue;
-
-    if(!this.state.find(i => i.key === key)){
-      this.state.push({key: key, value: defaultValue})
-    }
+    let value = sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
     if (typeof value === "string") {
       try {
         value = JSON.parse(value);
       } catch (error) {
       }
     }
-
-    const clear = () =>{
-      this.state =  this.state.filter((v) => v.key !== key);
+    if (!window["listener" + key] && !isServer) {
+      window["listener" + key] = true;
+      window.addEventListener("beforeunload", () => {
+        !persist && sessionStorage.removeItem("state_" + key);
+      });
     }
     const setValue = (newValue) => {
-      // If newValue is a function, call it with the current value
       if (typeof newValue === "function") {
-        const item = this.state.find(i => i.key === key);
-        newValue = item ? newValue(item.value) : newValue;
+        newValue = newValue(value);
       }
-
-
-      let itemIndex = this.state.findIndex(i => i.key === key);
-
-      if (itemIndex !== -1) {
-        this.state[itemIndex].value = newValue;
-      } else {
-        this.state.push({ key: key, value: newValue });
-      }
-
+      sessionStorage.setItem("state_" + key, JSON.stringify({ value: newValue }));
       this.forceUpdate(this.key);
     };
-
-
-    return [value, setValue, clear];
+    const getVal = () => {
+      return sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
+    };
+    return [getVal, setValue];
   }
   useFetch(url, options) {
     const loadingKey = "loading_" + url;
@@ -372,7 +357,7 @@ export class Component {
         setLoading(false);
         setData(data2);
         this.forceUpdate(this.key);
-        setTimeout(()=> {
+        setTimeout(() => {
           _clear1()
           _clear2()
           clear()
@@ -383,6 +368,31 @@ export class Component {
       });
     }
     return { loading, error, data };
+  }
+  addEventListener(element, event, handler) {
+    // Ensure element is tracked
+    if (!this.eventRegistry.has(element)) {
+      this.eventRegistry.set(element, []);
+    }
+
+    // Check for duplicates
+    const registeredEvents = this.eventRegistry.get(element);
+    const isDuplicate = registeredEvents.some(
+      (e) => e.type === event && e.handler === handler
+    );
+    if (!isDuplicate) {
+      element.addEventListener(event, handler);
+      registeredEvents.push({ type: event, handler });
+      this.eventRegistry.set(element, registeredEvents);
+    }
+  }
+  removeEventListeners(element) {
+    // Unregister and remove all events for the element
+    const registeredEvents = this.eventRegistry.get(element) || [];
+    registeredEvents.forEach(({ type, handler }) => {
+      element.removeEventListener(type, handler);
+    });
+    this.eventRegistry.delete(element);
   }
   forceUpdate(key) {
     let el = Array.from(document.querySelectorAll("*")).filter((el2) => {
@@ -398,125 +408,120 @@ export class Component {
     update: (oldElement, newElement) => {
       if (!oldElement || !newElement) return;
 
-      // Store and re-attach events before updating
-      const events = this.eventRegistry.get(oldElement.id) || [];
-
-
+      // If nodes are the same type and can be updated
       if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
-        let part = this.Reconciler.shouldUpdate(oldElement, newElement, true);
-        console.log(part)
-        if (part === true) {
-          if (oldElement.nodeType === 3) {
-            oldElement.nodeValue = newElement.nodeValue;
-          } else {
-            oldElement.innerHTML = newElement.innerHTML;
-
-            // Swap attributes
-            for (let i = 0; i < newElement.attributes.length; i++) {
-              let attr = newElement.attributes[i];
-              oldElement.setAttribute(attr.name, attr.value);
-            }
-
-            // Re-attach events
-            events.forEach(ev => {
-              const { event, handler } = ev
-              oldElement.addEventListener(event, handler);
-              newElement.addEventListener(event, handler)
-            });
-
-            // Update children recursively
-            for (let i = 0; i < newElement.childNodes.length; i++) {
-              let children = {old: oldElement.childNodes[i], new:newElement.childNodes[i] }
-
-              this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i], true);
-            }
+        // Update attributes of the parent
+        Array.from(oldElement.attributes).forEach(({ name }) => {
+          if (!newElement.hasAttribute(name)) {
+            oldElement.removeAttribute(name);
           }
-        } else if (part.type === "Attributes") {
-          for (var i = 0; i < part.attributes.length; i++){
-            const _part = part.attributes[i]
-            oldElement.setAttribute(_part.name, _part.value);
-          }
-
-        }
-      } else {
-        events.forEach(ev => {
-          const { event, handler } = ev
-          oldElement.addEventListener(event, handler);
-          newElement.addEventListener(event, handler)
         });
 
-        // Update children recursively
-        for (let i = 0; i < newElement.childNodes.length; i++) {
+        Array.from(newElement.attributes).forEach(({ name, value }) => {
+          if (oldElement.getAttribute(name) !== value) {
+            oldElement.setAttribute(name, value);
+          }
+        });
 
-          this.Reconciler.update(oldElement.childNodes[i], newElement.childNodes[i], true);
+        // Update the parent content (if text content differs)
+        if (oldElement.childNodes.length === 1 && oldElement.firstChild.nodeType === Node.TEXT_NODE) {
+          if (oldElement.textContent !== newElement.textContent) {
+            oldElement.textContent = newElement.textContent;
+          }
+          return; // No children to reconcile if it's a text node
+        }
+
+        // Reconcile child nodes
+        const oldChildren = Array.from(oldElement.childNodes);
+        const newChildren = Array.from(newElement.childNodes);
+
+        const maxLength = Math.max(oldChildren.length, newChildren.length);
+        for (let i = 0; i < maxLength; i++) {
+          if (i >= oldChildren.length) {
+            // Add new children
+            const newChildClone = newChildren[i].cloneNode(true);
+            oldElement.appendChild(newChildClone);
+
+            // Transfer events for the new child
+            const newChildEvents = this.eventRegistry.get(newChildren[i]) || [];
+            newChildEvents.forEach(({ type, handler }) => {
+              this.addEventListener(newChildClone, type, handler);
+            });
+          } else if (i >= newChildren.length) {
+            // Remove extra old children
+            oldElement.removeChild(oldChildren[i]);
+          } else {
+            // Update existing children recursively
+            this.Reconciler.update(oldChildren[i], newChildren[i]);
+          }
+        }
+
+        // Reapply events to the parent
+        const parentEvents = this.eventRegistry.get(newElement) || [];
+        parentEvents.forEach(({ type, handler }) => {
+          this.addEventListener(oldElement, type, handler);
+        });
+      } else {
+        const oldChildren = Array.from(oldElement.childNodes);
+        const newChildren = Array.from(newElement.childNodes);
+
+        const maxLength = Math.max(oldChildren.length, newChildren.length);
+        for (let i = 0; i < maxLength; i++) {
+          if (i >= oldChildren.length) {
+            // Add new children
+            const newChildClone = newChildren[i].cloneNode(true);
+            oldElement.appendChild(newChildClone);
+
+            // Transfer events for the new child
+            const newChildEvents = this.eventRegistry.get(newChildren[i]) || [];
+            newChildEvents.forEach(({ type, handler }) => {
+              this.addEventListener(newChildClone, type, handler);
+            });
+          } else if (i >= newChildren.length) {
+            // Remove extra old children
+            oldElement.removeChild(oldChildren[i]);
+          } else {
+            // Update existing children recursively
+            this.Reconciler.update(oldChildren[i], newChildren[i]);
+          }
         }
       }
     },
 
     shouldUpdate: (oldElement, newElement, isChild = false) => {
-      // Check for node type differences
       if (oldElement.nodeType !== newElement.nodeType) {
-        return oldElement.innerHTML !== newElement.innerHTML ? { type: 'innerHTML' } : true;
+        return oldElement.innerHTML !== newElement.innerHTML ? { type: "innerHTML" } : true;
       }
-
-      // Compare text node content
       if (oldElement.nodeType === 3 && newElement.nodeType === 3) {
         if (oldElement.nodeValue !== newElement.nodeValue) {
           return true;
         }
       }
-
-      // Compare node names
       if (oldElement.nodeName !== newElement.nodeName) {
         return true;
       }
-
-      // Compare child nodes length
       if (oldElement.childNodes.length !== newElement.childNodes.length) {
         return true;
       }
-
-      // Compare attributes
-      const oldAttributes = oldElement.attributes || [];
-      const newAttributes = newElement.attributes || [];
-
-      // Check if an attribute was added or changed
-      //
-      var attributes = []
-      for (let i = 0; i < newAttributes.length; i++) {
-        const attr = newAttributes[i];
-        if (oldElement.getAttribute(attr.name) !== attr.value) {
-         attributes.push({ type: 'attribute', name: attr.name, value: attr.value })
+      if (newElement.attributes) {
+        for (let i = 0; i < newElement.attributes.length; i++) {
+          let attr = newElement.attributes[i];
+          if (oldElement.getAttribute(attr.name) !== attr.value) {
+            return { type: "attribute", name: attr.name, value: attr.value };
+          }
         }
       }
-
-      // Check if an attribute was removed
-      for (let i = 0; i < oldAttributes.length; i++) {
-        const attr = oldAttributes[i];
-        if (!newElement.hasAttribute(attr.name)) {
-           attributes.push({ type: 'attribute', name: attr.name, value: null })
-        }
-      }
-
-      if (attributes.length > 0 ){
-        return {
-          type: "Attributes",
-          attributes
-        }
-      }
-
       return false;
     }
-
   };
 
   parseToElement = (element) => {
     if (!element) return document.createElement("div");
     // create either a element or svg element
     let svg = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"];
-    let el =  svg.includes(element.type) ? document.createElementNS("http://www.w3.org/2000/svg", element.type) : document.createElement(element.type);
+    let el = svg.includes(element.type) ? document.createElementNS("http://www.w3.org/2000/svg", element.type) : document.createElement(element.type);
     let isText = typeof element === "string" || typeof element === "number" || typeof element === "boolean";
-    if (isText && element){ 
+    if (isText && element) {
       el.innerHTML = element;
     } else {
       let attributes = element.props;
@@ -542,22 +547,22 @@ export class Component {
         }
         if (key.startsWith("on")) {
           el.addEventListener(key.substring(2).toLowerCase(), attributes[key]);
-          el.id = el.id || Math.random().toString(36).substring(7);
-          this.eventRegistry.set(el.id, [...(this.eventRegistry.get(el) || []), { event: key.substring(2).toLowerCase(), handler: attributes[key] }]);
+          this.eventRegistry.set(el, [...this.eventRegistry.get(el) || [], { event: key.substring(2).toLowerCase(), handler: attributes[key] }]);
+          this.addEventListener(el, key.substring(2).toLowerCase(), attributes[key])
           continue;
         }
         el.setAttribute(key, attributes[key]);
       }
       if (children === undefined)
         return el;
-      for (let i = 0;i < children.length; i++) {
+      for (let i = 0; i < children.length; i++) {
         let child = children[i];
         if (Array.isArray(child)) {
           child.forEach((c) => {
             el.appendChild(this.parseToElement(c));
           });
         }
-        if (typeof child === "function") { 
+        if (typeof child === "function") {
           let comp = memoizeClassComponent(Component);
           comp.Mounted = true;
           comp.render = child;
@@ -566,7 +571,7 @@ export class Component {
           el.appendChild(el2);
         } else if (typeof child === "object") {
           el.appendChild(this.parseToElement(child));
-        } else if(child){
+        } else if (child) {
           let span = document.createTextNode(child)
           el.appendChild(span);
         }
