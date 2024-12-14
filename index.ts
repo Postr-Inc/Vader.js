@@ -124,6 +124,7 @@ globalThis.Fragment = Fragment;
  * @returns
  */
 export const e = (element, props, ...children) => {
+  if(!element) return "" 
   let instance;
   switch (true) {
     case isClassComponent(element):
@@ -137,10 +138,11 @@ export const e = (element, props, ...children) => {
       instance.render = element;
       instance.Mounted = true;
       let firstEl = instance.render({ key: instance.key, children, ...props }, children);
-      instance.children = children;
+      instance.children = children; 
       if (!firstEl)
         firstEl = { type: "div", props: { key: instance.key, ...props }, children };
       firstEl.props = { key: instance.key, ...firstEl.props, ...props };
+       
       return firstEl;
     default:
       return { type: element, props: props || {}, children: children || [] };
