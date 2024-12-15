@@ -48,8 +48,7 @@ console.error(error)
 }
 
 
-let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
-console.log({builtCode, path:path.join(process.cwd(), 'dist', process.env.filePath) })
+let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8') 
 const handleReplacements = (code) => {
   let lines = code.split('\n')
   let newLines = []
