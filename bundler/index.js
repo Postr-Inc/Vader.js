@@ -42,19 +42,23 @@ try {
       format: "esm",
       ...(process.env.DEV ? { sourcemap: "inline" } : {}),
       packages: "bundle",  
+      external:["vaderjs"]
   });
 } catch (error) {
 console.error(error)
 }
 
 
-let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8') 
+let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
+console.log({builtCode, path:path.join(process.cwd(), 'dist', process.env.filePath) })
 const handleReplacements = (code) => {
   let lines = code.split('\n')
   let newLines = []
   for (let line of lines) {
       let hasImport = line.includes('import')
-
+      if(hasImport && line.includes('vaderjs')){
+          line = line.replace('vaderjs', '/src/vader/index.js')
+      }
       if (hasImport && line.includes('.css')) {
           try {
               let isSmallColon = line.includes("'")
