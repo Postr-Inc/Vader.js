@@ -38,46 +38,87 @@ try {
       entrypoints: [process.env.ENTRYPOINT],
       minify: false,
       root: process.cwd() + "/dist/",
-      outdir: process.cwd() + "/dist/",
-
+      outdir: process.cwd() + "/dist/", 
       format: "esm",
       ...(process.env.DEV ? { sourcemap: "inline" } : {}),
-      external: ['*.jsx', '*.js', '*.ts']
+      packages: "bundle",  
   });
 } catch (error) {
 console.error(error)
 }
 
-let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
 
-function handleReplacements(code) {
-  let lines = code.split("\n");
-  let newLines = [];
+let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
+console.log({builtCode, path:path.join(process.cwd(), 'dist', process.env.filePath) })
+const handleReplacements = (code) => {
+  let lines = code.split('\n')
+  let newLines = []
   for (let line of lines) {
       let hasImport = line.includes('import')
-      if (hasImport && line.includes('from') && !newLines.includes(line)) {
+
+      if (hasImport && line.includes('.css')) {
           try {
-              let url = line.includes("'") ? line.split("'")[1] : line.split('"')[1]
-              line = line.replace(url, url.replace('.jsx', '.js').replace('.tsx', '.js'))
-              line = line.replace(url, url.replace('.ts', '.js').replace('.tsx', '.js'))
-              newLines.push(line)
+              let isSmallColon = line.includes("'")
+              let url = isSmallColon ? line.split("'")[1] : line.split('"')[1]
+              // start from "/" not "/app"
+              // remvoe all ./ and ../
+              url = url.replaceAll('./', '/').replaceAll('../', '/')
+
+              let p = path.join(process.cwd(), '/', url)
+              line = '';
+              url = url.replace(process.cwd() + '/app', '')
+              url = url.replace(/\\/g, '/')
+              if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
+                  bindes.push(`
+                  <style>
+                    ${fs.readFileSync(p, 'utf-8')}
+                  </style>
+                  `)
+              }
           } catch (error) {
-              continue;
+              console.error(error)
           }
-      } else {
-          newLines.push(line)
       }
+      if (line.toLowerCase().includes('genkey()')) {
+          line = line.toLowerCase().replace('genkey()', `this.key = "${crypto.randomUUID()}"`)
+      }
+      if (!hasImport && line.includes('useFetch')) {
+          line = line.replace('useFetch', 'this.useFetch')
+      }
+      if (!hasImport && line.includes('useState') && line.includes('[')) {
+          let key = line.split(',')[0].split('[')[1].replace(' ', '')
+          let b4 = line
+          b4 = line.replace('useState(', `this.useState('${key}',`)
+          line = b4
+      }
+      if (!hasImport && line.includes('useAsyncState')) {
+          let key = line.split(',')[0].split('[')[1].replace(' ', '')
+          let b4 = line
+          b4 = line.replace('useAsyncState(', `this.useAsyncState('${key}',`)
+          line = b4
+      }
+      if (!hasImport && line.includes('useEffect')) {
+          let b4 = line
+          b4 = line.replace('useEffect(', `this.useEffect(`)
+          line = b4
+      }
+      if (!hasImport && line.includes('useRef')) {
+          let b4 = line
+          let key = line.split(' ')[1].split('=')[0]
+          b4 = line.replace('useRef(', `this.useRef('${key}',`)
+          line = b4
+      }
+
+      newLines.push(line)
   }
-  return newLines.join("\n");
-}
+  let c = newLines.join('\n')
+  return c
+} 
 builtCode = handleReplacements(builtCode)
+ 
 fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
 
-let isClass = function (element) {
-  if(!element){
-    
-  }
-  console.log(element)
+let isClass = function (element) { 
   return element && element.toString().startsWith("class");
 };
 const generatePage = async (
@@ -99,8 +140,7 @@ const generatePage = async (
       html = html.render();
   } else {
       isFunction = true;
-      let instance = new Component();
-      console.log(html)
+      let instance = new Component(); 
       html = html.bind(instance);
       instance.render = html;
       html = instance.render();
@@ -145,7 +185,8 @@ const generatePage = async (
       )
   );
   process.exit(0);
-}; 
+};
+console.log(process.env.isJsx, process.env.isAppFile == "true" )
 try {  
     if (process.env.isJsx == "true" && process.env.isAppFile == "true"  ) {
       generatePage({ path: process.env.INPUT, route: process.env.OUT })
