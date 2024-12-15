@@ -124,7 +124,8 @@ globalThis.Fragment = Fragment;
  * @returns
  */
 export const e = (element, props, ...children) => {
-  if(!element) return "" 
+  if (!element)
+    return "";
   let instance;
   switch (true) {
     case isClassComponent(element):
@@ -136,13 +137,16 @@ export const e = (element, props, ...children) => {
     case typeof element === "function":
       instance = new Component;
       instance.render = element;
+      if(element.name.toLowerCase() == "default"){
+        throw new Error("Function name must be unique")
+      } 
+      instance.key = element.name
       instance.Mounted = true;
       let firstEl = instance.render({ key: instance.key, children, ...props }, children);
-      instance.children = children; 
+      instance.children = children;
       if (!firstEl)
         firstEl = { type: "div", props: { key: instance.key, ...props }, children };
       firstEl.props = { key: instance.key, ...firstEl.props, ...props };
-       
       return firstEl;
     default:
       return { type: element, props: props || {}, children: children || [] };
@@ -659,9 +663,13 @@ export function render(element, container) {
   } else {
     let memoizedInstance = memoizeClassComponent(Component);
     memoizedInstance.Mounted = true;
-    memoizedInstance.render = element.bind(memoizedInstance);
-    let el = memoizedInstance.toElement();
-    el.key = memoizedInstance.key;
+    memoizedInstance.render = element.bind(memoizedInstance); 
+    if(element.name == "default"){
+      throw new Error("Must be a unique function name")
+    }
+    memoizedInstance.key = element.name
+    let el = memoizedInstance.toElement(); 
+    el.key = element.name
     container.innerHTML = "";
     container.replaceWith(el);
   }
