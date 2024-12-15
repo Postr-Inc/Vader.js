@@ -89,8 +89,7 @@ const handleReplacements = (code) => {
       line = line.replace('useFetch', 'this.useFetch')
     }
     if (!hasImport && line.match(/\buseState\d*\(/) && line.includes('[') && !line.includes("this")) {
-      console.log("Original line:", line);
-
+     
 
       let key = line.split(',')[0].split('[')[1].replace(' ', '');
 
