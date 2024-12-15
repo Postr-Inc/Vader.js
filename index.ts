@@ -322,33 +322,62 @@ export class Component {
         executeCallback();
       }
     }
-  } useState(key, defaultValue, persist = false) {
+  } 
+  useState(key, defaultValue, persist = false) {
     if (typeof window === "undefined")
-      return [defaultValue, () => {
-      }];
-    let value = sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
+      return [defaultValue, () => {}];
+  
+    // Retrieve initial value from sessionStorage or defaultValue
+    let value = sessionStorage.getItem("state_" + key)
+      ? JSON.parse(sessionStorage.getItem("state_" + key)).value
+      : defaultValue;
+  
+    // Parse stringified values safely
     if (typeof value === "string") {
       try {
         value = JSON.parse(value);
-      } catch (error) {
+      } catch {
+        // Value remains a string if parsing fails
       }
     }
-    if (!window["listener" + key] && !isServer) {
-      window["listener" + key] = true;
+  
+    // Ensure event listener is added only once
+    if (!window[`listener_${key}`]) {
+      window[`listener_${key}`] = true;
       window.addEventListener("beforeunload", () => {
-        !persist && sessionStorage.removeItem("state_" + key);
+        if (!persist) sessionStorage.removeItem("state_" + key);
       });
     }
+  
     const setValue = (newValue) => {
       if (typeof newValue === "function") {
         newValue = newValue(value);
       }
-      sessionStorage.setItem("state_" + key, JSON.stringify({ value: newValue }));
-      this.forceUpdate(this.key);
+   
+      const currentValue = sessionStorage.getItem("state_" + key)
+        ? JSON.parse(sessionStorage.getItem("state_" + key)).value
+        : defaultValue;
+  
+      if (JSON.stringify(currentValue) === JSON.stringify(newValue)) {
+        return; // Skip if the value hasn't changed
+      }
+  
+      sessionStorage.setItem(
+        "state_" + key,
+        JSON.stringify({ value: newValue })
+      );
+   
+      if (this.forceUpdate) {
+        this.forceUpdate(this.key);
+      }
     };
+  
     const getVal = () => {
-      return sessionStorage.getItem("state_" + key) ? JSON.parse(sessionStorage.getItem("state_" + key)).value : defaultValue;
+      return sessionStorage.getItem("state_" + key)
+        ? JSON.parse(sessionStorage.getItem("state_" + key)).value
+        : defaultValue;
     };
+  
     return [getVal, setValue];
   }
   useFetch(url, options) {
@@ -665,7 +694,7 @@ export function render(element, container) {
     memoizedInstance.Mounted = true;
     memoizedInstance.render = element.bind(memoizedInstance); 
     if(element.name == "default"){
-      throw new Error("Must be a unique function name")
+      throw new Error("Function name Must be a unique function name as it is used for a element key")
     }
     memoizedInstance.key = element.name
     let el = memoizedInstance.toElement(); 
