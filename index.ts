@@ -3,6 +3,8 @@ let isClassComponent = function (element) {
   return element.toString().startsWith("class");
 };
 
+ 
+
 const memoizes = new Map();
 //@ts-ignore
 
@@ -98,11 +100,7 @@ export const A = (props: {
     window.location.reload();
     return void 0;
   }
-  return {
-    type: "a",
-    props: { ...props, onClick: handleClick },
-    children: children || [],
-  }
+  return e("a", { ...props, onClick: handleClick }, props.children);
 }
 
 
@@ -134,22 +132,28 @@ export const e = (element, props, ...children) => {
       instance.children = children;
       instance.Mounted = true;
       return instance.render(props);
-    case typeof element === "function":
-      instance = new Component;
-      instance.render = element;
-      if(element.name.toLowerCase() == "default"){
-        throw new Error("Function name must be unique")
-      } 
-      instance.key = element.name
+    case typeof element === "function": 
+      instance = memoizeClassComponent(Component, element.name);  
+      element = element.bind(instance);
+      instance.render = (props) => element(props);
+      if (element.name.toLowerCase() == "default") {
+        throw new Error("Function name must be unique");
+      }
+      instance.key = element.name;
       instance.Mounted = true;
       let firstEl = instance.render({ key: instance.key, children, ...props }, children);
       instance.children = children;
       if (!firstEl)
         firstEl = { type: "div", props: { key: instance.key, ...props }, children };
       firstEl.props = { key: instance.key, ...firstEl.props, ...props };
+      firstEl.props["idKey"] = instance.key;
       return firstEl;
     default:
-      return { type: element, props: props || {}, children: children || [] };
+      let el = { type: element, props: props || {}, children: children || [] };
+      if (el.type !== "head") {
+        el.props = { idKey: crypto.randomUUID(), ...el.props };
+      }
+      return el;
   }
 };
 
@@ -191,10 +195,8 @@ export const useState = (initialState, persist) => {
   const setState = (newState) => {
     initialState = newState;
   };
-  const getVal = () => {
-    return initialState;
-  };
-  return [getVal, setState];
+ 
+  return [initialState, setState];
 };
 
 if (!isServer) {
@@ -243,13 +245,13 @@ export class Component {
   eventRegistry: any
   prevState;
   refs: HTMLElement[] | any[]
-  state: any[] = []
+  state: {}
   constructor() {
     this.key = crypto.randomUUID();
     this.props = {};
     this.effect = [];
     this.Mounted = false;
-    this.state = [];
+    this.state =  {};
     this.element = null;
     this.effectCalls = []
     this.errorThreshold = 1000
@@ -266,119 +268,91 @@ export class Component {
   }
   useEffect(callback, dependencies = []) {
     const callbackId = callback.toString();
-
-    if (!this.effectCalls.some(s => s.id === callbackId)) {
-      this.effectCalls.push({ id: callbackId, count: 0, lastCall: Date.now(), runOnce: dependencies.length === 0 });
+  
+    // Initialize effect tracking
+    if (!this.effectCalls.some(effect => effect.id === callbackId)) {
+      this.effectCalls.push({
+        id: callbackId,
+        count: 0,
+        lastCall: Date.now(),
+        runOnce: dependencies.length === 0, // Flag to run only once if no dependencies
+      });
     }
-
-    const effectCall = this.effectCalls.find(s => s.id === callbackId);
-
+  
+    const effectCall = this.effectCalls.find(effect => effect.id === callbackId);
+  
     const executeCallback = () => {
       const now = Date.now();
       const timeSinceLastCall = now - effectCall.lastCall;
-
+  
+      // Rate-limiting logic
       if (timeSinceLastCall < this.errorThreshold) {
         effectCall.count += 1;
         if (effectCall.count > this.maxIntervalCalls) {
-          throw new Error(`Woah wayy too many calls, ensure you are not overlooping you can change the maxThresholdCalls and errorThreshold depending on needs`)
+          throw new Error(
+            `Woah, way too many calls! Ensure you are not over-looping. Adjust maxIntervalCalls and errorThreshold as needed.`
+          );
         }
       } else {
-        effectCall.count = 1;
+        effectCall.count = 1; // Reset count for a new interval
       }
-
+  
       effectCall.lastCall = now;
-
+  
+      // Execute the callback asynchronously
       setTimeout(() => {
         try {
-
-          effects.push(callbackId);
-
-          callback()
+          effects.push(callbackId); // Track the effect
+          callback();
         } catch (error) {
           console.error(error);
         }
       }, 0);
     };
-
-    if (dependencies.length === 0 && this.Mounted && this.effect.length === 0 && !effects.includes(callbackId)) {
-      executeCallback();
-      this.effect.push(callbackId);
+  
+    // Handle empty dependencies: run only once
+    if (dependencies.length === 0) {
+      if (this.Mounted && !effects.includes(callbackId)) {
+        executeCallback();
+        this.effect.push(callbackId);
+      }
+      return; // Skip further processing for empty dependencies
+    }
+  
+    // Check if dependencies have changed
+    let dependenciesChanged = false;
+    if (dependencies.length !== this.effect.length) {
+      dependenciesChanged = true;
     } else {
-      // Check if dependencies have changed
-      let dependenciesChanged = false;
-      if (dependencies.length !== this.effect.length) {
-        dependenciesChanged = true;
-      } else {
-        for (let i = 0; i < dependencies.length; i++) {
-          if (this.effect[i] !== dependencies[i]) {
-            dependenciesChanged = true;
-            break;
-          }
+      for (let i = 0; i < dependencies.length; i++) {
+        if (this.effect[i] !== dependencies[i]) {
+          dependenciesChanged = true;
+          break;
         }
       }
-
-      if (dependenciesChanged) {
-        this.effect = [...dependencies];
-        executeCallback();
-      }
     }
-  } 
+  
+    // If dependencies changed, update and execute the callback
+    if (dependenciesChanged) {
+      this.effect = [...dependencies]; // Update tracked dependencies
+      executeCallback();
+    }
+  }
+  
   useState(key, defaultValue, persist = false) {
-    if (typeof window === "undefined")
-      return [defaultValue, () => {}];
-  
-    // Retrieve initial value from sessionStorage or defaultValue
-    let value = sessionStorage.getItem("state_" + key)
-      ? JSON.parse(sessionStorage.getItem("state_" + key)).value
-      : defaultValue;
-  
-    // Parse stringified values safely
-    if (typeof value === "string") {
-      try {
-        value = JSON.parse(value);
-      } catch {
-        // Value remains a string if parsing fails
-      }
+    let value = this.state[key] || defaultValue;
+    if (persist) {
+      value = sessionStorage.getItem(key) ? JSON.parse(sessionStorage.getItem(key)).value : defaultValue;
     }
-  
-    // Ensure event listener is added only once
-    if (!window[`listener_${key}`]) {
-      window[`listener_${key}`] = true;
-      window.addEventListener("beforeunload", () => {
-        if (!persist) sessionStorage.removeItem("state_" + key);
-      });
-    }
-  
     const setValue = (newValue) => {
-      if (typeof newValue === "function") {
-        newValue = newValue(value);
+      this.state[key] = newValue; 
+      if (persist) {
+        sessionStorage.setItem(key, JSON.stringify({ value: newValue }));
       }
-   
-      const currentValue = sessionStorage.getItem("state_" + key)
-        ? JSON.parse(sessionStorage.getItem("state_" + key)).value
-        : defaultValue;
-  
-      if (JSON.stringify(currentValue) === JSON.stringify(newValue)) {
-        return; // Skip if the value hasn't changed
-      }
-  
-      sessionStorage.setItem(
-        "state_" + key,
-        JSON.stringify({ value: newValue })
-      );
-   
-      if (this.forceUpdate) {
-        this.forceUpdate(this.key);
-      }
+      this.forceUpdate(this.key);
     };
-  
-    const getVal = () => {
-      return sessionStorage.getItem("state_" + key)
-        ? JSON.parse(sessionStorage.getItem("state_" + key)).value
-        : defaultValue;
-    };
-  
-    return [getVal, setValue];
+    value = this.state[key] || defaultValue; 
+    return [value, setValue];
   }
   useFetch(url, options) {
     const loadingKey = "loading_" + url;
@@ -405,18 +379,13 @@ export class Component {
     return { loading, error, data };
   }
   addEventListener(element, event, handler) {
-    // Ensure element is tracked
     if (!this.eventRegistry.has(element)) {
       this.eventRegistry.set(element, []);
     }
-
-    // Check for duplicates
     const registeredEvents = this.eventRegistry.get(element);
-    const isDuplicate = registeredEvents.some(
-      (e) => e.type === event && e.handler === handler
-    );
+    const isDuplicate = registeredEvents.some((e) => e.type === event && e.handler === handler);
     if (!isDuplicate) {
-      element.addEventListener(event, handler);
+      element["on" + event] = handler;
       registeredEvents.push({ type: event, handler });
       this.eventRegistry.set(element, registeredEvents);
     }
@@ -430,13 +399,11 @@ export class Component {
     this.eventRegistry.delete(element);
   }
   forceUpdate(key) {
-    let el = Array.from(document.querySelectorAll("*")).filter((el2) => {
-      return el2.key === key;
-    })[0];
-    let newl = this.toElement();
-    if (newl.key !== key) {
-      newl = Array.from(newl.children).filter((el2) => el2.key === key)[0];
-    }
+    let el =  document.querySelector(`[idKey="${key}"]`); 
+    let newl = this.toElement(this.props);
+    if (newl.getAttribute("idKey") !== key) {
+      newl = Array.from(newl.children).filter((el2) =>   el2.getAttribute("idKey") === key)[0];
+    } 
     this.Reconciler.update(el, newl);
   }
   attachEventsRecursively = (element, source) => {
@@ -469,9 +436,22 @@ export class Component {
         const newChildren = Array.from(newElement.childNodes);
     
         const maxLength = Math.max(oldChildren.length, newChildren.length);
+        if (oldElement.tagName !== newElement.tagName) {
+          const newElementClone = newElement.cloneNode(true);
+          oldElement.replaceWith(newElementClone);
+      
+          // Attach events recursively to the new element
+          this.attachEventsRecursively(newElementClone, newElement);
+          return;
+        }
+
         for (let i = 0; i < maxLength; i++) {
           if (i >= oldChildren.length) {
             const newChildClone = newChildren[i].cloneNode(true);
+            if(oldElement.nodeType === Node.TEXT_NODE) {
+              oldElement.textContent = newElement.textContent;
+              return;
+            }
             oldElement.appendChild(newChildClone);
     
             // Rebind events to the new child (and its children recursively)
@@ -543,7 +523,9 @@ export class Component {
       // Reapply events for the current element
       const parentEvents = this.eventRegistry.get(newElement) || [];
       parentEvents.forEach(({ type, handler }) => {
-        this.addEventListener(oldElement, type, handler);
+        if (newElement.nodeType === oldElement.nodeType) {
+          this.addEventListener(oldElement, type, handler);
+        } 
       });
 
     },
@@ -601,6 +583,9 @@ export class Component {
     // Set attributes
     let attributes = element.props || {};
     for (let key in attributes) {
+      if(typeof attributes[key] === "object" && key !== "style"){
+        continue;
+      }
       if (key === "key") {
         el.key = attributes[key];
       } else if (key === "className") {
@@ -632,7 +617,7 @@ export class Component {
         child.forEach((nestedChild) => el.appendChild(this.parseToElement(nestedChild)));
       } else if (typeof child === "function") {
         // Handle functional components
-        let component = memoizeClassComponent(Component);
+        let component = memoizeClassComponent(Component, child.name);
         component.Mounted = true;
         component.render = child;
         let componentElement = component.toElement();
@@ -655,10 +640,9 @@ export class Component {
     return { type: element, props: props || {}, children: children || [] };
   }
   toElement() {
-    let children = this.render();
-
+    let children = this.render(this.props); 
     let el = this.parseToElement(children);
-    el.key = this.key;
+    el.setAttribute("idKey", this.key);
     return el;
   }
   render() {
@@ -666,15 +650,13 @@ export class Component {
   }
 }
 
-function memoizeClassComponent(Component: any) {
-  let key = Component.toString();
-  if (memoizes.has(key)) {
-    return memoizes.get(key);
+function memoizeClassComponent(Component, key) { 
+  let instance = memoizes.get(key);
+  if (!instance) {
+    instance = new Component(key);
+    memoizes.set(key, instance); 
   }
-  let instance = new Component();
-  memoizes.set(key, instance);
   return instance;
-
 }
 /**
  * @description - Render jsx Componenet to the DOM
@@ -682,6 +664,17 @@ function memoizeClassComponent(Component: any) {
  * @param container
  */
 export function render(element, container) {
+  // CLEAR STATE ON RELOAD
+  if (!isServer) {
+    window.addEventListener("beforeunload", () => {
+       let keys = Object.keys(sessionStorage);
+       keys.forEach((key) => {
+          if (key.startsWith("state_")) {
+            sessionStorage.removeItem(key);
+          }
+        });
+    });
+  }
   if (isClassComponent(element)) {
     const instance = new element;
     instance.Mounted = true;
@@ -690,15 +683,16 @@ export function render(element, container) {
     container.innerHTML = "";
     container.replaceWith(el);
   } else {
-    let memoizedInstance = memoizeClassComponent(Component);
+    let memoizedInstance = memoizeClassComponent(Component, element.name);
     memoizedInstance.Mounted = true;
-    memoizedInstance.render = element.bind(memoizedInstance); 
-    if(element.name == "default"){
-      throw new Error("Function name Must be a unique function name as it is used for a element key")
+    element = element.bind(memoizedInstance);
+    memoizedInstance.render = (props) => element(props);
+    if (element.name == "default") {
+      throw new Error("Function name Must be a unique function name as it is used for a element key");
     }
-    memoizedInstance.key = element.name
-    let el = memoizedInstance.toElement(); 
-    el.key = element.name
+    memoizedInstance.key = element.name;
+    let el = memoizedInstance.toElement();
+    el.key = element.name;
     container.innerHTML = "";
     container.replaceWith(el);
   }
