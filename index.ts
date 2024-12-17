@@ -181,6 +181,7 @@ export function Switch({ children }) {
  * @returns
  */
 export function Match({ when, children }) {
+  console.log(when);
   return when ? children : { type: "div", props: {}, children: [] };
 }
 /**
@@ -246,8 +247,7 @@ export class Component {
   prevState;
   refs: HTMLElement[] | any[]
   state: {}
-  constructor() {
-    this.key = crypto.randomUUID();
+  constructor() { 
     this.props = {};
     this.effect = [];
     this.Mounted = false;
@@ -340,20 +340,38 @@ export class Component {
   }
   
   useState(key, defaultValue, persist = false) {
-    let value = this.state[key] || defaultValue;
-    if (persist) {
-      value = sessionStorage.getItem(key) ? JSON.parse(sessionStorage.getItem(key)).value : defaultValue;
+    // Initialize state value from memory or sessionStorage
+    if (this.state[key] === undefined) {
+        if (persist && sessionStorage.getItem(key)) {
+            this.state[key] = JSON.parse(sessionStorage.getItem(key)).value;
+        } else {
+            this.state[key] = defaultValue;
+        }
     }
+
     const setValue = (newValue) => {
-      this.state[key] = newValue; 
-      if (persist) {
-        sessionStorage.setItem(key, JSON.stringify({ value: newValue }));
-      }
-      this.forceUpdate(this.key);
+        // If newValue is a function, compute it based on the previous value
+        if (typeof newValue === "function") {
+            newValue = newValue(this.state[key]);
+        }
+
+        // Avoid unnecessary updates
+        if (this.state[key] === newValue) {
+            return;
+        }
+
+        // Update state and persist if needed
+        this.state[key] = newValue;
+        if (persist) {
+            sessionStorage.setItem(key, JSON.stringify({ value: newValue }));
+        }
+
+        this.forceUpdate?.(this.key); // Call forceUpdate if it exists
     };
-    value = this.state[key] || defaultValue; 
-    return [value, setValue];
-  }
+
+    return [this.state[key], setValue];
+}
+
   useFetch(url, options) {
     const loadingKey = "loading_" + url;
     const errorKey = "error" + url;
@@ -663,18 +681,7 @@ function memoizeClassComponent(Component, key) {
  * @param element
  * @param container
  */
-export function render(element, container) {
-  // CLEAR STATE ON RELOAD
-  if (!isServer) {
-    window.addEventListener("beforeunload", () => {
-       let keys = Object.keys(sessionStorage);
-       keys.forEach((key) => {
-          if (key.startsWith("state_")) {
-            sessionStorage.removeItem(key);
-          }
-        });
-    });
-  }
+export function render(element, container) { 
   if (isClassComponent(element)) {
     const instance = new element;
     instance.Mounted = true;
