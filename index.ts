@@ -140,7 +140,7 @@ export const e = (element, props, ...children) => {
       return instance.render(props);
     case typeof element === "function": 
       instance = memoizeClassComponent(Component, element.name);  
-      element = element.bind(instance);
+      element = element.bind(instance); 
       instance.render = (props) => element(props);
       if (element.name.toLowerCase() == "default") {
         throw new Error("Function name must be unique");
@@ -153,6 +153,7 @@ export const e = (element, props, ...children) => {
         firstEl = { type: "div", props: { key: instance.key, ...props }, children };
       firstEl.props = { key: instance.key, ...firstEl.props, ...props };
       firstEl.props["idKey"] = instance.key;
+      instance.props = firstEl.props;
       return firstEl;
     default:
       let el = { type: element, props: props || {}, children: children || [] };
@@ -284,77 +285,81 @@ export class Component {
     return this.refs.find((r) => r.key == key).value;
   }
   useEffect(callback, dependencies = []) {
-    const callbackId = callback.toString();
-  
-    // Initialize effect tracking
-    if (!this.effectCalls.some(effect => effect.id === callbackId)) {
-      this.effectCalls.push({
-        id: callbackId,
-        count: 0,
-        lastCall: Date.now(),
-        runOnce: dependencies.length === 0, // Flag to run only once if no dependencies
-      });
+    const callbackId = callback.toString(); // Unique ID based on callback string representation
+
+    if (!this.effectCalls.some((effect) => effect.id === callbackId)) {
+        // Add the initial effect call if it doesn't exist
+        this.effectCalls.push({
+            id: callbackId,
+            count: 0,
+            lastCall: Date.now(),
+            hasRun: false, // Tracks if the effect has already run once
+            dependencies
+        });
     }
-  
-    const effectCall = this.effectCalls.find(effect => effect.id === callbackId);
-  
+
+    const effectCall = this.effectCalls.find((effect) => effect.id === callbackId);
+
     const executeCallback = () => {
-      const now = Date.now();
-      const timeSinceLastCall = now - effectCall.lastCall;
-  
-      // Rate-limiting logic
-      if (timeSinceLastCall < this.errorThreshold) {
-        effectCall.count += 1;
-        if (effectCall.count > this.maxIntervalCalls) {
-          throw new Error(
-            `Woah, way too many calls! Ensure you are not over-looping. Adjust maxIntervalCalls and errorThreshold as needed.`
-          );
+        const now = Date.now();
+        const timeSinceLastCall = now - effectCall.lastCall;
+
+        // Track call counts and handle potential over-calling issues
+        if (timeSinceLastCall < this.errorThreshold) {
+            effectCall.count += 1;
+            if (effectCall.count > this.maxIntervalCalls) {
+                throw new Error(
+                    `Woah, way too many calls! Ensure you are not over-looping. Adjust maxIntervalCalls and errorThreshold as needed.`
+                );
+            }
+        } else {
+            effectCall.count = 1;
         }
-      } else {
-        effectCall.count = 1; // Reset count for a new interval
-      }
-  
-      effectCall.lastCall = now;
-  
-      // Execute the callback asynchronously
-      setTimeout(() => {
-        try {
-          effects.push(callbackId); // Track the effect
-          callback();
-        } catch (error) {
-          console.error(error);
-        }
-      }, 0);
+
+        effectCall.lastCall = now;
+
+        setTimeout(() => {
+            try {
+                effects.push(callbackId); // Track executed effects
+                callback(); // Execute the callback
+            } catch (error) {
+                console.error(error);
+            }
+        }, 0);
     };
-  
-    // Handle empty dependencies: run only once
-    if (dependencies.length === 0) {
-      if (this.Mounted && !effects.includes(callbackId)) {
-        executeCallback();
-        this.effect.push(callbackId);
-      }
-      return; // Skip further processing for empty dependencies
+
+    // First time: Run the effect and mark it as run
+    if (!effectCall.hasRun && dependencies.length === 0) {
+      executeCallback();
+      effectCall.hasRun = true;
+      effectCall.dependencies = dependencies;
+      return;
     }
-  
+
+    // If there are no dependencies, do nothing after the first run
+    if (dependencies.length === 0) {
+        return;
+    }
+
     // Check if dependencies have changed
     let dependenciesChanged = false;
-    if (dependencies.length !== this.effect.length) {
-      dependenciesChanged = true;
-    } else {
-      for (let i = 0; i < dependencies.length; i++) {
-        if (this.effect[i] !== dependencies[i]) {
-          dependenciesChanged = true;
-          break;
+    for (let i = 0; i < dependencies.length; i++) {
+        const previousDependencies = effectCall.dependencies || [];
+        if (
+            JSON.stringify(previousDependencies[i]) !== JSON.stringify(dependencies[i])
+        ) {
+            dependenciesChanged = true;
+            break;
         }
-      }
     }
-  
-    // If dependencies changed, update and execute the callback
+
+    // If dependencies have changed, run the effect and update dependencies
     if (dependenciesChanged) {
-      this.effect = [...dependencies]; // Update tracked dependencies
-      executeCallback();
+        executeCallback();
+        effectCall.dependencies = dependencies;
     }
-  }
+}
+
   
   useState(key, defaultValue, persist = false) {
     let value = this.state[key] || defaultValue;
@@ -362,6 +367,9 @@ export class Component {
       value = sessionStorage.getItem(key) ? JSON.parse(sessionStorage.getItem(key)).value : defaultValue;
     }
     const setValue = (newValue) => {
+      if(typeof newValue === "function") {
+        newValue = newValue(this.state[key]);
+      }
       this.state[key] = newValue; 
       if (persist) {
         sessionStorage.setItem(key, JSON.stringify({ value: newValue }));
@@ -640,7 +648,7 @@ export class Component {
         // Handle functional components
         let component = memoizeClassComponent(Component, child.name);
         component.Mounted = true;
-        component.render = child;
+        component.render =  (props) => child(props);
         let componentElement = component.toElement();
         el.appendChild(componentElement);
       } else if (typeof child === "object") {
@@ -707,6 +715,7 @@ export function render(element, container) {
     let memoizedInstance = memoizeClassComponent(Component, element.name);
     memoizedInstance.Mounted = true;
     element = element.bind(memoizedInstance);
+
     memoizedInstance.render = (props) => element(props);
     if (element.name == "default") {
       throw new Error("Function name Must be a unique function name as it is used for a element key");
