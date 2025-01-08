@@ -79,15 +79,15 @@ export const A = (props: {
   /**
   * @description Set the elements classlist
   */
-  class: string;
+  className?: string;
   /**
   * @description Once clicked send user to a different link
   */
-  href: string;
-  style: string;
-  openInNewTab: boolean
-  onClick: () => void;
-  onChange: () => void;
+  href?: string;
+  style?: string;
+  openInNewTab?: boolean
+  onClick?: () => void;
+  onChange?: () => void;
 }, children: any) => {
   function handleClick(e) {
     e.preventDefault();
@@ -95,9 +95,7 @@ export const A = (props: {
       window.open(props.href, "_blank");
       return void 0;
     }
-    window.history.pushState({}, "", props.href);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-    window.location.reload();
+    window.location.href = props.href;
     return void 0;
   }
   return e("a", { ...props, onClick: handleClick }, props.children);
@@ -112,6 +110,14 @@ export const Fragment = (props: any, children: any) => {
   }
 }
 
+if(typeof window !== "undefined") {
+  window.history.back = () => {
+    window.history.go(-1);
+  }
+  window.history.forward = () => {
+    window.history.go(1);
+  }
+}
 globalThis.Fragment = Fragment;
 
 /**
@@ -153,6 +159,12 @@ export const e = (element, props, ...children) => {
       if (el.type !== "head") {
         el.props = { idKey: crypto.randomUUID(), ...el.props };
       }
+
+      // if element == false return empty string
+      if (el.type === false) {
+        return "";
+      }
+
       return el;
   }
 };
@@ -166,10 +178,15 @@ export const e = (element, props, ...children) => {
   */
 
 
-export function Switch({ children }) {
+interface SwitchProps {
+  children: any[] | any;
+}
+
+// make children optional
+export function Switch({ children = [] }: SwitchProps) {
   for (let child of children) {
-    if (child.props.when) {
-      return child;
+    if (child.props.when) { 
+      return child
     }
   }
   return { type: "div", props: {}, children: [] };
@@ -181,7 +198,6 @@ export function Switch({ children }) {
  * @returns
  */
 export function Match({ when, children }) {
-  console.log(when);
   return when ? children : { type: "div", props: {}, children: [] };
 }
 /**
@@ -247,7 +263,8 @@ export class Component {
   prevState;
   refs: HTMLElement[] | any[]
   state: {}
-  constructor() { 
+  constructor() {
+    this.key = crypto.randomUUID();
     this.props = {};
     this.effect = [];
     this.Mounted = false;
@@ -340,38 +357,20 @@ export class Component {
   }
   
   useState(key, defaultValue, persist = false) {
-    // Initialize state value from memory or sessionStorage
-    if (this.state[key] === undefined) {
-        if (persist && sessionStorage.getItem(key)) {
-            this.state[key] = JSON.parse(sessionStorage.getItem(key)).value;
-        } else {
-            this.state[key] = defaultValue;
-        }
+    let value = this.state[key] || defaultValue;
+    if (persist) {
+      value = sessionStorage.getItem(key) ? JSON.parse(sessionStorage.getItem(key)).value : defaultValue;
     }
-
     const setValue = (newValue) => {
-        // If newValue is a function, compute it based on the previous value
-        if (typeof newValue === "function") {
-            newValue = newValue(this.state[key]);
-        }
-
-        // Avoid unnecessary updates
-        if (this.state[key] === newValue) {
-            return;
-        }
-
-        // Update state and persist if needed
-        this.state[key] = newValue;
-        if (persist) {
-            sessionStorage.setItem(key, JSON.stringify({ value: newValue }));
-        }
-
-        this.forceUpdate?.(this.key); // Call forceUpdate if it exists
+      this.state[key] = newValue; 
+      if (persist) {
+        sessionStorage.setItem(key, JSON.stringify({ value: newValue }));
+      }
+      this.forceUpdate(this.key);
     };
-
-    return [this.state[key], setValue];
-}
-
+    value = this.state[key] || defaultValue; 
+    return [value, setValue];
+  }
   useFetch(url, options) {
     const loadingKey = "loading_" + url;
     const errorKey = "error" + url;
@@ -621,9 +620,13 @@ export class Component {
         const handler = attributes[key];
         this.eventRegistry.set(el, [...(this.eventRegistry.get(el) || []), { event: eventType, handler }]);
         this.addEventListener(el, eventType, handler);
-      } else if (attributes[key] !== null && attributes[key] !== undefined) {
-        // General attributes
-        el.setAttribute(key, attributes[key]);
+      } else if (attributes[key] !== null && attributes[key] !== undefined  && 
+        !key.includes(" ") || !key.includes("-") || !key.includes("_")) {
+        try {
+          el.setAttribute(key, attributes[key]);
+        } catch (error) {
+           
+        }
       }
     }
   
@@ -643,7 +646,7 @@ export class Component {
       } else if (typeof child === "object") {
         // Nested object children
         el.appendChild(this.parseToElement(child));
-      } else if (child !== null && child !== undefined) {
+      } else if (child !== null && child !== undefined && child !== false) {
         // Text nodes
         el.appendChild(document.createTextNode(child));
       }
@@ -681,7 +684,18 @@ function memoizeClassComponent(Component, key) {
  * @param element
  * @param container
  */
-export function render(element, container) { 
+export function render(element, container) {
+  // CLEAR STATE ON RELOAD
+  if (!isServer) {
+    window.addEventListener("beforeunload", () => {
+       let keys = Object.keys(sessionStorage);
+       keys.forEach((key) => {
+          if (key.startsWith("state_")) {
+            sessionStorage.removeItem(key);
+          }
+        });
+    });
+  }
   if (isClassComponent(element)) {
     const instance = new element;
     instance.Mounted = true;

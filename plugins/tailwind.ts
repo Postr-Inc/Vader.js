@@ -47,15 +47,18 @@ export default {
         }else{
            initTailwind()
            
-           vader.onFileChange('tailwind.config.js', async () => {
+           if(vader.isDev){
+            vader.onFileChange('tailwind.config.js', async () => {
                 console.log('Rebuilding TailwindCSS...')
                 await vader.runCommand(['bun', 'run', 'postcss',  './public/styles.css', '-o', 'dist/public/tailwind.css'])
                 console.log('TailwindCSS rebuilt successfully!')
            }) 
+           }
            await vader.runCommand(['bun', 'run', 'postcss', './public/styles.css', '-o', 'dist/public/tailwind.css']) 
            vader.injectHTML(`<style>${fs.readFileSync(path.resolve(process.cwd(), 'dist/public/tailwind.css'))}</style>`)
         }  
         
+        return
     },
     onBuildFinish: async (vader) => {
         console.log('TailwindCSS plugin finished building')
