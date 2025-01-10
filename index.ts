@@ -37,13 +37,15 @@ declare global {
 //@ts-ignore
 globalThis.isServer = typeof window === "undefined";
 //@ts-ignore
-globalThis.params = {
-  [Symbol.iterator]: function* () {
-    for (const key in this) {
-      yield [key, this[key]];
-    }
-  },
-};
+if(isServer){
+  globalThis.params = {
+    [Symbol.iterator]: function* () {
+      for (const key in this) {
+        yield [key, this[key]];
+      }
+    },
+  };
+}
 
 
 
@@ -94,8 +96,11 @@ export const A = (props: {
     if (props.openInNewTab) {
       window.open(props.href, "_blank");
       return void 0;
-    }
-    window.location.href = props.href;
+    }   
+    window.history.pushState({}, "", props.href);
+    window.dispatchEvent(new Event("popstate")); 
+    window.dispatchEvent(new Event("load"));
+    window.location.reload();
     return void 0;
   }
   return e("a", { ...props, onClick: handleClick }, props.children);
@@ -153,9 +158,12 @@ export const e = (element, props, ...children) => {
         firstEl = { type: "div", props: { key: instance.key, ...props }, children };
       firstEl.props = { key: instance.key, ...firstEl.props, ...props };
       firstEl.props["idKey"] = instance.key;
-      instance.props = firstEl.props;
+      instance.props = firstEl.props; 
       return firstEl;
     default:
+      if(!element) {
+        return "";
+      }
       let el = { type: element, props: props || {}, children: children || [] };
       if (el.type !== "head") {
         el.props = { idKey: crypto.randomUUID(), ...el.props };
@@ -187,7 +195,9 @@ interface SwitchProps {
 export function Switch({ children = [] }: SwitchProps) {
   for (let child of children) {
     if (child.props.when) { 
-      return child
+      return { type: "div", props: {
+        idKey: crypto.randomUUID()
+      }, children: [child] };
     }
   }
   return { type: "div", props: {}, children: [] };
@@ -670,7 +680,7 @@ export class Component {
   }
   toElement() {
     let children = this.render(this.props); 
-    let el = this.parseToElement(children);
+    let el = this.parseToElement(children); 
     el.setAttribute("idKey", this.key);
     return el;
   }
