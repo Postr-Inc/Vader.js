@@ -216,15 +216,36 @@ async function generateApp() {
             r = r.replace(process.cwd().replace(/\\/g, '/') + '/app', '')
             r = r.replace('.jsx', '.js').replace('.tsx', '.js') 
             fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(r)), { recursive: true })
-            fs.writeFileSync(process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r), `
-        let route = window.location.pathname.split('/').filter(v => v !== '')
-        let params = {
-            ${Object.keys(routes.match(route).params || {}).length > 0 ? Object.keys(routes.match(route).params || {}).map(p => {
-                return `${p}: route[${Object.keys(routes.match(route).params).indexOf(p) + Object.keys(routes.match(route).params).length}]`
-            }).join(',') : ""}
-        }
-        \n${code}
-        `)
+            let params = routes.match(route).params || {}
+            let base = routes.match(route) 
+            let paramIndexes = [] 
+            for (let param in params) {
+                let  routes = base.pathname.split('/')
+                let index = routes.indexOf('[' + param + ']')
+                paramIndexes.push(index)
+            } 
+ 
+            // dont return
+            
+            fs.writeFileSync(
+                process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r),
+                `
+                      let route = window.location.pathname.split('/').filter(Boolean) 
+                      let params = {
+                        // get index tehn do route[index]
+                        ${Object.keys(params).map((param, i) => {
+                             if (paramIndexes[i] !== -1) {  
+                                var r_copy = r;
+                                r_copy = r_copy.split('/').filter(Boolean)
+                                var index = paramIndexes[i] - 1
+                                return `${param}: route[${index}]`
+                             }
+                            }).join(',\n')}
+                      }
+              
+                      \n${code}
+                  `
+            );
             fs.mkdirSync(process.cwd() + '/dev', { recursive: true })
              
 
@@ -310,8 +331,7 @@ async function generateApp() {
 
 function handleFiles() {
     return new Promise(async (resolve, reject) => {
-        try {
-            console.log(Glob)
+        try { 
             let glob = new Glob('public/**/*')
             for await (var i of glob.scan()) {
                 let file = i
@@ -519,12 +539,12 @@ if (mode == 'development' || mode == 'serve') {
                 <meta http-equiv="refresh" content="5">
                 </head>
                 <body>
-                <h1>404 Not Found</h1>
-                <p>Route not found</p>
+                 <p>Rerouting to display changes from server</p>
                 </body>    
-                `, { status: 404 }, {
+                `, {
                     headers: {
-                        'Content-Type': 'text/html'
+                        'Content-Type': 'text/html',
+                        'Cache-Control': 'no-cache'
                     }
                 })
             }
@@ -532,13 +552,23 @@ if (mode == 'development' || mode == 'serve') {
             if (mode == "development") {
                 return new Response(data + `
             <script>
-            let ws = new WebSocket('ws://localhost:${server.port}')
+            let ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss' : 'ws'}://\${location.host}\`)
             ws.onmessage = (e) => {
                 if(e.data === 'reload'){
                     console.log('Reloading to display changes from server')
                     window.location.reload()
                 }
             }
+            ws.onopen = () => {
+                console.log('Connected to hmr server')
+            }
+            
+            ws.onclose = () => {
+                // try to reconnect
+                 console.log('Reconnecting to hmr server')
+                 ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss' : 'ws'}://\${location.host}\`)    
+            }
+            
             </script>
             `, {
                     headers: {
