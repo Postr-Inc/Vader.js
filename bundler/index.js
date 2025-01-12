@@ -33,6 +33,22 @@ globalThis.document = {
   getElementById: (id) => { },
   querySelector: (query) => { },
 };
+globalThis.window = {
+  addEventListener: (event, cb) => { },
+  removeEventListener: (event, cb) => { },
+  localStorage: {
+    setItem: (key, value) => { },
+    getItem: (key) => { },
+  },
+  sessionStorage: {
+    setItem: (key, value) => { },
+    getItem: (key) => { },
+  },
+  location: {
+    href: "",
+    pathname: "",
+  },
+}
 try {
   await Bun.build({
     entrypoints: [process.env.ENTRYPOINT],
@@ -116,14 +132,13 @@ const handleReplacements = (code) => {
       line = updatedLine; 
     }
 
-    if (!hasImport && line.match(/\buseRef\d*\(/) && !line.includes("this")) {
-     
-
-      let key = line.split(' ')[1].split('=')[0];
-
-      let updatedLine = line.replace(/\buseRef\d*\(/, `this.useRef('${key}',`);
-
-      line = updatedLine; 
+    if (!hasImport && line.match(/\buseRef\d*\(/) && line.includes('[') && !line.includes("this")) {
+      line = line.replace(' ', '')
+      let b4 = line
+      let key = line.split('=')[0].split(' ').filter(Boolean)[1]
+      console.log(key)
+      b4 = line.replace('useRef(', `this.useRef('${key}',`)
+      line = b4
     }
 
 
@@ -177,22 +192,22 @@ const generatePage = async (
 
 
 
-  if (h.includes("<head>")) {
-    h = h.replace("<head>", `<head>${process.env.bindes}`)
-  } else {
-    h += process.env.bindes
-  }
-
+   
   await Bun.write(
     process.cwd() + "/dist/" + route + "/index.html",
     `<!DOCTYPE html>
-      ${h} 
-      <script type="module"> 
+     <head>
+      <script  defer type="module"> 
         import c from '${process.env.filePath}'
         import {render, e} from '/src/vader/index.js'
         window.e = e
-        render(c, document.body.firstChild)
+        render(c, document.body)
       </script> 
+      
+       ${process.env.bindes}
+      </head> 
+      ${h} 
+       
             `
   );
   console.log(
