@@ -60,6 +60,19 @@ export const useFetch = (url: string, options: any) => {
 };
 
 /**
+ * @description - useRef allows you to store a reference to a DOM element
+ * @param value
+ * @returns {current:   HTMLElement}
+ * @example
+ * const inputRef = useRef();
+ * <input ref={inputRef} />
+ * console.log(inputRef.current) // <input />
+ */
+export const useRef = (value) => {
+  return { key: crypto.randomUUID(), current: value };
+}
+
+/**
  * @description  - Handle asyncronous promises and return the data or error;
  * @param promise
  * @returns
@@ -67,7 +80,7 @@ export const useFetch = (url: string, options: any) => {
 export const useAsyncState = (promise: Promise<any>) => {
   return [null, () => { }];
 }
-export const useEffect = (callback: any, dependencies: any[] = []) => {
+export const useEffect = (callback: any, dependencies: any[] = []) => { 
   dependencies = dependencies.map((dep) => JSON.stringify(dep));
   if (dependencies.length === 0) {
     callback();
@@ -156,8 +169,8 @@ export const e = (element, props, ...children) => {
       instance.children = children;
       if (!firstEl)
         firstEl = { type: "div", props: { key: instance.key, ...props }, children };
-      firstEl.props = { key: instance.key, ...firstEl.props, ...props };
-      firstEl.props["idKey"] = instance.key;
+      firstEl.props = { key: instance.key, ...firstEl.props, ...props }; 
+      firstEl.props["idKey"] = instance.props?.ref?.key || instance.key;
       instance.props = firstEl.props; 
       return firstEl;
     default:
@@ -166,7 +179,7 @@ export const e = (element, props, ...children) => {
       }
       let el = { type: element, props: props || {}, children: children || [] };
       if (el.type !== "head") {
-        el.props = { idKey: crypto.randomUUID(), ...el.props };
+        el.props = { idKey: el.props?.ref?.key || crypto.randomUUID(), ...el.props };
       }
 
       // if element == false return empty string
@@ -289,10 +302,10 @@ export class Component {
   }
   useRef = (key, value) => {
     if (!this.refs.find((r) => r.key == key)) {
-      this.refs.push({ key, value });
+      this.refs.push({ key,  current: value});
     }
 
-    return this.refs.find((r) => r.key == key).value;
+    return { key, current: this.refs.find((r) => r.key == key).current };
   }
   useEffect(callback, dependencies = []) {
     const callbackId = callback.toString(); // Unique ID based on callback string representation
@@ -617,11 +630,18 @@ export class Component {
   
     // Set attributes
     let attributes = element.props || {};
-    for (let key in attributes) {
-      if(typeof attributes[key] === "object" && key !== "style"){
-        continue;
-      }
-      if (key === "key") {
+    for (let key in attributes) { 
+      if(key === "ref") {  
+        let _key = attributes[key].key;
+        // update the ref
+        let ref = this.refs.find((r) => r.key == _key);
+         if(ref) {
+           ref.current = document.querySelector(`[idKey="${_key}"]`) || el;
+         }
+        el.setAttribute("idKey", _key);
+        element.props.idKey = _key
+     } 
+      else if (key === "key") {
         el.key = attributes[key];
       } else if (key === "className") {
         el.setAttribute("class", attributes[key]);
@@ -645,7 +665,9 @@ export class Component {
         } catch (error) {
            
         }
-      }
+      } else   if(typeof attributes[key] === "object" && key !== "style"){
+        continue;
+      } 
     }
   
     // Handle children
