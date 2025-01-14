@@ -205,11 +205,11 @@ interface SwitchProps {
 }
 
 // make children optional
-export function Switch({children}, key) {
+export function Switch({ children = [] }: SwitchProps) {
   for (let child of children) {
     if (child.props.when) { 
       return { type: "div", props: {
-        idKey:  key || crypto.randomUUID()
+        idKey: crypto.randomUUID()
       }, children: [child] };
     }
   }
@@ -310,9 +310,8 @@ export class Component {
   useEffect(callback, dependencies = []) {
     const callbackId = callback.toString(); // Unique ID based on callback string representation
 
-    // Ensure effect is tracked only once per callback function
     if (!this.effectCalls.some((effect) => effect.id === callbackId)) {
-        // Initialize the effect call tracking
+        // Add the initial effect call if it doesn't exist
         this.effectCalls.push({
             id: callbackId,
             count: 0,
@@ -324,7 +323,7 @@ export class Component {
 
     const effectCall = this.effectCalls.find((effect) => effect.id === callbackId);
 
-    const executeCallback = async () => {
+    const executeCallback = () => {
         const now = Date.now();
         const timeSinceLastCall = now - effectCall.lastCall;
 
@@ -342,21 +341,22 @@ export class Component {
 
         effectCall.lastCall = now;
 
-        try {
-            // Wait for async callback to finish before continuing
-            await callback();
-            effects.push(callbackId); // Track executed effects after callback completion
-        } catch (error) {
-            console.error("Effect callback failed:", error);
-        }
+        setTimeout(() => {
+            try {
+                effects.push(callbackId); // Track executed effects
+                callback(); // Execute the callback
+            } catch (error) {
+                console.error(error);
+            }
+        }, 0);
     };
 
     // First time: Run the effect and mark it as run
     if (!effectCall.hasRun && dependencies.length === 0) {
-        executeCallback(); // Run async callback
-        effectCall.hasRun = true;
-        effectCall.dependencies = dependencies;
-        return;
+      executeCallback();
+      effectCall.hasRun = true;
+      effectCall.dependencies = dependencies;
+      return;
     }
 
     // If there are no dependencies, do nothing after the first run
@@ -364,7 +364,7 @@ export class Component {
         return;
     }
 
-    // Check if dependencies have changed by deep comparison (improve this if necessary)
+    // Check if dependencies have changed
     let dependenciesChanged = false;
     for (let i = 0; i < dependencies.length; i++) {
         const previousDependencies = effectCall.dependencies || [];
@@ -378,14 +378,13 @@ export class Component {
 
     // If dependencies have changed, run the effect and update dependencies
     if (dependenciesChanged) {
-        executeCallback(); // Run async callback
+        executeCallback();
         effectCall.dependencies = dependencies;
     }
 }
 
-
   
-  useState(key, defaultValue, persist = false) {
+   useState(key, defaultValue, persist = false) {
     let value = this.state[key] || defaultValue;
     if(value === "true" || value === "false") {
       value = JSON.parse(value);
@@ -404,9 +403,7 @@ export class Component {
         sessionStorage.setItem(key, JSON.stringify({ value: newValue }));
       }
       this.forceUpdate(this.key);
-    };
-    value =  typeof value === "boolean" ?  value === "true" : value;
-     
+    }; 
     return [value, setValue];
   }
   useFetch(url, options) {
