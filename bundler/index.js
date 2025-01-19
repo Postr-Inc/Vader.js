@@ -13,6 +13,7 @@ import ansiColors from "ansi-colors";
 import path from "path";
 let path2 = require("path");
 globalThis.Fragment = Fragment;
+
 globalThis.window = {
   location: {
     hash: "",
@@ -31,7 +32,20 @@ globalThis.genKey = () => {
 globalThis.document = {
   createElement: (tag) => { },
   getElementById: (id) => { },
-  querySelector: (query) => { },
+  querySelector: (query) => {
+    return Object.create({
+      addEventListener: (event, cb) => { },
+      removeEventListener: (event, cb) => { },
+      innerHTML: "",
+      appendChild: (child) => { },
+      removeChild: (child) => { },
+      src: "",
+      style: {},
+    });
+   },
+  querySelectorAll: (query) => { 
+    return []
+  },
 };
 globalThis.window = {
   addEventListener: (event, cb) => { },
@@ -58,6 +72,7 @@ try {
     format: "esm",
     ...(process.env.DEV ? { sourcemap: "inline" } : {}),
     packages: "bundle",
+    env: "inline",
     external: ["vaderjs"]
   });
 } catch (error) {
@@ -149,6 +164,19 @@ const handleReplacements = (code) => {
 }
 builtCode = handleReplacements(builtCode)
 
+builtCode += `
+var process = {
+  env: {
+    ${Object.keys(process.env)
+      .filter((key) => 
+        !['bindes', 'ENTRYPOINT', 'ROOT', 'OUT', 'file', 'DEV', 
+          'size', 'filePath', 'isAppFile', 'isJsx', 'INPUT'].includes(key)
+      )
+      .map((key) => `${key}: "${process.env[key]}"`)
+      .join(',\n')}
+  }
+}
+`;
 fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
 
 let isClass = function (element) {
