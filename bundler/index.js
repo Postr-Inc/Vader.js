@@ -72,7 +72,7 @@ try {
     format: "esm",
     ...(process.env.DEV ? { sourcemap: "inline" } : {}),
     packages: "bundle",
-    env: "inline",
+    env: "inline", 
     external: ["vaderjs"]
   });
 } catch (error) {
@@ -177,8 +177,11 @@ var process = {
   }
 }
 `;
+let rename = process.env.filePath.split('.js')[0] + Math.random().toString().split('.')[1] + '.js' 
 fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
-
+var before = process.env.filePath
+process.env.filePath = rename
+fs.renameSync(path.join(process.cwd(), 'dist',  before), path.join(process.cwd(), 'dist', process.env.filePath))
 let isClass = function (element) {
   return element && element.toString().startsWith("class");
 };
