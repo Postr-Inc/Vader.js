@@ -62,7 +62,7 @@ globalThis.window = {
     href: "",
     pathname: "",
   },
-}
+} 
 try {
   await Bun.build({
     entrypoints: [process.env.ENTRYPOINT],
@@ -70,7 +70,7 @@ try {
     root: process.cwd() + "/dist/",
     outdir: process.cwd() + "/dist/",
     format: "esm",
-    ...(process.env.DEV ? { sourcemap: "inline" } : {}),
+    ...(JSON.parse(process.env.DEV) ? { sourcemap: "inline" } : {}),
     packages: "bundle",
     env: "inline", 
     external: ["vaderjs"]
