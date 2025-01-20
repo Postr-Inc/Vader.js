@@ -4,16 +4,18 @@ import ansiColors from 'ansi-colors'
 import { Glob } from 'bun'
 const args = Bun.argv.slice(2)
 globalThis.isBuilding = false;
-import fs from 'fs'
+import fs from 'fs'  
+import { spawn } from 'child_process'
 import { platform } from 'os'
 import path from 'path'
 
 let bunPath = 'bun'; // Default for Linux/Mac
 if (platform() === 'win32') {
-    bunPath = 'bun'; // Bun path for Windows
+    bunPath ='bun'; // Bun path for Windows
 } else {
     bunPath = path.resolve(process.env.HOME || process.env.USERPROFILE, '.bun', 'bin', 'bun');
 }
+ 
 
 
 if (!fs.existsSync(process.cwd() + '/app') && !args.includes('init')) {
@@ -29,21 +31,21 @@ if (!fs.existsSync(process.cwd() + '/src')) {
 if (!fs.existsSync(process.cwd() + '/vader.config.ts')) {
     fs.writeFileSync(process.cwd() + '/vader.config.ts',
         `import defineConfig from 'vaderjs/config'
-export default defineConfig({
- port: 8080,
- host_provider: 'apache'
+export default  defineConfig({
+    port: 8080,
+    host_provider: 'apache'
 })`)
 }
 var config = require(process.cwd() + '/vader.config.ts').default
 const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : args.includes('init') ? 'init' : args.includes('serve') ? 'serve' : null;
 if (!mode) {
     console.log(`
- Usage:
- bun vaderjs serve - Start the server
- bun vaderjs dev - Start development server output in dist/
- bun vaderjs prod - Build for production output in dist/
- bun vaderjs init - Initialize a new vaderjs project
- `)
+    Usage:
+     bun vaderjs serve - Start the server
+     bun vaderjs dev - Start development server output in dist/
+     bun vaderjs prod - Build for production output in dist/
+     bun vaderjs init - Initialize a new vaderjs project
+    `)
     process.exit(1)
 }
 
@@ -60,11 +62,11 @@ if (mode === 'init') {
 
 console.log(
     `VaderJS - v${require(process.cwd() + '/node_modules/vaderjs/package.json').version} 🚀
- Mode: ${mode}
- SSR: ${require(process.cwd() + '/vader.config.ts').default.ssr ? 'Enabled' : 'Disabled'}
- PORT: ${require(process.cwd() + '/vader.config.ts').default.port || 8080}
- ${mode == 'serve' ? `SSL: ${require(process.cwd() + '/vader.config.ts').default?.ssl?.enabled ? 'Enabled' : 'Disabled'} ` : ``}
- `
+  Mode: ${mode}
+  SSR: ${require(process.cwd() + '/vader.config.ts').default.ssr ? 'Enabled' : 'Disabled'}
+  PORT: ${require(process.cwd() + '/vader.config.ts').default.port || 8080}
+  ${mode == 'serve' ? `SSL: ${require(process.cwd() + '/vader.config.ts').default?.ssl?.enabled ? 'Enabled' : 'Disabled'} ` : ``}
+    `
 )
 
 
@@ -92,7 +94,7 @@ const vader = {
     },
     runCommand: (cmd) => {
         return new Promise((resolve, reject) => {
-            let c = Bun.spawn(cmd, {
+           let c =  Bun.spawn(cmd, {
                 stdout: 'inherit',
                 cwd: process.cwd(),
                 onExit({ exitCode: code }) {
@@ -142,10 +144,10 @@ const handleReplacements = (code) => {
                 url = url.replace(/\\/g, '/')
                 if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
                     bindes.push(`
- <style>
- ${fs.readFileSync(p, 'utf-8')}
- </style>
- `)
+                    <style>
+                      ${fs.readFileSync(p, 'utf-8')}
+                    </style>
+                    `)
                 }
             } catch (error) {
                 console.error(error)
@@ -177,7 +179,7 @@ const handleReplacements = (code) => {
         if (!hasImport && line.includes('useRef')) {
             line = line.replace(' ', '')
             let b4 = line
-            let key = line.split('=')[0].split(' ').filter(Boolean)[1]
+            let key = line.split('=')[0].split(' ').filter(Boolean)[1] 
             b4 = line.replace('useRef(', `this.useRef('${key}',`)
             line = b4
         }
@@ -188,14 +190,14 @@ const handleReplacements = (code) => {
     return c
 }
 
-if (!fs.existsSync(process.cwd() + '/dev/bundler.js')) {
+if (!fs.existsSync(process.cwd() + '/dev/bundler.js')) { 
     fs.mkdirSync(process.cwd() + '/dev', { recursive: true })
     fs.copyFileSync(require.resolve('vaderjs/bundler/index.js'), process.cwd() + '/dev/bundler.js')
 }
 let start = Date.now()
 async function generateApp() {
     globalThis.isBuilding = true;
-    console.log(ansiColors.green('Building...'))
+    console.log(ansiColors.green('Building...')) 
     let plugins = config.plugins || []
     for (let plugin of plugins) {
         if (plugin.onBuildStart) {
@@ -222,40 +224,40 @@ async function generateApp() {
             code = handleReplacements(code)
             let size = code.length / 1024
             r = r.replace(process.cwd().replace(/\\/g, '/') + '/app', '')
-            r = r.replace('.jsx', '.js').replace('.tsx', '.js')
+            r = r.replace('.jsx', '.js').replace('.tsx', '.js') 
             fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(r)), { recursive: true })
             let params = routes.match(route).params || {}
-            let base = routes.match(route)
-            let paramIndexes = []
+            let base = routes.match(route) 
+            let paramIndexes = [] 
             for (let param in params) {
-                let routes = base.pathname.split('/')
+                let  routes = base.pathname.split('/')
                 let index = routes.indexOf('[' + param + ']')
                 paramIndexes.push(index)
-            }
-
+            } 
+ 
             // dont return
-
+            
             fs.writeFileSync(
                 process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r),
                 `
- let route = window.location.pathname.split('/').filter(Boolean) 
- let params = {
- // get index tehn do route[index]
- ${Object.keys(params).map((param, i) => {
-                    if (paramIndexes[i] !== -1) {
-                        var r_copy = r;
-                        r_copy = r_copy.split('/').filter(Boolean)
-                        var index = paramIndexes[i] - 1
-                        return `${param}: route[${index}]`
-                    }
-                }).join(',\n')}
- }
- 
- \n${code}
- `
+                      let route = window.location.pathname.split('/').filter(Boolean) 
+                      let params = {
+                        // get index tehn do route[index]
+                        ${Object.keys(params).map((param, i) => {
+                             if (paramIndexes[i] !== -1) {  
+                                var r_copy = r;
+                                r_copy = r_copy.split('/').filter(Boolean)
+                                var index = paramIndexes[i] - 1
+                                return `${param}: route[${index}]`
+                             }
+                            }).join(',\n')}
+                      }
+              
+                      \n${code}
+                  `
             );
             fs.mkdirSync(process.cwd() + '/dev', { recursive: true })
-
+             
 
             if (!fs.existsSync(process.cwd() + '/dev/readme.md')) {
                 fs.writeFileSync(process.cwd() + '/dev/readme.md', `# Please do not edit the bundler.js file in the dev directory. This file is automatically generated by the bundler. \n\n`)
@@ -265,7 +267,7 @@ async function generateApp() {
                 loader: 'ts',
             }).transformSync(await Bun.file(require.resolve('vaderjs')).text()))
             Bun.spawn({
-                cmd: [bunPath, 'run', './dev/bundler.js'],
+                cmd: [bunPath, 'run', './dev/bundler.js'] ,
                 cwd: process.cwd(),
                 stdout: 'inherit',
                 env: {
@@ -329,7 +331,7 @@ async function generateApp() {
                 await plugin.onBuildFinish(vader)
             }
         }
-
+         
     })
 
 
@@ -337,7 +339,7 @@ async function generateApp() {
 
 function handleFiles() {
     return new Promise(async (resolve, reject) => {
-        try {
+        try { 
             let glob = new Glob('public/**/*')
             for await (var i of glob.scan()) {
                 let file = i
@@ -435,10 +437,10 @@ if (mode === 'development') {
     // Function to handle file changes with debounce
     const handleFileChangeDebounced = async (change, file) => {
         if (file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts')
-            && !file.includes('node_module')
+        && !file.includes('node_module')
         ) {
             // delete files cache
-            if (file.endsWith('vader.config.ts')) {
+            if (file.endsWith('vader.config.ts')){
                 delete require.cache[require.resolve(process.cwd() + '/vader.config.ts')]
 
                 config = require(process.cwd() + '/vader.config.ts').default
@@ -479,12 +481,12 @@ if (mode === 'development') {
 else if (mode == 'production') {
     await handleFiles()
     await generateApp()
-
+     
     console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`);
 }
 else {
     if (isBuilding) console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`);
-
+     
 }
 
 if (mode == 'development' || mode == 'serve') {
@@ -537,17 +539,17 @@ if (mode == 'development' || mode == 'serve') {
             base = base.replace(path.join(process.cwd() + '/app').replace(/\\/g, '/'), '')
             base = base.replace(/\\/g, '/').replace('/app', '/dist')
             base = process.cwd() + "/dist/" + base
-            if (!fs.existsSync(path.join(base, 'index.html'))) {
+            if(!fs.existsSync(path.join(base, 'index.html'))){
                 return new Response(`
- <html>
- <head>
- <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
- <meta http-equiv="refresh" content="5">
- </head>
- <body>
- <p>Rerouting to display changes from server</p>
- </body> 
- `, {
+                <html>
+                <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+                <meta http-equiv="refresh" content="5">
+                </head>
+                <body>
+                 <p>Rerouting to display changes from server</p>
+                </body>    
+                `, {
                     headers: {
                         'Content-Type': 'text/html',
                         'Cache-Control': 'no-cache'
@@ -557,26 +559,26 @@ if (mode == 'development' || mode == 'serve') {
             let data = await Bun.file(path.join(base, 'index.html')).text()
             if (mode == "development") {
                 return new Response(data + `
- <script>
- let ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss' : 'ws'}://\${location.host}\`)
- ws.onmessage = (e) => {
- if(e.data === 'reload'){
- console.log('Reloading to display changes from server')
- window.location.reload()
- }
- }
- ws.onopen = () => {
- console.log('Connected to hmr server')
- }
- 
- ws.onclose = () => {
- // try to reconnect
- console.log('Reconnecting to hmr server')
- ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss' : 'ws'}://\${location.host}\`) 
- }
- 
- </script>
- `, {
+            <script>
+            let ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss' : 'ws'}://\${location.host}\`)
+            ws.onmessage = (e) => {
+                if(e.data === 'reload'){
+                    console.log('Reloading to display changes from server')
+                    window.location.reload()
+                }
+            }
+            ws.onopen = () => {
+                console.log('Connected to hmr server')
+            }
+            
+            ws.onclose = () => {
+                // try to reconnect
+                 console.log('Reconnecting to hmr server')
+                 ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss' : 'ws'}://\${location.host}\`)    
+            }
+            
+            </script>
+            `, {
                     headers: {
                         'Content-Type': 'text/html'
                     }
@@ -594,3 +596,6 @@ if (mode == 'development' || mode == 'serve') {
 
     console.log(ansiColors.green('Server started at http://localhost:' + port || 8080))
 }
+
+
+ 
