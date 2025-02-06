@@ -4,18 +4,18 @@ import ansiColors from 'ansi-colors'
 import { Glob } from 'bun'
 const args = Bun.argv.slice(2)
 globalThis.isBuilding = false;
-import fs from 'fs'   
+import fs from 'fs'
 import { platform } from 'os'
 import path from 'path'
 
 let bunPath = 'bun'; // Default for Linux/Mac
 if (platform() === 'win32') {
-    bunPath ='bun'; // Bun path for Windows
+    bunPath = 'bun'; // Bun path for Windows
 } else {
     bunPath = path.resolve(process.env.HOME || process.env.USERPROFILE, '.bun', 'bin', 'bun');
 }
- 
- 
+
+
 
 
 if (!fs.existsSync(process.cwd() + '/app') && !args.includes('init')) {
@@ -94,7 +94,7 @@ const vader = {
     },
     runCommand: (cmd) => {
         return new Promise((resolve, reject) => {
-           let c =  Bun.spawn(cmd, {
+            let c = Bun.spawn(cmd, {
                 stdout: 'inherit',
                 cwd: process.cwd(),
                 onExit({ exitCode: code }) {
@@ -106,10 +106,7 @@ const vader = {
                 }
             })
 
-            setTimeout(() => {
-                c.kill()
-                reject()
-            }, 5000)
+             
 
 
         })
@@ -129,8 +126,8 @@ const handleReplacements = (code) => {
     let newLines = []
     for (let line of lines) {
         let hasImport = line.includes('import')
- 
-        if(hasImport && line.includes('public')){
+
+        if (hasImport && line.includes('public')) {
             // remove ../ from path 
 
             line = line.replaceAll('../', '').replaceAll('./', '')
@@ -187,7 +184,7 @@ const handleReplacements = (code) => {
         if (!hasImport && line.includes('useRef')) {
             line = line.replace(' ', '')
             let b4 = line
-            let key = line.split('=')[0].split(' ').filter(Boolean)[1] 
+            let key = line.split('=')[0].split(' ').filter(Boolean)[1]
             b4 = line.replace('useRef(', `this.useRef('${key}',`)
             line = b4
         }
@@ -198,27 +195,31 @@ const handleReplacements = (code) => {
     return c
 }
 
-if (!fs.existsSync(process.cwd() + '/dev/bundler.js')) { 
+if (!fs.existsSync(process.cwd() + '/dev/bundler.js')) {
     fs.mkdirSync(process.cwd() + '/dev', { recursive: true })
     fs.copyFileSync(require.resolve('vaderjs/bundler/index.js'), process.cwd() + '/dev/bundler.js')
 }
 let start = Date.now()
 async function generateApp() {
     globalThis.isBuilding = true;
-    console.log(ansiColors.green('Building...')) 
+    console.log(ansiColors.green('Building...'))
     if (mode === 'development') {
-         
+
     } else {
         fs.mkdirSync(process.cwd() + '/dist', { recursive: true })
     }
-    let plugins = config.plugins || []
-    for (let plugin of plugins) {
-        if (plugin.onBuildStart) {
-            await plugin.onBuildStart(vader)
+    try {
+        let plugins = config.plugins || []
+        for (let plugin of plugins) {
+            if (plugin.onBuildStart) {
+                await plugin.onBuildStart(vader)
+            }
         }
+    } catch (error) {
+        console.log(error)
     }
 
-    
+
     return new Promise(async (resolve, reject) => {
         let routes = new Bun.FileSystemRouter({
             dir: path.join(process.cwd(), '/app'),
@@ -233,19 +234,29 @@ async function generateApp() {
             code = handleReplacements(code)
             let size = code.length / 1024
             r = r.replace(process.cwd().replace(/\\/g, '/') + '/app', '')
-            r = r.replace('.jsx', '.js').replace('.tsx', '.js') 
+            r = r.replace('.jsx', '.js').replace('.tsx', '.js')
             fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(r)), { recursive: true })
             let params = routes.match(route).params || {}
-            let base = routes.match(route) 
-            let paramIndexes = [] 
+            let base = routes.match(route)
+            let paramIndexes = []
             for (let param in params) {
-                let  routes = base.pathname.split('/')
+                let routes = base.pathname.split('/')
                 let index = routes.indexOf('[' + param + ']')
                 paramIndexes.push(index)
-            } 
- 
+            }
+
             // dont return
-            
+            code = await new Bun.Transpiler({
+                loader: 'tsx',
+                tsconfig: {
+                    "compilerOptions": {
+                        "jsx": "react",
+                        "jsxFactory": "e",
+                        "jsxFragmentFactory": "Fragment"
+                    }
+                }
+            }).transformSync(code)
+
             fs.writeFileSync(
                 process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r),
                 `
@@ -253,32 +264,38 @@ async function generateApp() {
                       let params = {
                         // get index tehn do route[index]
                         ${Object.keys(params).map((param, i) => {
-                             if (paramIndexes[i] !== -1) {  
-                                var r_copy = r;
-                                r_copy = r_copy.split('/').filter(Boolean)
-                                var index = paramIndexes[i] - 1
-                                return `${param}: route[${index}]`
-                             }
-                            }).join(',\n')}
+                    if (paramIndexes[i] !== -1) {
+                        var r_copy = r;
+                        r_copy = r_copy.split('/').filter(Boolean)
+                        var index = paramIndexes[i] - 1
+                        return `${param}: route[${index}]`
+                    }
+                }).join(',\n')}
                       }
               
                       \n${code}
                   `
             );
             fs.mkdirSync(process.cwd() + '/dev', { recursive: true })
-             
+
 
             if (!fs.existsSync(process.cwd() + '/dev/readme.md')) {
                 fs.writeFileSync(process.cwd() + '/dev/readme.md', `# Please do not edit the bundler.js file in the dev directory. This file is automatically generated by the bundler. \n\n`)
             }
-            if(!fs.existsSync(path.join(process.cwd(), '/dist/src/vader'))){ 
-                fs.mkdirSync(process.cwd() + '/dist/src/vader', { recursive: true })
-                fs.writeFileSync(process.cwd() + '/dist/src/vader/index.js', await new Bun.Transpiler({
+            async function runT() {
+                return await new Bun.Transpiler({
                     loader: 'ts',
-                }).transformSync(await Bun.file(require.resolve('vaderjs')).text()))
-            } 
-           await Bun.spawn({
-                cmd: [bunPath, 'run', './dev/bundler.js'] ,
+                }).transformSync(await Bun.file(require.resolve('vaderjs')).text())
+            }
+            if (!fs.existsSync(path.join(process.cwd(), '/dist/src/vader'))
+                || fs.readFileSync(path.join(process.cwd(), '/dist/src/vader/index.js')) != await runT()
+            ) {
+                fs.mkdirSync(process.cwd() + '/dist/src/vader', { recursive: true })
+                fs.writeFileSync(path.join(process.cwd(), '/dist/src/vader/index.js'), (await runT()))
+
+            }
+            await Bun.spawn({
+                cmd: [bunPath, 'run', './dev/bundler.js'],
                 cwd: process.cwd(),
                 stdout: 'inherit',
                 env: {
@@ -336,13 +353,17 @@ async function generateApp() {
 
         }
         // run all plugins that have onBuildFinish
-        let plugins = config.plugins || []
-        for (let plugin of plugins) {
-            if (plugin.onBuildFinish) {
-                await plugin.onBuildFinish(vader)
+        try {
+            let plugins = config.plugins || []
+            for (let plugin of plugins) {
+                if (plugin.onBuildFinish) {
+                    await plugin.onBuildFinish(vader)
+                }
             }
+        } catch (error) {
+            console.error(ansiColors.red(error))
         }
-         
+
     })
 
 
@@ -350,7 +371,7 @@ async function generateApp() {
 
 function handleFiles() {
     return new Promise(async (resolve, reject) => {
-        try { 
+        try {
             let glob = new Glob('public/**/*')
             for await (var i of glob.scan()) {
                 let file = i
@@ -369,6 +390,9 @@ function handleFiles() {
                     let code = await Bun.file(file).text()
 
                     code = handleReplacements(code)
+                    code = await new Bun.Transpiler({
+                        loader: 'ts',
+                    }).transformSync(code)
 
                     file = file.replace('.jsx', '.js').replace('.tsx', '.js')
                     fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.jsx', '.js').replace('.tsx', '.js')), code)
@@ -440,71 +464,73 @@ if (mode === 'development') {
     try {
         await generateApp()
         await handleFiles()
-      let watcher;
-let isBuilding = false;
-let debounceTimeout;
+        let watcher;
+        let isBuilding = false;
+        let debounceTimeout;
 
-const startWatcher = () => {
-    if (watcher) watcher.close(); // Close any existing watcher
+        const startWatcher = () => {
+            if (watcher) watcher.close(); // Close any existing watcher
 
-    watcher = fs.watch(path.join(process.cwd(), '/'), { recursive: true }, (eventType, file) => {
-        if (!file) return; // Ensure file name is valid
-        if (file.includes('node_modules')) return;
-        
-        if (
-            file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts')
-        ) {
-            // Reset config if needed
-            if (file.endsWith('vader.config.ts')) {
-                delete require.cache[require.resolve(process.cwd() + '/vader.config.ts')];
-                globalThis.config = require(process.cwd() + '/vader.config.ts').default;
-            }
-            
-            if (file.includes('dist')) return;
-
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(async () => {
-                if (!isBuilding) {
-                    isBuilding = true;
-                    try {
-                        await generateApp();
-                        await handleFiles();
-                        setTimeout(() => {
-                            clients.forEach(c => c.send('reload'));
-                        }, 1000);
-                    } catch (error) {
-                        console.error(error);
-                    } finally {
-                        isBuilding = false;
-                    }
+            watcher = fs.watch(path.join(process.cwd(), '/'), { recursive: true }, (eventType, file) => {
+                if (!file) return; // Ensure file name is valid
+                if (file.includes('node_modules')) return;
+                if (file.includes('dist')) return;
+                if (!fs.existsSync(path.join(process.cwd(), file))) {
+                    fs.rmSync(path.join(process.cwd(), "dist", file))
                 }
-            }, 500);
-        }
 
-        // Restart watcher if a new directory is created
-        if (eventType === 'rename') {
-            setTimeout(startWatcher, 1000); // Slight delay to allow the OS to recognize new files
-        }
-    });
-};
+                if (
+                    file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts')
+                ) {
+                    // Reset config if needed
+                    if (file.endsWith('vader.config.ts')) {
+                        delete require.cache[require.resolve(process.cwd() + '/vader.config.ts')];
+                        globalThis.config = require(process.cwd() + '/vader.config.ts').default;
+                    }
 
-// Start the watcher and restart it periodically
-setInterval(startWatcher, 10000);
-startWatcher(); // Run initially
+                    clearTimeout(debounceTimeout);
+                    debounceTimeout = setTimeout(async () => {
+                        if (!isBuilding) {
+                            isBuilding = true;
+                            try {
+                                await generateApp();
+                                await handleFiles();
+                                setTimeout(() => {
+                                    clients.forEach(c => c.send('reload'));
+                                }, 1000);
+                            } catch (error) {
+                                console.error(error);
+                            } finally {
+                                isBuilding = false;
+                            }
+                        }
+                    }, 500);
+                }
+
+                // Restart watcher if a new directory is created
+                if (eventType === 'rename') {
+                    setTimeout(startWatcher, 500); // Slight delay to allow the OS to recognize new files
+                }
+            });
+        };
+
+        // Start the watcher and restart it periodically
+        setInterval(startWatcher, 500);
+        startWatcher(); // Run initially
     } catch (error) {
-        console.error(error)    
+        console.error(error)
     }
 
 }
 else if (mode == 'production') {
     await handleFiles()
     await generateApp()
-     
+
     console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`);
 }
 else {
     if (isBuilding) console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`);
-     
+
 }
 
 if (mode == 'development' || mode == 'serve') {
@@ -557,7 +583,7 @@ if (mode == 'development' || mode == 'serve') {
             base = base.replace(path.join(process.cwd() + '/app').replace(/\\/g, '/'), '')
             base = base.replace(/\\/g, '/').replace('/app', '/dist')
             base = process.cwd() + "/dist/" + base
-            if(!fs.existsSync(path.join(base, 'index.html'))){
+            if (!fs.existsSync(path.join(base, 'index.html'))) {
                 return new Response(`
                 <html>
                 <head>
@@ -616,4 +642,3 @@ if (mode == 'development' || mode == 'serve') {
 }
 
 
- 
