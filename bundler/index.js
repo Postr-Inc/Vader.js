@@ -63,6 +63,11 @@ globalThis.window = {
     pathname: "",
   },
 } 
+
+globalThis.localStorage = {
+  setItem: (key, value) => { },
+  getItem: (key) => { },
+}
 try {
   await Bun.build({
     entrypoints: [process.env.ENTRYPOINT],
@@ -73,7 +78,7 @@ try {
     ...(JSON.parse(process.env.DEV) ? { sourcemap: "inline" } : {}),
     packages: "bundle",
     env: "inline", 
-    external: ["vaderjs"]
+    external: ["vaderjs", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.svg", "*.css"],
   });
 } catch (error) {
   console.error(error)
@@ -81,7 +86,7 @@ try {
 
 
 let builtCode = fs.readFileSync(path.join(process.cwd(), 'dist', process.env.filePath), 'utf-8')
-
+ 
 const handleReplacements = (code) => {
   let lines = code.split('\n')
   let newLines = []
@@ -89,6 +94,20 @@ const handleReplacements = (code) => {
     let hasImport = line.includes('import')
     if (hasImport && line.includes('vaderjs')) {
       line = line.replace('vaderjs', '/src/vader/index.js')
+    } 
+    if (hasImport && line.includes('react')) {
+      line = line.replace('react', '/src/vader/index.js')
+    }  
+    if(hasImport && line.includes('public') && line.includes('.png') ||
+hasImport &&     line.includes('.jpg') || hasImport &&   line.includes('.jpeg') || hasImport &&   line.includes('.gif') || hasImport &&   line.includes('.svg')) {
+       let url = line.split('"')[1]
+       // replace ../../
+        var b4 = url
+        let filevariable = line.split("import")[1].split("from")[0].replace(" ", "").replace("{", "").replace("}","")
+         
+        url =   url.replace('../../', '').replace('../', '').replace('./', '')
+        line = `var ${filevariable} = "${url}"`
+        console.log(line)
     }
     if (hasImport && line.includes('.css')) {
       try {
@@ -163,25 +182,17 @@ const handleReplacements = (code) => {
   return c
 }
 builtCode = handleReplacements(builtCode)
-
-builtCode += `
-var process = {
-  env: {
-    ${Object.keys(process.env)
-      .filter((key) => 
-        !['bindes', 'ENTRYPOINT', 'ROOT', 'OUT', 'file', 'DEV', 
-          'size', 'filePath', 'isAppFile', 'isJsx', 'INPUT'].includes(key)
-      )
-      .map((key) => `${key}: "${process.env[key]}"`)
-      .join(',\n')}
+builtCode =  await new Bun.Transpiler({
+  loader: 'tsx',
+  tsconfig:{
+    "compilerOptions": {
+      "jsx": "react",
+      "jsxFactory": "e",
+      "jsxFragmentFactory": "Fragment"
   }
-}
-`;
-let rename = process.env.filePath.split('.js')[0] + Math.random().toString().split('.')[1] + '.js' 
-fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
-var before = process.env.filePath
-process.env.filePath = rename
-fs.renameSync(path.join(process.cwd(), 'dist',  before), path.join(process.cwd(), 'dist', process.env.filePath))
+  }
+}).transformSync(builtCode) 
+fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode) 
 let isClass = function (element) {
   return element && element.toString().startsWith("class");
 };
@@ -210,7 +221,27 @@ const generatePage = async (
     html = instance.render();
   }
 
+  
   let h = document(html);
+  if(process.env.bindes.includes('<link rel="stylesheet" ')){
+    // turn stylesheet into inline style
+    let links = process.env.bindes.split('<link rel="stylesheet" ')
+    let styles = []
+    for(let link of links){
+      if(link.includes('href')){
+        let href = link.split('href=')[1].split('>')[0].replace('"', '').replace('"', '')
+        let file = fs.readFileSync(path2.join(process.cwd() + "/dist/", href), 'utf-8')
+        styles.push(file)
+      }
+    } 
+    let style = styles.join('\n')
+    process.env.bindes = `
+    <style>
+      ${style}
+    </style>
+    `
+  }
+
   if (!fs.existsSync(process.cwd() + "/dist" + path2.dirname(route))) {
     fs.mkdirSync(process.cwd() + "/dist" + path2.dirname(route), {
       recursive: true,
@@ -233,6 +264,7 @@ const generatePage = async (
         import {render, e} from '/src/vader/index.js'
         window.e = e
         render(c, document.body)
+        console.log(e)
       </script> 
       
        ${process.env.bindes}
