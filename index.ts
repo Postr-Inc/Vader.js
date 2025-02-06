@@ -58,7 +58,36 @@ if(isServer){
 export const useFetch = (url: string, options: any) => {
   return [null, true, null];
 };
-
+/**
+ * @description - Bypasses this error when using state in a non parent function
+ * @param funct 
+ * @param context 
+ * @returns 
+ * @example
+ * // - src/index.ts
+ * 
+ * export default function useAuth(){ 
+ *  let [isAuthenticated, setAuthenticated] = useState(false)
+ * }
+ * 
+ * // app/index.jsx
+ * 
+ * export default function(){
+ *  // this will error because this is not present in the cild function
+ *  const { isAuthenticated } = useAuth()
+ *  // to declare this we need to use bound from vaderjs module
+ *  const { isAuthenticated } = bound(useAuth)()
+ *  return ( 
+ *   <div></div>
+ * 
+ *  )
+ * }
+ */
+export function bound(funct: Function, context: any) {
+  return function() {
+    return funct.apply(context, arguments);
+  };
+}
 /**
  * @description - useRef allows you to store a reference to a DOM element
  * @param value
@@ -121,11 +150,7 @@ export const A = (props: {
 
 
 export const Fragment = (props: any, children: any) => {
-  return {
-    type: null,
-    props: props,
-    children
-  }
+  return e("div", props, children) 
 }
 
 if(typeof window !== "undefined") {
@@ -225,20 +250,21 @@ export function Match({ when, children }) {
   return when ? children : { type: "div", props: {}, children: [] };
 }
 /**
- * @description -  Manage state and forceupdate specific affected elements
- * @param key
- * @param initialState
- * @param persist - persist state on reload
- * @returns {T,  (newState: any, Element: string) => void, key}
+ * @description - Manage state and forceUpdate specific affected elements
+ * @param initialState - The initial state value. Can be of any type.
+ * @param persist - persist state on reload (not implemented in this basic example)
+ * @returns {[T, (newState: T) => void]} - A tuple containing the state and the setState function.
  */
+export const useState = <T>(initialState: T, persist?: boolean): [T, (newState: T) => void] => {
+  let state: T = initialState; // Use a separate variable to hold the state
 
-export const useState = (initialState, persist) => {
-  const setState = (newState) => {
-    initialState = newState;
+  const setState = (newState: T) => {
+    state = newState; 
   };
- 
-  return [initialState, setState];
+
+  return [state, setState];
 };
+
 
 if (!isServer) {
   window.effects = []
@@ -677,6 +703,7 @@ export class Component {
     // Handle children
     let children = element.children || [];
     children.forEach((child) => {
+      if(child == null || child == undefined) return;
       if (Array.isArray(child)) {
         // Recursively process nested arrays
         child.forEach((nestedChild) => el.appendChild(this.parseToElement(nestedChild)));
@@ -687,7 +714,7 @@ export class Component {
         component.render =  (props) => child(props);
         let componentElement = component.toElement();
         el.appendChild(componentElement);
-      } else if (typeof child === "object") {
+      } else if (typeof child === "object") { 
         // Nested object children
         el.appendChild(this.parseToElement(child));
       } else if (child !== null && child !== undefined && child !== false) {
