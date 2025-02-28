@@ -150,7 +150,11 @@ export const A = (props: {
 
 
 export const Fragment = (props: any, children: any) => {
-  return e("div", props, children) 
+  return {
+    type: null,
+    props: props,
+    children
+  }
 }
 
 if(typeof window !== "undefined") {
@@ -229,6 +233,16 @@ interface SwitchProps {
   children: any[] | any;
 }
 
+const acceptedAttributes = [
+  // Global attributes
+  'accesskey', 'class', 'className', 'idKey', 'contenteditable', 'contextmenu', 'data', 'dir', 'hidden',
+  'id', 'lang', 'style', 'tabindex', 'title', 'translate', 'xml:lang', 'xml:space',
+
+  // SVG-specific attributes
+  'xmlns', 'fill', 'viewBox', 'stroke-width', 'stroke', 'd', 'stroke-linecap', 'stroke-linejoin', 'content', 'name'
+];
+
+
 // make children optional
 export function Switch({ children = [] }: SwitchProps) {
   for (let child of children) {
@@ -250,21 +264,20 @@ export function Match({ when, children }) {
   return when ? children : { type: "div", props: {}, children: [] };
 }
 /**
- * @description - Manage state and forceUpdate specific affected elements
- * @param initialState - The initial state value. Can be of any type.
- * @param persist - persist state on reload (not implemented in this basic example)
- * @returns {[T, (newState: T) => void]} - A tuple containing the state and the setState function.
+ * @description -  Manage state and forceupdate specific affected elements
+ * @param key
+ * @param initialState
+ * @param persist - persist state on reload
+ * @returns {T,  (newState: any, Element: string) => void, key}
  */
-export const useState = <T>(initialState: T, persist?: boolean): [T, (newState: T) => void] => {
-  let state: T = initialState; // Use a separate variable to hold the state
 
-  const setState = (newState: T) => {
-    state = newState; 
+export const useState = (initialState, persist) => {
+  const setState = (newState) => {
+    initialState = newState;
   };
-
-  return [state, setState];
+ 
+  return [initialState, setState];
 };
-
 
 if (!isServer) {
   window.effects = []
@@ -660,7 +673,8 @@ export class Component {
   
     // Set attributes
     let attributes = element.props || {};
-    for (let key in attributes) { 
+    for (let key in attributes) {
+      if(typeof attributes[key] !== "string" && !acceptedAttributes.includes(key) || !acceptedAttributes.includes(key)) continue; 
       if(key === "ref") {  
         let _key = attributes[key].key;
         // update the ref
@@ -703,7 +717,6 @@ export class Component {
     // Handle children
     let children = element.children || [];
     children.forEach((child) => {
-      if(child == null || child == undefined) return;
       if (Array.isArray(child)) {
         // Recursively process nested arrays
         child.forEach((nestedChild) => el.appendChild(this.parseToElement(nestedChild)));
@@ -714,7 +727,7 @@ export class Component {
         component.render =  (props) => child(props);
         let componentElement = component.toElement();
         el.appendChild(componentElement);
-      } else if (typeof child === "object") { 
+      } else if (typeof child === "object") {
         // Nested object children
         el.appendChild(this.parseToElement(child));
       } else if (child !== null && child !== undefined && child !== false) {
