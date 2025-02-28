@@ -1,11 +1,24 @@
+//@ts-nocheck
+const acceptedAttributes = [
+   // Global attributes
+   'accesskey', 'class', 'className', 'idKey', 'contenteditable', 'contextmenu', 'data', 'dir', 'hidden',
+   'id', 'lang', 'style', 'tabindex', 'title', 'translate', 'xml:lang', 'xml:space',
+ 
+   // SVG-specific attributes
+   'xmlns', 'fill', 'viewBox', 'stroke-width', 'stroke', 'd', 'stroke-linecap', 'stroke-linejoin', 'content', 'name'
+ ];
 export const document = (element: any) => { 
+   if(!element) return ``
    let type = element.type;
    let el =  type ===  null ? `` : `<${type}` 
    let attributes = element.props;
    let children = element.children;
-     if(type != null){
+     if(type != null && type !== false && type !== true && type !== undefined){
       for (let key in attributes) {
-         if(key === "key"){ 
+         if (typeof attributes[key] !== "string" || !acceptedAttributes.includes(key)) {
+            continue;
+          }
+          if(key === "key"){ 
             el += ` key="${attributes[key]}"`;
             continue;
          }
@@ -33,7 +46,7 @@ export const document = (element: any) => {
    
        }
      }
-    el += type === null ? `` : `>`
+    el += type === null || type == false ? `` : `>`
     if(children === null || children === undefined){
       return el;
     }
@@ -45,11 +58,17 @@ export const document = (element: any) => {
          });
       }
       if(typeof child === "function"){
-         el += document(child());
+         let out =  document(child());
+         if(out !== null || out !== false || out !== undefined){
+            el += out;
+         }
       }else
       if (typeof child === "object") {
          el += document(child);
       }else{ 
+         if(child === null || child === false || child === undefined){
+            continue;
+         } 
          el += child;
       }
     }
