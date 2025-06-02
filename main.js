@@ -235,7 +235,10 @@ async function generateApp() {
             let size = code.length / 1024
             r = r.replace(process.cwd().replace(/\\/g, '/') + '/app', '')
             r = r.replace('.jsx', '.js').replace('.tsx', '.js')
-            fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(r)), { recursive: true })
+            if(!fs.existsSync(path.join(process.cwd() + '/dist', path.dirname(r)), { recursive: true })){
+ fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(r)), { recursive: true })
+            }
+            
             let params = routes.match(route).params || {}
             let base = routes.match(route)
             let paramIndexes = []
@@ -276,7 +279,10 @@ async function generateApp() {
                       \n${code}
                   `
             );
+            if(!fs.existsSync(process.cwd() + '/dev', )){
+
             fs.mkdirSync(process.cwd() + '/dev', { recursive: true })
+            } 
 
 
             if (!fs.existsSync(process.cwd() + '/dev/readme.md')) {
@@ -284,14 +290,14 @@ async function generateApp() {
             }
             async function runT() {
                 return await new Bun.Transpiler({
-                    loader: 'ts',
+                    loader: 'tsx',
                 }).transformSync(await Bun.file(require.resolve('vaderjs')).text())
             }
             if (!fs.existsSync(path.join(process.cwd(), '/dist/src/vader'))
                 || fs.readFileSync(path.join(process.cwd(), '/dist/src/vader/index.js')) != await runT()
             ) {
-                fs.mkdirSync(process.cwd() + '/dist/src/vader', { recursive: true })
-                fs.writeFileSync(path.join(process.cwd(), '/dist/src/vader/index.js'), (await runT()))
+               if(!fs.existsSync(path.join(process.cwd(), '/dist/src/vader'))) fs.mkdirSync(process.cwd() + '/dist/src/vader', { recursive: true });
+              else fs.writeFileSync(path.join(process.cwd(), '/dist/src/vader/index.js'), (await runT()));
 
             }
             await Bun.spawn({
@@ -375,7 +381,10 @@ function handleFiles() {
             let glob = new Glob('public/**/*')
             for await (var i of glob.scan()) {
                 let file = i
-                fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
+                if(!fs.existsSync(path.join(process.cwd() + '/dist', path.dirname(file)))){
+fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
+                }
+                 
                 if (fs.existsSync(path.join(process.cwd() + '/dist', file))) {
                     fs.rmSync(path.join(process.cwd() + '/dist', file))
                 }
@@ -384,14 +393,15 @@ function handleFiles() {
             let glob2 = new Glob('src/**/*')
             for await (var i of glob2.scan()) {
                 var file = i
-                fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
+                if(!fs.existsSync(path.join(process.cwd() + '/dist', path.dirname(file))))
+                fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true });
                 // turn jsx to js
                 if (file.includes('.jsx') || file.includes('.tsx')) {
                     let code = await Bun.file(file).text()
 
                     code = handleReplacements(code)
                     code = await new Bun.Transpiler({
-                        loader: 'ts',
+                        loader: 'tsx',
                     }).transformSync(code)
 
                     file = file.replace('.jsx', '.js').replace('.tsx', '.js')
@@ -475,7 +485,7 @@ if (mode === 'development') {
                 if (!file) return; // Ensure file name is valid
                 if (file.includes('node_modules')) return;
                 if (file.includes('dist')) return;
-                if (!fs.existsSync(path.join(process.cwd(), file))) {
+                if (!fs.existsSync(path.join(process.cwd(), file)) && fs.existsSync(path.join(process.cwd(), "dist", file))) {
                     fs.rmSync(path.join(process.cwd(), "dist", file))
                 }
 
@@ -640,5 +650,3 @@ if (mode == 'development' || mode == 'serve') {
 
     console.log(ansiColors.green('Server started at http://localhost:' + port || 8080))
 }
-
-
