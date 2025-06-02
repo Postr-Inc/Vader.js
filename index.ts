@@ -58,36 +58,7 @@ if(isServer){
 export const useFetch = (url: string, options: any) => {
   return [null, true, null];
 };
-/**
- * @description - Bypasses this error when using state in a non parent function
- * @param funct 
- * @param context 
- * @returns 
- * @example
- * // - src/index.ts
- * 
- * export default function useAuth(){ 
- *  let [isAuthenticated, setAuthenticated] = useState(false)
- * }
- * 
- * // app/index.jsx
- * 
- * export default function(){
- *  // this will error because this is not present in the cild function
- *  const { isAuthenticated } = useAuth()
- *  // to declare this we need to use bound from vaderjs module
- *  const { isAuthenticated } = bound(useAuth)()
- *  return ( 
- *   <div></div>
- * 
- *  )
- * }
- */
-export function bound(funct: Function, context: any) {
-  return function() {
-    return funct.apply(context, arguments);
-  };
-}
+
 /**
  * @description - useRef allows you to store a reference to a DOM element
  * @param value
@@ -233,16 +204,6 @@ interface SwitchProps {
   children: any[] | any;
 }
 
-const acceptedAttributes = [
-  // Global attributes
-  'accesskey', 'class', 'className', 'idKey', 'contenteditable', 'contextmenu', 'data', 'dir', 'hidden',
-  'id', 'lang', 'style', 'tabindex', 'title', 'translate', 'xml:lang', 'xml:space',
-
-  // SVG-specific attributes
-  'xmlns', 'fill', 'viewBox', 'stroke-width', 'stroke', 'd', 'stroke-linecap', 'stroke-linejoin', 'content', 'name'
-];
-
-
 // make children optional
 export function Switch({ children = [] }: SwitchProps) {
   for (let child of children) {
@@ -314,6 +275,17 @@ if (!isServer) {
 } else {
   globalThis.state = []
 }
+if (!crypto.randomUUID) {
+  crypto.randomUUID = function() {
+    const url = URL.createObjectURL(new Blob());
+    const uuid = url.toString();
+    URL.revokeObjectURL(url);
+    return uuid.slice(uuid.lastIndexOf('/') + 1);
+  };
+}
+
+console.log("check")
+
 export class Component {
   props;
   state;
@@ -673,8 +645,8 @@ export class Component {
   
     // Set attributes
     let attributes = element.props || {};
-    for (let key in attributes) {
-      if(typeof attributes[key] !== "string" && !acceptedAttributes.includes(key) || !acceptedAttributes.includes(key)) continue; 
+    console.log(attributes)
+    for (let key in attributes) { 
       if(key === "ref") {  
         let _key = attributes[key].key;
         // update the ref
@@ -691,10 +663,16 @@ export class Component {
         el.setAttribute("class", attributes[key]);
       } else if (key === "style") {
         let styleObject = attributes[key];
-        if (typeof styleObject === "object") {
+         
+        if (typeof styleObject === "object") { 
+          var styleString = "";
           for (let styleKey in styleObject) {
-            el.style[styleKey] = styleObject[styleKey];
-          }
+            styleString += `${styleKey}=${styleObject[styleKey]}`  
+          } 
+          
+            el.setAttribute("style", styleString) 
+        }else{
+          el.setAttribute("style", styleObject)
         }
       } else if (key.startsWith("on")) {
         // Event listeners
