@@ -283,8 +283,7 @@ if (!crypto.randomUUID) {
     return uuid.slice(uuid.lastIndexOf('/') + 1);
   };
 }
-
-console.log("check")
+ 
 
 export class Component {
   props;
@@ -644,8 +643,7 @@ export class Component {
     }
   
     // Set attributes
-    let attributes = element.props || {};
-    console.log(attributes)
+    let attributes = element.props || {}; 
     for (let key in attributes) { 
       if(key === "ref") {  
         let _key = attributes[key].key;
