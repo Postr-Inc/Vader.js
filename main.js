@@ -127,13 +127,13 @@ const handleReplacements = (code) => {
     for (let line of lines) {
         let hasImport = line.includes('import')
 
-        if (hasImport && line.includes('public')) {
+        if (hasImport && line.includes('public') && line.includes('.png') ||
+     hasImport && line.includes('.jpg') && line.includes('public') ||   hasImport && line.includes('.jpeg') && line.includes('public') ||   hasImport && line.includes('.gif') && line.includes('public') ||   hasImport && line.includes('.svg') && line.includes('public')) {
             // remove ../ from path 
 
             line = line.replaceAll('../', '').replaceAll('./', '')
 
-            line = line.replace('public', '/public')
-            console.log(line)
+            line = line.replace('public', '/public') 
         }
         if (hasImport && line.includes('.css')) {
             try {
@@ -147,7 +147,11 @@ const handleReplacements = (code) => {
                 line = '';
                 url = url.replace(process.cwd() + '/app', '')
                 url = url.replace(/\\/g, '/')
-                if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
+                if (!bindes.includes(`<link rel="stylesheet" href="${url}">`) && !bindes.includes(`
+                  <style>
+                    ${fs.readFileSync(p, 'utf-8')}
+                  </style>
+                  `)) {
                     bindes.push(`
                     <style>
                       ${fs.readFileSync(p, 'utf-8')}
@@ -567,7 +571,11 @@ if (mode == 'development' || mode == 'serve') {
             if (url.pathname.includes('.')) {
                 let p = url.pathname.replaceAll("%5B", "[").replaceAll("%5D", "]")
                 let file = await Bun.file(path.join(process.cwd() + '/dist' + p))
-                if (!await file.exists()) return new Response('Not found', { status: 404 })
+                if (!await file.exists()) return new Response(`
+                    <h1>Whoops You hit a roadblock </h1>
+                    `, { status: 404, headers: {
+                    'Content-Type': 'text/html'
+                } })
                 let imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp', 'image/tiff', 'image/bmp', 'image/ico', 'image/cur', 'image/jxr', 'image/jpg']
 
                 return new Response(imageTypes.includes(file.type) ? await file.arrayBuffer() : await file.text(), {
