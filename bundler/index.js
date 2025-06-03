@@ -97,17 +97,21 @@ const handleReplacements = (code) => {
     } 
     if (hasImport && line.includes('react')) {
       line = line.replace('react', '/src/vader/index.js')
-    }  
+    } 
     if(hasImport && line.includes('public') && line.includes('.png') ||
-hasImport &&     line.includes('.jpg') || hasImport &&   line.includes('.jpeg') || hasImport &&   line.includes('.gif') || hasImport &&   line.includes('.svg')) {
+     hasImport && line.includes('.jpg') && line.includes('public') ||   hasImport && line.includes('.jpeg') && line.includes('public') ||   hasImport && line.includes('.gif') && line.includes('public') ||   hasImport && line.includes('.svg') && line.includes('public')) {
        let url = line.split('"')[1]
        // replace ../../
         var b4 = url
         let filevariable = line.split("import")[1].split("from")[0].replace(" ", "").replace("{", "").replace("}","")
          
         url =   url.replace('../../', '').replace('../', '').replace('./', '')
-        line = `var ${filevariable} = "${url}"`
-        console.log(line)
+        
+        if(line.includes('svg')){
+          line = `var ${filevariable}  = \`${fs.readFileSync(path.join(process.cwd(), url))} \``
+        }else{
+          line = `var ${filevariable} = "${url}"`
+        }  
     }
     if (hasImport && line.includes('.css')) {
       try {
@@ -121,7 +125,11 @@ hasImport &&     line.includes('.jpg') || hasImport &&   line.includes('.jpeg') 
         line = '';
         url = url.replace(process.cwd() + '/app', '')
         url = url.replace(/\\/g, '/')
-        if (!bindes.includes(`<link rel="stylesheet" href="${url}">`)) {
+        if (!bindes.includes(`<link rel="stylesheet" href="${url}">`) || !bindes.includes(`
+                  <style>
+                    ${fs.readFileSync(p, 'utf-8')}
+                  </style>
+                  `)) {
           bindes.push(`
                   <style>
                     ${fs.readFileSync(p, 'utf-8')}
@@ -169,8 +177,7 @@ hasImport &&     line.includes('.jpg') || hasImport &&   line.includes('.jpeg') 
     if (!hasImport && line.match(/\buseRef\d*\(/) && line.includes('[') && !line.includes("this")) {
       line = line.replace(' ', '')
       let b4 = line
-      let key = line.split('=')[0].split(' ').filter(Boolean)[1]
-      console.log(key)
+      let key = line.split('=')[0].split(' ').filter(Boolean)[1] 
       b4 = line.replace('useRef(', `this.useRef('${key}',`)
       line = b4
     }
@@ -182,17 +189,21 @@ hasImport &&     line.includes('.jpg') || hasImport &&   line.includes('.jpeg') 
   return c
 }
 builtCode = handleReplacements(builtCode)
-builtCode =  await new Bun.Transpiler({
-  loader: 'tsx',
-  tsconfig:{
-    "compilerOptions": {
-      "jsx": "react",
-      "jsxFactory": "e",
-      "jsxFragmentFactory": "Fragment"
+
+builtCode += `
+var process = {
+  env: {
+    ${Object.keys(process.env)
+      .filter((key) => 
+        !['bindes', 'ENTRYPOINT', 'ROOT', 'OUT', 'file', 'DEV', 
+          'size', 'filePath', 'isAppFile', 'isJsx', 'INPUT'].includes(key)
+      )
+      .map((key) => `${key}: "${process.env[key]}"`)
+      .join(',\n')}
   }
-  }
-}).transformSync(builtCode) 
-fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode) 
+}
+`; 
+fs.writeFileSync(path.join(process.cwd(), 'dist', process.env.filePath), builtCode)
 let isClass = function (element) {
   return element && element.toString().startsWith("class");
 };
@@ -264,7 +275,6 @@ const generatePage = async (
         import {render, e} from '/src/vader/index.js'
         window.e = e
         render(c, document.body)
-        console.log(e)
       </script> 
       
        ${process.env.bindes}
