@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "jsx": "react",
-        "jsxFactory": "e",
+        "jsxFactory": "Vader.createElement",
         "jsxFragmentFactory": "Fragment"
     }
 }
