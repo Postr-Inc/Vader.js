@@ -1,781 +1,925 @@
-//@ts-nocheck
-let isClassComponent = function (element) {
-  return element.toString().startsWith("class");
-};
+/**
+ * @file A lightweight React-like library with hooks implementation.
+ * @module vader
+ */
 
- 
+/**
+ * Global variables for the fiber tree and rendering process.
+ */
+let nextUnitOfWork: Fiber | null = null;
+let wipRoot: Fiber | null = null;
+let currentRoot: Fiber | null = null;
+let deletions: Fiber[] | null = null;
+let wipFiber: Fiber | null = null;
+let hookIndex = 0;
+let isRenderScheduled = false;
 
-const memoizes = new Map();
-//@ts-ignore
-
-declare global {
-  interface Window {
-    onbeforeunload: any;
-    localStorage: any;
-    sessionStorage: any;
-    state: any;
-  }
-  const genKey: any;
-  /**
-   * @description Allows you to check if current session is server or  client
-   */
-  let isServer: boolean;
-  /**
-   * @description - The params object is used to store the  parameters of the current URL
-   * @example
-   * // URL: https://example.com?name=John
-   * console.log(params.name) // John
-   * @example
-   * // URL: https://example.com/:name/:age
-   * // GO: https://example.com/John/20
-   * console.log(params.name) // John
-   * console.log(params.age) // 20
-   */
-  let params: { [key: string]: string };
-  let localStorage: []
+interface Fiber {
+  type?: string | Function;
+  dom?: Node;
+  props: {
+    children: VNode[];
+    [key: string]: any;
+  };
+  parent?: Fiber;
+  child?: Fiber;
+  sibling?: Fiber;
+  alternate?: Fiber;
+  effectTag?: "PLACEMENT" | "UPDATE" | "DELETION";
+  hooks?: Hook[];
+  key?: string | number | null;
 }
-//@ts-ignore
-globalThis.isServer = typeof window === "undefined";
-//@ts-ignore
-if(isServer){
-  globalThis.params = {
-    [Symbol.iterator]: function* () {
-      for (const key in this) {
-        yield [key, this[key]];
+
+interface VNode {
+  type: string | Function;
+  props: {
+    children: VNode[];
+    [key: string]: any;
+  };
+  key?: string | number | null;
+}
+
+interface Hook {
+  state?: any;
+  queue?: any[];
+  deps?: any[];
+  _cleanupFn?: Function;
+  memoizedValue?: any;
+  current?: any;
+}
+
+/**
+ * Checks if a property key is an event handler.
+ * @param {string} key - The property key to check.
+ * @returns {boolean} True if the key is an event handler.
+ */
+const isEvent = (key: string) => key.startsWith("on");
+
+/**
+ * Checks if a property key is a regular property (not children or event).
+ * @param {string} key - The property key to check.
+ * @returns {boolean} True if the key is a regular property.
+ */
+const isProperty = (key: string) => key !== "children" && !isEvent(key);
+
+/**
+ * Creates a function to check if a property has changed between objects.
+ * @param {object} prev - The previous object.
+ * @param {object} next - The next object.
+ * @returns {function} A function that takes a key and returns true if the property changed.
+ */
+const isNew = (prev: object, next: object) => (key: string) => prev[key] !== next[key];
+
+/**
+ * Creates a function to check if a property was removed from an object.
+ * @param {object} prev - The previous object.
+ * @param {object} next - The next object.
+ * @returns {function} A function that takes a key and returns true if the property was removed.
+ */
+const isGone = (prev: object, next: object) => (key: string) => !(key in next);
+
+/**
+ * Creates a DOM node for a fiber.
+ * @param {Fiber} fiber - The fiber to create a DOM node for.
+ * @returns {Node} The created DOM node.
+ */
+function createDom(fiber: Fiber): Node {
+  const dom =
+    fiber.type == "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(fiber.type as string);
+
+  updateDom(dom, {}, fiber.props);
+  return dom;
+}
+
+/**
+ * Applies updated props to a DOM node.
+ * @param {Node} dom - The DOM node to update.
+ * @param {object} prevProps - The previous properties.
+ * @param {object} nextProps - The new properties.
+ */
+ function updateDom(dom: Node, prevProps: object, nextProps: object): void {
+  prevProps = prevProps || {};
+  nextProps = nextProps || {};
+
+  // Remove old or changed event listeners
+  Object.keys(prevProps)
+    .filter(isEvent)
+    .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+    .forEach((name) => {
+      const eventType = name.toLowerCase().substring(2);
+      if (typeof prevProps[name] === 'function') {
+        dom.removeEventListener(eventType, prevProps[name]);
       }
+    });
+
+  // Remove old properties
+  Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone(prevProps, nextProps))
+    .forEach((name) => {
+      // FIX: Handle both `class` and `className`
+      if (name === 'className' || name === 'class') {
+        (dom as HTMLElement).removeAttribute("class");
+      } else {
+        dom[name] = "";
+      }
+    });
+
+  // Set new or changed properties
+  Object.keys(nextProps)
+    .filter(isProperty)
+    .filter(isNew(prevProps, nextProps))
+    .forEach((name) => {
+      if (name === 'style' && typeof nextProps[name] === 'string') {
+        (dom as HTMLElement).style.cssText = nextProps[name];
+      } else if (name === 'className' || name === 'class') {
+        // FIX: Handle both `class` and `className`
+        (dom as HTMLElement).className = nextProps[name];
+      } else {
+        dom[name] = nextProps[name];
+      }
+    });
+
+  // Add new event listeners
+  Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps))
+    .forEach((name) => {
+      const eventType = name.toLowerCase().substring(2);
+      const handler = nextProps[name];
+      if (typeof handler === 'function') {
+        dom.addEventListener(eventType, handler);
+      }
+    });
+}
+
+/**
+ * Commits the entire work-in-progress tree to the DOM.
+ */
+function commitRoot(): void {
+  deletions.forEach(commitWork);
+  commitWork(wipRoot.child);
+  currentRoot = wipRoot;
+  wipRoot = null;
+  isRenderScheduled = false;
+}
+
+/**
+ * Recursively commits a fiber and its children to the DOM.
+ * @param {Fiber} fiber - The fiber to commit.
+ */
+function commitWork(fiber: Fiber | null): void {
+  if (!fiber) {
+    return;
+  }
+
+  let domParentFiber = fiber.parent;
+  while (domParentFiber && !domParentFiber.dom) {
+    domParentFiber = domParentFiber.parent;
+  }
+  const domParent = domParentFiber ? domParentFiber.dom : null;
+
+  if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
+    if (domParent) domParent.appendChild(fiber.dom);
+  } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
+    updateDom(fiber.dom, fiber.alternate?.props ?? {}, fiber.props);
+  } else if (fiber.effectTag === "DELETION") {
+    commitDeletion(fiber);
+  }
+
+  commitWork(fiber.child);
+  commitWork(fiber.sibling);
+}
+
+/**
+ * Recursively removes a fiber and its children from the DOM.
+ * @param {Fiber} fiber - The fiber to remove.
+ */
+function commitDeletion(fiber: Fiber | null): void {
+  if (!fiber) {
+    return;
+  }
+  if (fiber.dom) {
+    if (fiber.dom.parentNode) {
+      fiber.dom.parentNode.removeChild(fiber.dom);
+    }
+  } else if (fiber.child) {
+    commitDeletion(fiber.child);
+  }
+}
+
+/**
+ * Renders a virtual DOM element into a container.
+ * @param {VNode} element - The root virtual DOM element to render.
+ * @param {Node} container - The DOM container to render into.
+ */
+export function render(element: VNode, container: Node): void {
+  container.innerHTML = "";
+  
+  wipRoot = {
+    dom: container,
+    props: {
+      children: [element],
     },
+    alternate: currentRoot,
   };
-}
-
-
-
-/**
- * @description useFetch allows you to make POST - GET - PUT - DELETE requests then returns the data, loading state and error
- * @param url
- * @param options
- * @returns  [data, loading, error]
- */
-export const useFetch = (url: string, options: any) => {
-  return [null, true, null];
-};
-
-/**
- * @description - useRef allows you to store a reference to a DOM element
- * @param value
- * @returns {current:   HTMLElement}
- * @example
- * const inputRef = useRef();
- * <input ref={inputRef} />
- * console.log(inputRef.current) // <input />
- */
-export const useRef = (value) => {
-  return { key: crypto.randomUUID(), current: value };
+  deletions = [];
+  nextUnitOfWork = wipRoot;
+  
+  if (!isRenderScheduled) {
+    isRenderScheduled = true;
+    requestAnimationFrame(workLoop);
+  }
 }
 
 /**
- * @description  - Handle asyncronous promises and return the data or error;
- * @param promise
- * @returns
+ * The main work loop for rendering and reconciliation.
  */
-export const useAsyncState = (promise: Promise<any>) => {
-  return [null, () => { }];
-}
-export const useEffect = (callback: any, dependencies: any[] = []) => { 
-  dependencies = dependencies.map((dep) => JSON.stringify(dep));
-  if (dependencies.length === 0) {
-    callback();
-  }
-}
-
-// make a switch function component
-
-
-export const A = (props: {
-  /**
-  * @description Set the elements classlist
-  */
-  className?: string;
-  /**
-  * @description Once clicked send user to a different link
-  */
-  href?: string;
-  style?: string;
-  openInNewTab?: boolean
-  onClick?: () => void;
-  onChange?: () => void;
-}, children: any) => {
-  function handleClick(e) {
-    e.preventDefault();
-    if (props.openInNewTab) {
-      window.open(props.href, "_blank");
-      return void 0;
-    }   
-    window.history.pushState({}, "", props.href);
-    window.dispatchEvent(new Event("popstate")); 
-    window.dispatchEvent(new Event("load"));
-    window.location.reload();
-    return void 0;
-  }
-  return e("a", { ...props, onClick: handleClick }, props.children);
-}
-
-
-export const Fragment = (props: any, children: any) => {
-  return {
-    type: null,
-    props: props,
-    children
-  }
-}
-
-if(typeof window !== "undefined") {
-  window.history.back = () => {
-    window.history.go(-1);
-  }
-  window.history.forward = () => {
-    window.history.go(1);
-  }
-}
-globalThis.Fragment = Fragment;
-
-/**
- * @description - Create a new element
- * @param element
- * @param props
- * @param children
- * @returns
- */
-export const e = (element, props, ...children) => {
-  if (!element)
-    return "";
-  let instance;
-  switch (true) {
-    case isClassComponent(element):
-      instance = new element;
-      instance.props = props;
-      instance.children = children;
-      instance.Mounted = true;
-      return instance.render(props);
-    case typeof element === "function": 
-      instance = memoizeClassComponent(Component, element.name);  
-      element = element.bind(instance); 
-      instance.render = (props) => element(props);
-      if (element.name.toLowerCase() == "default") {
-        throw new Error("Function name must be unique");
-      }
-      instance.key = element.name;
-      instance.Mounted = true;
-      let firstEl = instance.render({ key: instance.key, children, ...props }, children);
-      instance.children = children;
-      if (!firstEl)
-        firstEl = { type: "div", props: { key: instance.key, ...props }, children };
-      firstEl.props = { key: instance.key, ...firstEl.props, ...props }; 
-      firstEl.props["idKey"] = instance.props?.ref?.key || instance.key;
-      instance.props = firstEl.props; 
-      return firstEl;
-    default:
-      if(!element) {
-        return "";
-      }
-      let el = { type: element, props: props || {}, children: children || [] };
-      if (el.type !== "head") {
-        el.props = { idKey: el.props?.ref?.key || crypto.randomUUID(), ...el.props };
-      }
-
-      // if element == false return empty string
-      if (el.type === false) {
-        return "";
-      }
-
-      return el;
-  }
-};
-
-/*
-  * @description - Switch component
-  * @param element
-  * @param props
-  * @param children
-  * @returns
-  */
-
-
-interface SwitchProps {
-  children: any[] | any;
-}
-
-// make children optional
-export function Switch({ children = [] }: SwitchProps) {
-  for (let child of children) {
-    if (child.props.when) { 
-      return { type: "div", props: {
-        idKey: crypto.randomUUID()
-      }, children: [child] };
-    }
-  }
-  return { type: "div", props: {}, children: [] };
-}
-
-/**
- * @description - Match component
- * @param param0
- * @returns
- */
-export function Match({ when, children }) {
-  return when ? children : { type: "div", props: {}, children: [] };
-}
-/**
- * @description -  Manage state and forceupdate specific affected elements
- * @param key
- * @param initialState
- * @param persist - persist state on reload
- * @returns {T,  (newState: any, Element: string) => void, key}
- */
-
-export const useState = (initialState, persist) => {
-  const setState = (newState) => {
-    initialState = newState;
-  };
- 
-  return [initialState, setState];
-};
-
-if (!isServer) {
-  window.effects = []
-}
-
-
-/**
- * @description -  Create a new component
- * @param element
- * @param props
- * @param children
- * @returns
- * @example
- * const App = (props) => {
- *   return (
- *     <div>
- *       <h1>Hello, {props.name}</h1>
- *     </div>
- *    )
- *  }
- *
- *  render(<App name="John" />, document.getElementById("root"));
- */
-
-// create a hidden object on window
-//
-if (!isServer) {
-  Object.defineProperty(window, "state", {
-    value: [],
-    writable: true,
-    enumerable: true,
-  })
-
-} else {
-  globalThis.state = []
-}
-if (!crypto.randomUUID) {
-  crypto.randomUUID = function() {
-    const url = URL.createObjectURL(new Blob());
-    const uuid = url.toString();
-    URL.revokeObjectURL(url);
-    return uuid.slice(uuid.lastIndexOf('/') + 1);
-  };
-}
- 
-
-export class Component {
-  props;
-  state;
-  element;
-  Mounted;
-  effect;
-  key;
-  effectCalls: any[]
-  eventRegistry: any
-  prevState;
-  refs: HTMLElement[] | any[]
-  state: {}
-  constructor() {
-    this.key = crypto.randomUUID();
-    this.props = {};
-    this.effect = [];
-    this.Mounted = false;
-    this.state =  {};
-    this.element = null;
-    this.effectCalls = []
-    this.errorThreshold = 1000
-    this.maxIntervalCalls = 10
-    this.eventRegistry = new WeakMap();
-    this.refs = []
-  }
-  useRef = (key, value) => {
-    if (!this.refs.find((r) => r.key == key)) {
-      this.refs.push({ key,  current: value});
-    }
-
-    return { key, current: this.refs.find((r) => r.key == key).current };
-  }
-  useEffect(callback, dependencies = []) {
-    const callbackId = callback.toString(); // Unique ID based on callback string representation
-
-    if (!this.effectCalls.some((effect) => effect.id === callbackId)) {
-        // Add the initial effect call if it doesn't exist
-        this.effectCalls.push({
-            id: callbackId,
-            count: 0,
-            lastCall: Date.now(),
-            hasRun: false, // Tracks if the effect has already run once
-            dependencies
-        });
-    }
-
-    const effectCall = this.effectCalls.find((effect) => effect.id === callbackId);
-
-    const executeCallback = () => {
-        const now = Date.now();
-        const timeSinceLastCall = now - effectCall.lastCall;
-
-        // Track call counts and handle potential over-calling issues
-        if (timeSinceLastCall < this.errorThreshold) {
-            effectCall.count += 1;
-            if (effectCall.count > this.maxIntervalCalls) {
-                throw new Error(
-                    `Woah, way too many calls! Ensure you are not over-looping. Adjust maxIntervalCalls and errorThreshold as needed.`
-                );
-            }
-        } else {
-            effectCall.count = 1;
-        }
-
-        effectCall.lastCall = now;
-
-        setTimeout(() => {
-            try {
-                effects.push(callbackId); // Track executed effects
-                callback(); // Execute the callback
-            } catch (error) {
-                console.error(error);
-            }
-        }, 0);
+function workLoop(): void {
+  if (!wipRoot && currentRoot) {
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot,
     };
-
-    // First time: Run the effect and mark it as run
-    if (!effectCall.hasRun && dependencies.length === 0) {
-      executeCallback();
-      effectCall.hasRun = true;
-      effectCall.dependencies = dependencies;
-      return;
-    }
-
-    // If there are no dependencies, do nothing after the first run
-    if (dependencies.length === 0) {
-        return;
-    }
-
-    // Check if dependencies have changed
-    let dependenciesChanged = false;
-    for (let i = 0; i < dependencies.length; i++) {
-        const previousDependencies = effectCall.dependencies || [];
-        if (
-            JSON.stringify(previousDependencies[i]) !== JSON.stringify(dependencies[i])
-        ) {
-            dependenciesChanged = true;
-            break;
-        }
-    }
-
-    // If dependencies have changed, run the effect and update dependencies
-    if (dependenciesChanged) {
-        executeCallback();
-        effectCall.dependencies = dependencies;
-    }
-}
-
-  
-   useState(key, defaultValue, persist = false) {
-    let value = this.state[key] || defaultValue;
-    if(value === "true" || value === "false") {
-      value = JSON.parse(value);
-    }
-    // if value is boolean store as string
-
-    if (persist) {
-      value = sessionStorage.getItem(key) ? JSON.parse(sessionStorage.getItem(key)).value : defaultValue;
-    }
-    const setValue = (newValue) => {
-      if(typeof newValue === "function") {
-        newValue = newValue(this.state[key]);
-      }
-      this.state[key] =  typeof newValue === "boolean" ? newValue.toString() : newValue;
-      if (persist) {
-        sessionStorage.setItem(key, JSON.stringify({ value: newValue }));
-      }
-      this.forceUpdate(this.key);
-    }; 
-    return [value, setValue];
+    deletions = [];
+    nextUnitOfWork = wipRoot;
   }
-  useFetch(url, options) {
-    const loadingKey = "loading_" + url;
-    const errorKey = "error" + url;
-    const dataKey = "_data" + url;
-    let [loading, setLoading, _clear1] = this.useState(loadingKey, true);
-    let [error, setError, _clear2] = this.useState(errorKey, null);
-    let [data, setData, clear] = this.useState(dataKey, null);
-    if (loading() && !error() && !data()) {
-      fetch(url, options).then((res) => res.json()).then((data2) => {
-        setLoading(false);
-        setData(data2);
-        this.forceUpdate(this.key);
-        setTimeout(() => {
-          _clear1()
-          _clear2()
-          clear()
-        }, 1500)
-      }).catch((err) => {
-        setError(err);
-        this.forceUpdate(this.key);
-      });
-    }
-    return { loading, error, data };
-  }
-  addEventListener(element, event, handler) {
-    if (!this.eventRegistry.has(element)) {
-      this.eventRegistry.set(element, []);
-    }
-    const registeredEvents = this.eventRegistry.get(element);
-    const isDuplicate = registeredEvents.some((e) => e.type === event && e.handler === handler);
-    if (!isDuplicate) {
-      element["on" + event] = handler;
-      registeredEvents.push({ type: event, handler });
-      this.eventRegistry.set(element, registeredEvents);
-    }
-  }
-  removeEventListeners(element) {
-    // Unregister and remove all events for the element
-    const registeredEvents = this.eventRegistry.get(element) || [];
-    registeredEvents.forEach(({ type, handler }) => {
-      element.removeEventListener(type, handler);
-    });
-    this.eventRegistry.delete(element);
-  }
-  forceUpdate(key) {
-    let el =  document.querySelector(`[idKey="${key}"]`); 
-    let newl = this.toElement(this.props);
-    if (newl.getAttribute("idKey") !== key) {
-      newl = Array.from(newl.children).filter((el2) =>   el2.getAttribute("idKey") === key)[0];
-    } 
-    this.Reconciler.update(el, newl);
-  }
-  attachEventsRecursively = (element, source) => {
-    // Rebind events for the current element
-    const events = this.eventRegistry.get(source) || [];
-    events.forEach(({ event, handler }) => {
-      this.addEventListener(element, event, handler);
-    });
-  
-    // Traverse children recursively
-    const children = Array.from(source.childNodes || []);
-    const elementChildren = Array.from(element.childNodes || []);
-  
-    children.forEach((child, index) => {
-      if (elementChildren[index]) {
-        this.attachEventsRecursively(elementChildren[index], child);
-      }
-    });
-  };
 
-
-  Reconciler = {
-    update: (oldElement, newElement) => { 
-      if (!oldElement || !newElement) return;
-  
-      // Check if the current element needs an update
-      if (this.Reconciler.shouldUpdate(oldElement, newElement)) {
-        // Update attributes
-        const oldChildren = Array.from(oldElement.childNodes);
-        const newChildren = Array.from(newElement.childNodes);
-    
-        const maxLength = Math.max(oldChildren.length, newChildren.length);
-        if (oldElement.tagName !== newElement.tagName) {
-          const newElementClone = newElement.cloneNode(true);
-          oldElement.replaceWith(newElementClone);
-      
-          // Attach events recursively to the new element
-          this.attachEventsRecursively(newElementClone, newElement);
-          return;
-        }
-
-        for (let i = 0; i < maxLength; i++) {
-          if (i >= oldChildren.length) {
-            const newChildClone = newChildren[i].cloneNode(true);
-            if(oldElement.nodeType === Node.TEXT_NODE) {
-              oldElement.textContent = newElement.textContent;
-              return;
-            }
-            oldElement.appendChild(newChildClone);
-    
-            // Rebind events to the new child (and its children recursively)
-            this.attachEventsRecursively(newChildClone, newChildren[i]);
-          } else if (i >= newChildren.length) {
-            oldElement.removeChild(oldChildren[i]);
-          } else {
-            this.Reconciler.update(oldChildren[i], newChildren[i]);
-          }
-        }
-    
-        Array.from(oldElement.attributes || []).forEach(({ name }) => {
-          if (!newElement.hasAttribute(name)) {
-            oldElement.removeAttribute(name);
-          }
-        });
-  
-        Array.from(newElement.attributes || []).forEach(({ name, value }) => {
-          if (oldElement.getAttribute(name) !== value) {
-            oldElement.setAttribute(name, value);
-          }
-        });
-  
-        // Handle text node updates
-        if (oldElement.nodeType === Node.TEXT_NODE) {
-          if (oldElement.textContent !== newElement.textContent) {
-            oldElement.textContent = newElement.textContent;
-          }
-          return;
-        }
-  
-        // If the element has a single text node, update text directly
-        if (
-          oldElement.childNodes.length === 1 &&
-          oldElement.firstChild.nodeType === Node.TEXT_NODE
-        ) {
-          if (oldElement.textContent !== newElement.textContent) {
-            oldElement.textContent = newElement.textContent;
-          }
-          return;
-        }
-      }
-  
-      // Process children recursively
-      const oldChildren = Array.from(oldElement.childNodes);
-      const newChildren = Array.from(newElement.childNodes);
-  
-      const maxLength = Math.max(oldChildren.length, newChildren.length);
-  
-      for (let i = 0; i < maxLength; i++) {
-        if (i >= oldChildren.length) { 
-          // Add new child if it exists in newChildren but not in oldChildren
-          const newChildClone = newChildren[i].cloneNode(true);
-          oldElement.appendChild(newChildClone);
-  
-          // Attach any event listeners
-          const newChildEvents = this.eventRegistry.get(newChildren[i]) || [];
-          newChildEvents.forEach(({ type, handler }) => {
-            this.addEventListener(newChildClone, type, handler);
-          });
-        } else if (i >= newChildren.length) {
-          // Remove child if it exists in oldChildren but not in newChildren
-          oldElement.removeChild(oldChildren[i]);
-        } else { 
-          this.Reconciler.update(oldChildren[i], newChildren[i]);
-        }
-      }
-  
-      // Reapply events for the current element
-      const parentEvents = this.eventRegistry.get(newElement) || [];
-      parentEvents.forEach(({ type, handler }) => {
-        if (newElement.nodeType === oldElement.nodeType) {
-          this.addEventListener(oldElement, type, handler);
-        } 
-      });
-
-    },
-    shouldUpdate: (oldElement, newElement) => { 
-      // Check if node types differ
-      if (oldElement.nodeType !== newElement.nodeType) {
-        return true;
-      }
-  
-      // Check if text content differs
-      if (oldElement.nodeType === Node.TEXT_NODE) {
-        return oldElement.textContent !== newElement.textContent;
-      }
-  
-      // Check if node names differ
-      if (oldElement.nodeName !== newElement.nodeName) {
-        return true;
-      }
-  
-      // Check if child counts differ
-      if (oldElement.childNodes.length !== newElement.childNodes.length) {
-        return true;
-      }
-  
-      // Check if attributes differ
-      const newAttributes = Array.from(newElement.attributes || []);
-      for (let { name, value } of newAttributes) {
-        if (oldElement.getAttribute(name) !== value) {
-          return true;
-        }
-      }
-  
-      // If no differences found, no update needed
-      return false;
-    },
-  } 
-  
-  parseToElement = (element) => {
-    if (!element || element.nodeType) return  "" 
-  
-    let svgTags = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "g"];
-    let isSvg = svgTags.includes(element.type);
-  
-    // Create the element, using proper namespace for SVG
-    let el = isSvg
-      ? document.createElementNS("http://www.w3.org/2000/svg", element.type)
-      : document.createElement(element.type);
-  
-    // Handle text nodes
-    if (typeof element === "string" || typeof element === "number" || typeof element === "boolean") {
-      el.textContent = element; // Safer alternative to innerHTML
-      return el;
-    }
-  
-    // Set attributes
-    let attributes = element.props || {}; 
-    for (let key in attributes) { 
-      if(key === "ref") {  
-        let _key = attributes[key].key;
-        // update the ref
-        let ref = this.refs.find((r) => r.key == _key);
-         if(ref) {
-           ref.current = document.querySelector(`[idKey="${_key}"]`) || el;
-         }
-        el.setAttribute("idKey", _key);
-        element.props.idKey = _key
-     } 
-      else if (key === "key") {
-        el.key = attributes[key];
-      } else if (key === "className") {
-        el.setAttribute("class", attributes[key]);
-      } else if (key === "style") {
-        let styleObject = attributes[key];
-         
-        if (typeof styleObject === "object") { 
-          var styleString = "";
-          for (let styleKey in styleObject) {
-            styleString += `${styleKey}=${styleObject[styleKey]}`  
-          } 
-          
-            el.setAttribute("style", styleString) 
-        }else{
-          el.setAttribute("style", styleObject)
-        }
-      } else if (key.startsWith("on")) {
-        // Event listeners
-        const eventType = key.substring(2).toLowerCase();
-        const handler = attributes[key];
-        this.eventRegistry.set(el, [...(this.eventRegistry.get(el) || []), { event: eventType, handler }]);
-        this.addEventListener(el, eventType, handler);
-      } else if (attributes[key] !== null && attributes[key] !== undefined  && 
-        !key.includes(" ") || !key.includes("-") || !key.includes("_")) {
-        try {
-          el.setAttribute(key, attributes[key]);
-        } catch (error) {
-           
-        }
-      } else   if(typeof attributes[key] === "object" && key !== "style"){
-        continue;
-      } 
-    }
-  
-    // Handle children
-    let children = element.children || [];
-    children.forEach((child) => {
-      if (Array.isArray(child)) {
-        // Recursively process nested arrays
-        child.forEach((nestedChild) => el.appendChild(this.parseToElement(nestedChild)));
-      } else if (typeof child === "function") {
-        // Handle functional components
-        let component = memoizeClassComponent(Component, child.name);
-        component.Mounted = true;
-        component.render =  (props) => child(props);
-        let componentElement = component.toElement();
-        el.appendChild(componentElement);
-      } else if (typeof child === "object") {
-        // Nested object children
-        el.appendChild(this.parseToElement(child));
-      } else if (child !== null && child !== undefined && child !== false) {
-        // Text nodes
-        el.appendChild(document.createTextNode(child));
-      }
-    });
-  
-    return el;
-  };
-  e(element, props, ...children) {
-    if (typeof element === "function") {
-      return element();
-    }
-    return { type: element, props: props || {}, children: children || [] };
+  while (nextUnitOfWork) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
   }
-  toElement() {
-    let children = this.render(this.props); 
-    let el = this.parseToElement(children); 
-    el.setAttribute("idKey", this.key);
-    return el;
-  }
-  render() {
-    return "";
+
+  if (!nextUnitOfWork && wipRoot) {
+    commitRoot();
   }
 }
 
-function memoizeClassComponent(Component, key) { 
-  let instance = memoizes.get(key);
-  if (!instance) {
-    instance = new Component(key);
-    memoizes.set(key, instance); 
-  }
-  return instance;
-}
 /**
- * @description - Render jsx Componenet to the DOM
- * @param element
- * @param container
+ * Performs work on a single fiber unit.
+ * @param {Fiber} fiber - The fiber to perform work on.
+ * @returns {Fiber|null} The next fiber to work on.
  */
-export function render(element, container) {
-  // CLEAR STATE ON RELOAD
-  if (!isServer) {
-    window.addEventListener("beforeunload", () => {
-       let keys = Object.keys(sessionStorage);
-       keys.forEach((key) => {
-          if (key.startsWith("state_")) {
-            sessionStorage.removeItem(key);
-          }
-        });
-    });
-  }
-  if (isClassComponent(element)) {
-    const instance = new element;
-    instance.Mounted = true;
-    let el = instance.toElement();
-    instance.element = el;
-    container.innerHTML = "";
-    container.replaceWith(el);
-  } else {
-    let memoizedInstance = memoizeClassComponent(Component, element.name);
-    memoizedInstance.Mounted = true;
-    element = element.bind(memoizedInstance);
+function performUnitOfWork(fiber: Fiber): Fiber | null {
+  const isFunctionComponent = fiber.type instanceof Function;
 
-    memoizedInstance.render = (props) => element(props);
-    if (element.name == "default") {
-      throw new Error("Function name Must be a unique function name as it is used for a element key");
-    }
-    memoizedInstance.key = element.name;
-    let el = memoizedInstance.toElement();
-    el.key = element.name;
-    container.innerHTML = "";
-    container.replaceWith(el);
+  if (isFunctionComponent) {
+    updateFunctionComponent(fiber);
+  } else {
+    updateHostComponent(fiber);
   }
+
+  if (fiber.child) {
+    return fiber.child;
+  }
+
+  let nextFiber = fiber;
+  while (nextFiber) {
+    if (nextFiber.sibling) {
+      return nextFiber.sibling;
+    }
+    nextFiber = nextFiber.parent;
+  }
+  return null;
+}
+
+/**
+ * Updates a function component fiber.
+ * @param {Fiber} fiber - The function component fiber to update.
+ */
+function updateFunctionComponent(fiber: Fiber): void {
+  wipFiber = fiber;
+  hookIndex = 0;
+  wipFiber.hooks = fiber.alternate ? fiber.alternate.hooks : [];
+
+  const children = [fiber.type(fiber.props)]
+    .flat()
+    .filter(child => child != null && typeof child !== 'boolean')
+    .map(child => typeof child === "object" ? child : createTextElement(child));
+
+  reconcileChildren(fiber, children);
+}
+
+/**
+ * Updates a host component fiber (DOM element).
+ * @param {Fiber} fiber - The host component fiber to update.
+ */
+function updateHostComponent(fiber: Fiber): void {
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber);
+  }
+  reconcileChildren(fiber, fiber.props.children);
+}
+
+/**
+ * Reconciles the children of a fiber with new elements.
+ * @param {Fiber} wipFiber - The work-in-progress fiber.
+ * @param {VNode[]} elements - The new child elements.
+ */
+function reconcileChildren(wipFiber: Fiber, elements: VNode[]): void {
+  let index = 0;
+  let oldFiber = wipFiber.alternate?.child;
+  let prevSibling = null;
+
+  const oldFibersByKey = new Map<string | number, Fiber>();
+
+  while (oldFiber) {
+    const key = oldFiber.key != null ? oldFiber.key : index;
+    oldFibersByKey.set(key, oldFiber);
+    oldFiber = oldFiber.sibling;
+    index++;
+  }
+
+  index = 0;
+  prevSibling = null;
+
+  for (; index < elements.length; index++) {
+    const element = elements[index];
+    const key = element.key != null ? element.key : index;
+    const oldFiber = oldFibersByKey.get(key);
+    const sameType = oldFiber && element.type === oldFiber.type;
+
+    let newFiber: Fiber | null = null;
+
+    if (sameType) {
+      newFiber = {
+        type: oldFiber.type,
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: "UPDATE",
+        key,
+      };
+      oldFibersByKey.delete(key);
+    } else {
+      if (element) {
+        newFiber = {
+          type: element.type,
+          props: element.props,
+          dom: null,
+          parent: wipFiber,
+          alternate: null,
+          effectTag: "PLACEMENT",
+          key,
+        };
+      }
+    }
+
+    if (prevSibling == null) {
+      wipFiber.child = newFiber;
+    } else {
+      prevSibling.sibling = newFiber;
+    }
+    prevSibling = newFiber;
+  }
+
+  oldFibersByKey.forEach(fiber => {
+    fiber.effectTag = "DELETION";
+    deletions.push(fiber);
+  });
+
+  if (prevSibling) prevSibling.sibling = null;
+}
+
+/**
+ * Creates a virtual DOM element.
+ * @param {string|Function} type - The type of the element.
+ * @param {object} props - The element's properties.
+ * @param {...any} children - The element's children.
+ * @returns {VNode} The created virtual DOM element.
+ */
+export function createElement(
+  type: string | Function,
+  props?: object,
+  ...children: any[]
+): VNode {
+  return {
+    type,
+    props: {
+      ...props,
+      children: children
+        .flat()
+        .filter(child => child != null && typeof child !== "boolean")
+        .map(child =>
+          typeof child === "object" ? child : createTextElement(child)
+        ),
+    },
+    key: props?.key ?? null,
+  };
+}
+
+/**
+ * Creates a text virtual DOM element.
+ * @param {string} text - The text content.
+ * @returns {VNode} The created text element.
+ */
+function createTextElement(text: string): VNode {
+  return {
+    type: "TEXT_ELEMENT",
+    props: {
+      nodeValue: text,
+      children: [],
+    },
+  };
+}
+
+/**
+ * A React-like useState hook for managing component state.
+ * @template T
+ * @param {T|(() => T)} initial - The initial state value or initializer function.
+ * @returns {[T, (action: T | ((prevState: T) => T)) => void]} A stateful value and a function to update it.
+ */
+export function useState<T>(
+  initial: T | (() => T)
+): [T, (action: T | ((prevState: T) => T)) => void] {
+  if (!wipFiber) {
+    throw new Error("Hooks can only be called inside a Vader.js function component.");
+  }
+
+  let hook = wipFiber.hooks[hookIndex];
+  if (!hook) {
+    hook = { 
+      state: typeof initial === "function" ? (initial as () => T)() : initial, 
+      queue: [] 
+    };
+    wipFiber.hooks[hookIndex] = hook;
+  }
+
+  hook.queue.forEach((action) => {
+    hook.state = typeof action === "function" ? action(hook.state) : action;
+  });
+  hook.queue = [];
+
+  const setState = (action: T | ((prevState: T) => T)) => {
+    hook.queue.push(action);
+    if (!isRenderScheduled) {
+      isRenderScheduled = true;
+      requestAnimationFrame(workLoop);
+    }
+  };
+
+  hookIndex++;
+  return [hook.state, setState];
+}
+
+/**
+ * A React-like useEffect hook for side effects.
+ * @param {Function} callback - The effect callback.
+ * @param {Array} deps - The dependency array.
+ */
+export function useEffect(callback: Function, deps?: any[]): void {
+  if (!wipFiber) {
+    throw new Error("Hooks can only be called inside a Vader.js function component.");
+  }
+  
+  let hook = wipFiber.hooks[hookIndex];
+  if (!hook) {
+    hook = { deps: undefined, _cleanupFn: undefined };
+    wipFiber.hooks[hookIndex] = hook;
+  }
+  
+  const hasChanged = hook.deps === undefined || 
+                   !deps || 
+                   deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
+
+  if (hasChanged) {
+    if (hook._cleanupFn) {
+      hook._cleanupFn();
+    }
+    setTimeout(() => {
+      const newCleanup = callback();
+      if (typeof newCleanup === 'function') {
+        hook._cleanupFn = newCleanup;
+      } else {
+        hook._cleanupFn = undefined;
+      }
+    }, 0);
+  }
+  
+  hook.deps = deps;
+  hookIndex++;
+}
+
+/**
+ * A switch component for conditional rendering.
+ * @param {object} props - The component props.
+ * @param {VNode[]} props.children - The child components.
+ * @returns {VNode|null} The matched child or null.
+ */
+export function Switch({ children }: { children: VNode[] }): VNode | null {
+  const childrenArray = Array.isArray(children) ? children : [children];
+  const match = childrenArray.find(child => child && child.props.when);
+  if (match) {
+    return match;
+  }
+  return childrenArray.find(child => child && child.props.default) || null;
+}
+
+/**
+ * A match component for use with Switch.
+ * @param {object} props - The component props.
+ * @param {boolean} props.when - The condition to match.
+ * @param {VNode[]} props.children - The child components.
+ * @returns {VNode|null} The children if when is true, otherwise null.
+ */
+export function Match({ when, children }: { when: boolean, children: VNode[] }): VNode | null {
+  return when ? children : null;
+}
+
+/**
+ * A React-like useRef hook for mutable references.
+ * @template T
+ * @param {T} initial - The initial reference value.
+ * @returns {{current: T}} A mutable ref object.
+ */
+export function useRef<T>(initial: T): { current: T } {
+  if (!wipFiber) {
+    throw new Error("Hooks can only be called inside a Vader.js function component.");
+  }
+
+  let hook = wipFiber.hooks[hookIndex];
+  if (!hook) {
+    hook = { current: initial };
+    wipFiber.hooks[hookIndex] = hook;
+  }
+
+  hookIndex++;
+  return hook;
+}
+
+/**
+ * A React-like useLayoutEffect hook that runs synchronously after DOM mutations.
+ * @param {Function} callback - The effect callback.
+ * @param {Array} deps - The dependency array.
+ */
+export function useLayoutEffect(callback: Function, deps?: any[]): void {
+  if (!wipFiber) {
+    throw new Error("Hooks can only be called inside a Vader.js function component.");
+  }
+
+  let hook = wipFiber.hooks[hookIndex];
+  if (!hook) {
+    hook = { deps: undefined, _cleanupFn: undefined };
+    wipFiber.hooks[hookIndex] = hook;
+  }
+
+  const hasChanged = hook.deps === undefined || 
+                   !deps || 
+                   deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
+
+  if (hasChanged) {
+    if (hook._cleanupFn) {
+      hook._cleanupFn();
+    }
+    const cleanup = callback();
+    if (typeof cleanup === 'function') {
+      hook._cleanupFn = cleanup;
+    } else {
+      hook._cleanupFn = undefined;
+    }
+  }
+
+  hook.deps = deps;
+  hookIndex++;
+}
+
+/**
+ * A React-like useReducer hook for state management with reducers.
+ * @template S
+ * @template A
+ * @param {(state: S, action: A) => S} reducer - The reducer function.
+ * @param {S} initialState - The initial state.
+ * @returns {[S, (action: A) => void]} The current state and dispatch function.
+ */
+export function useReducer<S, A>(
+  reducer: (state: S, action: A) => S,
+  initialState: S
+): [S, (action: A) => void] {
+  if (!wipFiber) {
+    throw new Error("Hooks can only be called inside a Vader.js function component.");
+  }
+
+  let hook = wipFiber.hooks[hookIndex];
+  if (!hook) {
+    hook = {
+      state: initialState,
+      queue: [],
+    };
+    wipFiber.hooks[hookIndex] = hook;
+  }
+
+  hook.queue.forEach((action) => {
+    hook.state = reducer(hook.state, action);
+  });
+  hook.queue = [];
+
+  const dispatch = (action: A) => {
+    hook.queue.push(action);
+    if (!isRenderScheduled) {
+      isRenderScheduled = true;
+      requestAnimationFrame(workLoop);
+    }
+  };
+
+  hookIndex++;
+  return [hook.state, dispatch];
+}
+
+/**
+ * A React-like useContext hook for accessing context values.
+ * @template T
+ * @param {Context<T>} Context - The context object to use.
+ * @returns {T} The current context value.
+ */
+export function useContext<T>(Context: Context<T>): T {
+  if (!wipFiber) {
+    throw new Error("Hooks can only be called inside a Vader.js function component.");
+  }
+
+  let fiber = wipFiber.parent;
+  while (fiber) {
+    if (fiber.type && fiber.type._context === Context) {
+      return fiber.props.value;
+    }
+    fiber = fiber.parent;
+  }
+
+  return Context._defaultValue;
+}
+
+interface Context<T> {
+  _defaultValue: T;
+  Provider: Function & { _context: Context<T> };
+}
+
+/**
+ * Creates a context object for use with useContext.
+ * @template T
+ * @param {T} defaultValue - The default context value.
+ * @returns {Context<T>} The created context object.
+ */
+export function createContext<T>(defaultValue: T): Context<T> {
+  const context = {
+    _defaultValue: defaultValue,
+    Provider: function Provider({ children }: { children: VNode[] }) {
+      return children;
+    },
+  };
+  context.Provider._context = context;
+  return context;
+}
+
+/**
+ * A React-like useMemo hook for memoizing expensive calculations.
+ * @template T
+ * @param {() => T} factory - The function to memoize.
+ * @param {Array} deps - The dependency array.
+ * @returns {T} The memoized value.
+ */
+export function useMemo<T>(factory: () => T, deps?: any[]): T {
+  if (!wipFiber) {
+    throw new Error("Hooks can only be called inside a Vader.js function component.");
+  }
+
+  let hook = wipFiber.hooks[hookIndex];
+  if (!hook) {
+    hook = { memoizedValue: factory(), deps };
+    wipFiber.hooks[hookIndex] = hook;
+  }
+
+  const hasChanged = hook.deps === undefined || 
+                   !deps || 
+                   deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
+  if (hasChanged) {
+    hook.memoizedValue = factory();
+    hook.deps = deps;
+  }
+
+  hookIndex++;
+  return hook.memoizedValue;
+}
+
+/**
+ * A React-like useCallback hook for memoizing functions.
+ * @template T
+ * @param {T} callback - The function to memoize.
+ * @param {Array} deps - The dependency array.
+ * @returns {T} The memoized callback.
+ */
+export function useCallback<T extends Function>(callback: T, deps?: any[]): T {
+  return useMemo(() => callback, deps);
+}
+
+/**
+ * A hook for managing arrays with common operations.
+ * @template T
+ * @param {T[]} initialValue - The initial array value.
+ * @returns {{
+ *   array: T[],
+ *   add: (item: T) => void,
+ *   remove: (index: number) => void,
+ *   update: (index: number, item: T) => void
+ * }} An object with the array and mutation functions.
+ */
+export function useArray<T>(initialValue: T[] = []): {
+  array: T[],
+  add: (item: T) => void,
+  remove: (index: number) => void,
+  update: (index: number, item: T) => void
+} {
+  const [array, setArray] = useState(initialValue);
+
+  const add = (item: T) => {
+    setArray((prevArray) => [...prevArray, item]);
+  };
+
+  const remove = (index: number) => {
+    setArray((prevArray) => prevArray.filter((_, i) => i !== index));
+  };
+
+  const update = (index: number, item: T) => {
+    setArray((prevArray) => prevArray.map((prevItem, i) => (i === index ? item : prevItem)));
+  };
+
+  return { array, add, remove, update };
+}
+
+/**
+ * A hook for running a function at a fixed interval.
+ * @param {Function} callback - The function to run.
+ * @param {number|null} delay - The delay in milliseconds, or null to stop.
+ */
+export function useInterval(callback: Function, delay: number | null): void {
+  useEffect(() => {
+    if (delay === null) return;
+    const interval = setInterval(callback, delay);
+    return () => clearInterval(interval);
+  }, [callback, delay]);
+}
+
+// Types for cache configuration
+interface QueryCacheOptions {
+  expiryMs?: number; // Cache duration in milliseconds
+  enabled?: boolean; // Whether caching is enabled
+}
+
+// Default cache options
+const DEFAULT_CACHE_OPTIONS: QueryCacheOptions = {
+  expiryMs: 5 * 60 * 1000, // 5 minutes default
+  enabled: true
+};
+
+// In-memory cache store
+const queryCache = new Map<string, {
+  data: any;
+  timestamp: number;
+  options: QueryCacheOptions;
+}>();
+
+export function useQuery<T>(
+  url: string,
+  cacheOptions: QueryCacheOptions = {} // Default to empty object
+): {
+  data: T | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+} {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  // FIX: Destructure primitive values from cacheOptions for stable dependencies.
+  const { 
+    enabled = DEFAULT_CACHE_OPTIONS.enabled, 
+    expiryMs = DEFAULT_CACHE_OPTIONS.expiryMs 
+  } = cacheOptions;
+
+  // FIX: Memoize the options object so its reference is stable across renders.
+  // It will only be recreated if `enabled` or `expiryMs` changes.
+  const mergedCacheOptions = useMemo(() => ({
+    enabled,
+    expiryMs,
+  }), [enabled, expiryMs]);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Check cache first if enabled
+      if (mergedCacheOptions.enabled) {
+        const cached = queryCache.get(url);
+        const now = Date.now();
+        
+        if (cached && now - cached.timestamp < mergedCacheOptions.expiryMs) {
+          setData(cached.data);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Not in cache or expired - fetch fresh data
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      // Update cache if enabled
+      if (mergedCacheOptions.enabled) {
+        queryCache.set(url, {
+          data: result,
+          timestamp: Date.now(),
+          options: mergedCacheOptions
+        });
+      }
+      
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setLoading(false);
+    }
+  }, [url, mergedCacheOptions]); // This dependency is now stable
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]); // This dependency is now stable
+
+  return { data, loading, error, refetch: fetchData };
+}
+
+/**
+ * A hook for tracking window focus state.
+ * @returns {boolean} True if the window is focused.
+ */
+export function useWindowFocus(): boolean {
+  const [isFocused, setIsFocused] = useState(true);
+
+  useEffect(() => {
+    const onFocus = () => setIsFocused(true);
+    const onBlur = () => setIsFocused(false);
+
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("blur", onBlur);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
+  return isFocused;
+}
+
+/**
+ * A hook for syncing state with localStorage.
+ * @template T
+ * @param {string} key - The localStorage key.
+ * @param {T} initialValue - The initial value.
+ * @returns {[T, (value: T) => void]} The stored value and a function to update it.
+ */
+export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
+  const [storedValue, setStoredValue] = useState(() => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      return initialValue;
+    }
+  });
+
+  const setValue = (value: T) => {
+    try {
+      setStoredValue(value);
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.error("Error saving to localStorage", error);
+    }
+  };
+
+  return [storedValue, setValue];
+}
+
+/**
+ * A hook for detecting clicks outside an element.
+ * @param {React.RefObject} ref - A ref to the element to watch.
+ * @param {Function} handler - The handler to call when a click outside occurs.
+ */
+export function useOnClickOutside(ref: { current: HTMLElement | null }, handler: Function): void {
+  useEffect(() => {
+    const listener = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        handler(event);
+      }
+    };
+    document.addEventListener("mousedown", listener);
+    return () => {
+      document.removeEventListener("mousedown", listener);
+    };
+  }, [ref, handler]);
 }
