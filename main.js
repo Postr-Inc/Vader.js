@@ -1,660 +1,798 @@
 #!/usr/bin/env bun
+/**
+ * VaderJS Build & Development Script
+ *
+ * This script handles building the VaderJS framework, your application code,
+ * and serving it in a local development environment with live reloading.
+ *
+ * Commands:
+ * bun run vaderjs build   -  Builds the project for production.
+ * bun run vaderjs dev     -  Starts the dev server with HMR and file watching.
+ * bun run vaderjs serve   -  Builds and serves the production output.
+ */
 
-import ansiColors from 'ansi-colors'
-import { Glob } from 'bun'
-const args = Bun.argv.slice(2)
-globalThis.isBuilding = false;
-import fs from 'fs'
-import { platform } from 'os'
-import path from 'path'
+import { build, serve } from "bun";
+import fs from "fs/promises";
+import fsSync from "fs";
+import path from "path";
+import { init } from "./cli";
 
-let bunPath = 'bun'; // Default for Linux/Mac
-if (platform() === 'win32') {
-    bunPath = 'bun'; // Bun path for Windows
-} else {
-    bunPath = path.resolve(process.env.HOME || process.env.USERPROFILE, '.bun', 'bin', 'bun');
+// --- UTILITIES for a Sleek CLI ---
+
+const colors = {
+  reset: "\x1b[0m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
+  cyan: "\x1b[36m",
+};
+
+const logger = {
+  _log: (color, ...args) => console.log(color, ...args, colors.reset),
+  info: (...args) => logger._log(colors.cyan, "ℹ", ...args),
+  success: (...args) => logger._log(colors.green, "✅", ...args),
+  warn: (...args) => logger._log(colors.yellow, "⚠️", ...args),
+  error: (...args) => logger._log(colors.red, "❌", ...args),
+  step: (...args) => logger._log(colors.magenta, "\n🚀", ...args),
+};
+
+async function timedStep(name, fn) {
+  logger.step(`${name}...`);
+  const start = performance.now();
+  try {
+    await fn();
+    const duration = (performance.now() - start).toFixed(2);
+    logger.success(`Finished '${name}' in ${duration}ms`);
+  } catch (e) {
+    logger.error(`Error during '${name}':`, e.message);
+    process.exit(1);
+  }
+}
+
+// --- CONSTANTS ---
+
+const PROJECT_ROOT = process.cwd();
+const APP_DIR = path.join(PROJECT_ROOT, "app");
+const PUBLIC_DIR = path.join(PROJECT_ROOT, "public");
+const DIST_DIR = path.join(PROJECT_ROOT, "dist");
+const SRC_DIR = path.join(PROJECT_ROOT, "src");
+const SERVER_BUILD_DIR = path.join(DIST_DIR, "server");
+const VADER_SRC_PATH = path.join(
+  PROJECT_ROOT,
+  "node_modules",
+  "vaderjs",
+  "index.ts"
+);
+const TEMP_SRC_DIR = path.join(PROJECT_ROOT, ".vader_temp_src");
+
+// --- ASSET HANDLING PLUGIN (REVISED WITH HASHING) ---
+
+/**
+ * A Bun plugin to handle importing assets like images, fonts, and JSON files.
+ */
+const vaderAssetsHandler = {
+  name: "vader-assets-handler",
+  async setup(build) {
+    const assetExtensions = /\.(svg|png|jpe?g|gif|webp|ico|mp4|webm|woff2?|ttf|eot|otf)$/;
+    const jsonExtension = /\.json$/;
+    const ASSETS_DIR = path.join(DIST_DIR, "assets");
+
+    // Loader for static assets (images, fonts, etc.)
+    // Copies assets to /dist/assets with a content hash and returns the public URL.
+    build.onLoad({ filter: assetExtensions }, async (args) => {
+      const fileBuffer = await fs.readFile(args.path);
+      const hash = Bun.hash(fileBuffer).toString(16).slice(0, 8);
+      const filename = `${path.parse(args.path).name}.${hash}${path.parse(args.path).ext}`;
+      const destPath = path.join(ASSETS_DIR, filename);
+
+      await fs.mkdir(ASSETS_DIR, { recursive: true });
+      await fs.writeFile(destPath, fileBuffer);
+
+      const publicPath = `/assets/${filename}`;
+      return {
+        contents: `export default "${publicPath}";`,
+        loader: "js",
+      };
+    });
+
+    // JSON loader remains the same
+    build.onLoad({ filter: jsonExtension }, async (args) => {
+      const content = await fs.readFile(args.path, "utf8");
+      return {
+        contents: `export default ${content};`,
+        loader: "js",
+      };
+    });
+  },
+};
+
+// --- PLUGIN to handle SSR hook issues ---
+
+/**
+ * A Bun plugin that removes imports from "vaderjs" for server-side builds.
+ * This allows the `renderToString` function to polyfill hooks with server-safe mocks.
+ */
+const ssrVaderImportRemoverPlugin = {
+  name: 'ssr-vader-import-remover',
+  async setup(build) {
+    build.onLoad({ filter: /\.(jsx|tsx)$/ }, async (args) => {
+      let contents = await fs.readFile(args.path, 'utf8');
+      // This regex removes default, named, and namespace imports from "vaderjs"
+      contents = contents.replace(/import\s+(?:(?:\*\s+as\s+\w+)|(?:\{[^}]+\})|\w+)\s+from\s+['"]vaderjs['"];?/g, '');
+      return {
+        contents,
+        loader: path.extname(args.path).substring(1), // 'jsx' or 'tsx'
+      };
+    });
+  },
+};
+
+
+// --- SERVER-SIDE GENERATION (SSG) & RENDERING (SSR) UTILITIES ---
+
+/**
+ * A minimal `createElement` function for server-side rendering.
+ */
+function ssgCreateElement(type, props, ...children) {
+  return {
+    type,
+    props: {
+      ...props,
+      children: children.flat(),
+    },
+  };
+}
+
+/**
+ * Server-safe mock implementations of VaderJS hooks. These do nothing or return
+ * initial values, as there is no state or lifecycle on the server.
+ */
+const serverSideHooks = {
+  useState: (initialState) => [typeof initialState === 'function' ? initialState() : initialState, () => { }],
+  useEffect: () => { },
+  useLayoutEffect: () => { },
+  useRef: (initial) => ({ current: initial }),
+  useMemo: (factory) => factory(),
+  useCallback: (callback) => callback,
+  useContext: (context) => context._defaultValue,
+  useReducer: (reducer, initialState) => [initialState, () => { }],
+  isServer: typeof window === "undefined"
+};
+
+
+/**
+ * Renders a VNode to an HTML string.
+ */
+function renderToString(element) {
+  if (typeof element === 'string' || typeof element === 'number') {
+    return String(element);
+  }
+  if (element === null || typeof element !== 'object' || !element.type) {
+    return '';
+  }
+
+  const { type, props } = element;
+
+  if (typeof type === 'function') {
+    // For function components, call the function to get the element it returns.
+    // We polyfill `createElement` and server-safe hooks via a global for JSX to work.
+    global.Vader = { createElement: ssgCreateElement, ...serverSideHooks };
+    const result = type(props);
+    delete global.Vader;
+    return renderToString(result);
+  }
+
+  const children = (props.children || []).map(renderToString).join('');
+  const attributes = Object.keys(props)
+    .filter(key => key !== 'children' && props[key] != null)
+    .map(key => {
+      let value = props[key];
+      let currentKey = key;
+
+      if (currentKey === 'className') {
+        currentKey = 'class';
+      }
+
+      if (currentKey === 'style' && typeof value === 'object') {
+        const styleString = Object.entries(value)
+          .map(([k, v]) => {
+            const cssKey = k.replace(/([A-Z])/g, '-$1').toLowerCase();
+            return `${cssKey}:${v}`;
+          })
+          .join(';');
+        return `style="${styleString}"`;
+      }
+
+      return `${currentKey}="${value}"`;
+    })
+    .join(' ');
+
+  const tag = type.toLowerCase();
+  // Handle self-closing tags
+  const selfClosingTags = ['img', 'br', 'hr', 'input', 'link', 'meta'];
+  if (selfClosingTags.includes(tag)) {
+    return `<${tag}${attributes ? ' ' + attributes : ''} />`;
+  }
+
+  return `<${tag}${attributes ? ' ' + attributes : ''}>${children}</${tag}>`;
 }
 
 
+// --- CONFIG & PLUGIN SYSTEM ---
 
+let config = {};
+let htmlInjections = [];
 
-if (!fs.existsSync(process.cwd() + '/app') && !args.includes('init')) {
-    console.error(`App directory not found in ${process.cwd()}/app`)
-    process.exit(1)
-}
-if (!fs.existsSync(process.cwd() + '/public')) {
-    fs.mkdirSync(process.cwd() + '/public')
-}
-if (!fs.existsSync(process.cwd() + '/src')) {
-    fs.mkdirSync(process.cwd() + '/src')
-}
-if (!fs.existsSync(process.cwd() + '/vader.config.ts')) {
-    fs.writeFileSync(process.cwd() + '/vader.config.ts',
-        `import defineConfig from 'vaderjs/config'
-export default  defineConfig({
-    port: 8080,
-    host_provider: 'apache'
-})`)
-}
-var config = require(process.cwd() + '/vader.config.ts').default
-const mode = args.includes('dev') ? 'development' : args.includes('prod') || args.includes('build') ? 'production' : args.includes('init') ? 'init' : args.includes('serve') ? 'serve' : null;
-if (!mode) {
-    console.log(`
-    Usage:
-     bun vaderjs serve - Start the server
-     bun vaderjs dev - Start development server output in dist/
-     bun vaderjs prod - Build for production output in dist/
-     bun vaderjs init - Initialize a new vaderjs project
-    `)
-    process.exit(1)
+const vaderAPI = {
+  runCommand: async (cmd) => {
+    if (typeof cmd === "string") cmd = cmd.split(" ");
+    const p = Bun.spawn(cmd);
+    await p.exited;
+  },
+  injectHTML: (content) => htmlInjections.push(content),
+  log: (msg) => logger.info(`[Plugin] ${msg}`),
+  getProjectRoot: () => PROJECT_ROOT,
+  getDistDir: () => DIST_DIR,
+  getPublicDir: () => PUBLIC_DIR,
+};
+
+async function loadConfig() {
+  try {
+    const configModule = await import(
+      path.join(PROJECT_ROOT, "vaderjs.config.js")
+    );
+    const loadedConfig = configModule.default || configModule;
+    // Set defaults for ssr and ssg
+    loadedConfig.ssr = loadedConfig.ssr || false;
+    loadedConfig.ssg = loadedConfig.ssr ? false : (loadedConfig.ssg || false); // SSR overrides SSG
+    return loadedConfig;
+  } catch {
+    logger.warn("No 'vader.config.js' found, using defaults.");
+    return { ssr: false, ssg: false };
+  }
 }
 
-if (mode === 'init') {
-    if (fs.existsSync(process.cwd() + '/app')) {
-        console.error('App directory already exists: just run `bun vaderjs dev` to start the development server')
-        process.exit(1)
+export function defineConfig(config) {
+  return config;
+}
+
+async function runPluginHook(hookName) {
+  if (!config.plugins) return;
+  for (const plugin of config.plugins) {
+    if (typeof plugin[hookName] === "function") {
+      try {
+        await plugin[hookName](vaderAPI);
+      } catch (e) {
+        logger.error(
+          `Plugin hook error (${hookName} in ${plugin.name || "anonymous plugin"}):`,
+          e
+        );
+      }
     }
-    let counterText = await Bun.file(path.join(process.cwd(), "/node_modules/vaderjs/examples/counter/index.jsx")).text()
-    await Bun.write(path.join(process.cwd(), "/app/index.jsx"), counterText)
-    console.log('Initialized new vaderjs project: run `bun vaderjs dev` to start the development server')
-    process.exit(0)
+  }
 }
 
-console.log(
-    `VaderJS - v${require(process.cwd() + '/node_modules/vaderjs/package.json').version} 🚀
-  Mode: ${mode}
-  SSR: ${require(process.cwd() + '/vader.config.ts').default.ssr ? 'Enabled' : 'Disabled'}
-  PORT: ${require(process.cwd() + '/vader.config.ts').default.port || 8080}
-  ${mode == 'serve' ? `SSL: ${require(process.cwd() + '/vader.config.ts').default?.ssl?.enabled ? 'Enabled' : 'Disabled'} ` : ``}
-    `
-)
+// --- BUILD LOGIC ---
 
+/**
+ * Step 1: Transpile and bundle the core vaderjs library.
+ */
+async function buildVaderCore() {
+  if (!fsSync.existsSync(VADER_SRC_PATH)) {
+    logger.error("VaderJS source not found:", VADER_SRC_PATH);
+    throw new Error("Missing vaderjs dependency.");
+  }
 
-let { port, host, host_provider } = require(process.cwd() + '/vader.config.ts').default
-if (host_provider === 'apache' && mode === 'development') {
-    console.warn('Note: SSR will not work with Apache')
-}
-if (!fs.existsSync(process.cwd() + '/jsconfig.json')) {
-    let json = {
-        "compilerOptions": {
-            "jsx": "react",
-            "jsxFactory": "e",
-            "jsxFragmentFactory": "Fragment",
-        }
-    }
-    await Bun.write(process.cwd() + '/jsconfig.json', JSON.stringify(json, null, 4))
+  await build({
+    entrypoints: [VADER_SRC_PATH],
+    outdir: path.join(DIST_DIR, "src", "vader"),
+    target: "browser",
+    minify: false,
+    sourcemap: "external",
+    jsxFactory: "e",
+    jsxFragment: "Fragment",
+    jsxImportSource: "vaderjs",
+  });
 }
 
-globalThis.bindes = []
-var fnmap = []
-const vader = {
-    isDev: mode === 'development',
-    onFileChange: (file, cb) => {
-        fs.watch(file, cb)
-    },
-    runCommand: (cmd) => {
-        return new Promise((resolve, reject) => {
-            let c = Bun.spawn(cmd, {
-                stdout: 'inherit',
-                cwd: process.cwd(),
-                onExit({ exitCode: code }) {
-                    if (code === 0) {
-                        resolve()
-                    } else {
-                        reject()
-                    }
-                }
-            })
-
-             
-
-
-        })
-    },
-    onBuildStart: (cb) => {
-        if (!fnmap.find(v => v.code == cb.toString())) {
-            fnmap.push({ code: cb.toString(), fn: cb })
-        }
-    },
-    injectHTML: (html) => {
-        bindes.push(html)
-        globalThis.bindes = bindes
-    },
-}
-const handleReplacements = (code) => {
-    let lines = code.split('\n')
-    let newLines = []
-    for (let line of lines) {
-        let hasImport = line.includes('import')
-
-        if (hasImport && line.includes('public') && line.includes('.png') ||
-     hasImport && line.includes('.jpg') && line.includes('public') ||   hasImport && line.includes('.jpeg') && line.includes('public') ||   hasImport && line.includes('.gif') && line.includes('public') ||   hasImport && line.includes('.svg') && line.includes('public')) {
-            // remove ../ from path 
-
-            line = line.replaceAll('../', '').replaceAll('./', '')
-
-            line = line.replace('public', '/public') 
-        }
-        if (hasImport && line.includes('.css')) {
-            try {
-                let isSmallColon = line.includes("'")
-                let url = isSmallColon ? line.split("'")[1] : line.split('"')[1]
-                // start from "/" not "/app"
-                // remvoe all ./ and ../
-                url = url.replaceAll('./', '/').replaceAll('../', '/')
-
-                let p = path.join(process.cwd(), '/', url)
-                line = '';
-                url = url.replace(process.cwd() + '/app', '')
-                url = url.replace(/\\/g, '/')
-                if (!bindes.includes(`<link rel="stylesheet" href="${url}">`) && !bindes.includes(`
-                  <style>
-                    ${fs.readFileSync(p, 'utf-8')}
-                  </style>
-                  `)) {
-                    bindes.push(`
-                    <style>
-                      ${fs.readFileSync(p, 'utf-8')}
-                    </style>
-                    `)
-                }
-            } catch (error) {
-                console.error(error)
-            }
-        }
-        if (line.toLowerCase().includes('genkey()')) {
-            line = line.toLowerCase().replace('genkey()', `this.key = "${crypto.randomUUID()}"`)
-        }
-        if (!hasImport && line.includes('useFetch')) {
-            line = line.replace('useFetch', 'this.useFetch')
-        }
-        if (!hasImport && line.includes('useState') && line.includes('[')) {
-            let key = line.split(',')[0].split('[')[1].replace(' ', '')
-            let b4 = line
-            b4 = line.replace('useState(', `this.useState('${key}',`)
-            line = b4
-        }
-        if (!hasImport && line.includes('useAsyncState')) {
-            let key = line.split(',')[0].split('[')[1].replace(' ', '')
-            let b4 = line
-            b4 = line.replace('useAsyncState(', `this.useAsyncState('${key}',`)
-            line = b4
-        }
-        if (!hasImport && line.includes('useEffect')) {
-            let b4 = line
-            b4 = line.replace('useEffect(', `this.useEffect(`)
-            line = b4
-        }
-        if (!hasImport && line.includes('useRef')) {
-            line = line.replace(' ', '')
-            let b4 = line
-            let key = line.split('=')[0].split(' ').filter(Boolean)[1]
-            b4 = line.replace('useRef(', `this.useRef('${key}',`)
-            line = b4
-        }
-
-        newLines.push(line)
-    }
-    let c = newLines.join('\n')
-    return c
+/**
+ * Step 2: Patches source code to remove server-side hook imports.
+ */
+function patchHooksUsage(code) {
+  return code.replace(
+    /import\s+{[^}]*use(State|Effect|Memo|Navigation)[^}]*}\s+from\s+['"]vaderjs['"];?\n?/g,
+    ""
+  );
 }
 
-if (!fs.existsSync(process.cwd() + '/dev/bundler.js')) {
-    fs.mkdirSync(process.cwd() + '/dev', { recursive: true })
-    fs.copyFileSync(require.resolve('vaderjs/bundler/index.js'), process.cwd() + '/dev/bundler.js')
-}
-let start = Date.now()
-async function generateApp() {
-    globalThis.isBuilding = true;
-    console.log(ansiColors.green('Building...'))
-    if (mode === 'development') {
+/**
+ * Step 3: Pre-processes all files in `/src` into a temporary directory.
+ */
+async function preprocessSources(srcDir, tempDir) {
+  await fs.mkdir(tempDir, { recursive: true });
+  for (const entry of await fs.readdir(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(tempDir, entry.name);
 
+    if (entry.isDirectory()) {
+      await preprocessSources(srcPath, destPath);
+    } else if (/\.(tsx|jsx|ts|js)$/.test(entry.name)) {
+      let content = await fs.readFile(srcPath, "utf8");
+      content = patchHooksUsage(content);
+      await fs.writeFile(destPath, content);
     } else {
-        fs.mkdirSync(process.cwd() + '/dist', { recursive: true })
+      await fs.copyFile(srcPath, destPath);
     }
-    try {
-        let plugins = config.plugins || []
-        for (let plugin of plugins) {
-            if (plugin.onBuildStart) {
-                await plugin.onBuildStart(vader)
-            }
+  }
+}
+
+/**
+ * Step 4: Build the application's source code from the preprocessed temp directory.
+ */
+async function buildSrc() {
+  if (!fsSync.existsSync(SRC_DIR)) return;
+
+  if (fsSync.existsSync(TEMP_SRC_DIR)) {
+    await fs.rm(TEMP_SRC_DIR, { recursive: true, force: true });
+  }
+  await preprocessSources(SRC_DIR, TEMP_SRC_DIR);
+
+  const entrypoints = fsSync
+    .readdirSync(TEMP_SRC_DIR, { recursive: true })
+    .map((file) => path.join(TEMP_SRC_DIR, file))
+    .filter((file) => /\.(ts|tsx|js|jsx)$/.test(file));
+
+  if (entrypoints.length === 0) {
+    logger.info("No source files found in /src to build.");
+    return;
+  }
+
+  await build({
+    entrypoints,
+    outdir: path.join(DIST_DIR, "src"),
+    root: TEMP_SRC_DIR,
+    naming: { entry: "[dir]/[name].js" },
+    jsxFactory: "e",
+    jsxFragment: "Fragment",
+    jsxImportSource: "vaderjs",
+    target: "browser",
+    minify: false,
+    external: ["vaderjs"],
+    plugins: [vaderAssetsHandler], // <-- Use asset handler
+  });
+}
+
+/**
+ * Step 5: Copy all assets from the `/public` directory to `/dist`.
+ */
+async function copyPublicAssets() {
+  if (!fsSync.existsSync(PUBLIC_DIR)) return;
+  // Copy contents of public into dist, not the public folder itself
+  for (const item of await fs.readdir(PUBLIC_DIR)) {
+    await fs.cp(path.join(PUBLIC_DIR, item), path.join(DIST_DIR, item), {
+      recursive: true,
+    });
+  }
+}
+
+async function buildAppEntrypoints(isDev = false) {
+  if (!fsSync.existsSync(APP_DIR)) {
+    logger.warn("No '/app' directory found, skipping app entrypoint build.");
+    return;
+  }
+
+  // Ensure the dist directory exists
+  if (!fsSync.existsSync(DIST_DIR)) {
+    await fs.mkdir(DIST_DIR, { recursive: true });
+  }
+
+  const devClientScript = isDev
+    ? ` 
+ <script>
+   new WebSocket("ws://" + location.host + "/__hmr").onmessage = (msg) => {
+     if (msg.data === "reload") location.reload();
+   };
+ </script>`
+    : "";
+
+  const entries = fsSync
+    .readdirSync(APP_DIR, { recursive: true })
+    .filter((file) => /index\.(jsx|tsx)$/.test(file))
+    .map((file) => ({
+      name:
+        path.dirname(file) === "."
+          ? "index"
+          : path.dirname(file).replace(/\\/g, "/"),
+      path: path.join(APP_DIR, file),
+    }));
+
+  // Build server-side versions of components if SSR is enabled
+  if (config.ssr) {
+    await build({
+      entrypoints: entries.map(e => e.path),
+      outdir: SERVER_BUILD_DIR,
+      target: "bun",
+      format: "esm",
+      plugins: [ssrVaderImportRemoverPlugin, vaderAssetsHandler],
+      naming: { entry: "[dir]/[name].js" },
+      root: APP_DIR,
+    });
+  }
+
+  for (const { name, path: entryPath } of entries) {
+    const outDir = path.join(DIST_DIR, name === "index" ? "" : name);
+    const outJsPath = path.join(outDir, "index.js");
+
+    await fs.mkdir(outDir, { recursive: true });
+
+    let appHtml = '';
+    if (config.ssg) { // SSG is mutually exclusive with SSR
+      const ssgTempDir = path.join(PROJECT_ROOT, '.vader_ssg_temp');
+      try {
+        await fs.mkdir(ssgTempDir, { recursive: true });
+        const ssgOutFile = path.join(ssgTempDir, `${name.replace(/[\\/]/g, '_')}.js`);
+
+        // Pre-build the component for SSG to handle asset imports correctly.
+        const result = await build({
+          entrypoints: [entryPath],
+          outfile: ssgOutFile,
+          target: "bun",
+          format: "esm",
+          plugins: [vaderAssetsHandler],
+          external: ["vaderjs"],
+        });
+
+        if (!result.success) {
+          throw new Error(`SSG pre-build failed: ${result.logs.join('\n')}`);
         }
-    } catch (error) {
-        console.log(error)
+
+        const App = (await import(ssgOutFile)).default;
+
+        if (typeof App === 'function') {
+          const appElement = ssgCreateElement(App, null);
+          appHtml = renderToString(appElement);
+          logger.info(`Pre-rendered SSG content for '${name}'`);
+        }
+      } catch (e) {
+        logger.error(`SSG rendering failed for '${entryPath}':`, e.stack || e);
+      } finally {
+        if (fsSync.existsSync(ssgTempDir)) {
+          await fs.rm(ssgTempDir, { recursive: true, force: true });
+        }
+      }
     }
 
+    const cssLinks = [];
+    const cssContent = await fs.readFile(entryPath, "utf8");
+    const cssImports = [...cssContent.matchAll(/import\s+['"](.*\.css)['"]/g)];
 
-    return new Promise(async (resolve, reject) => {
-        let routes = new Bun.FileSystemRouter({
-            dir: path.join(process.cwd(), '/app'),
-            style: 'nextjs'
-        })
-        routes.reload()
-        globalThis.routes = routes.routes
-        Object.keys(routes.routes).forEach(async (route) => {
+    for (const match of cssImports) {
+      const cssImportPath = match[1];
+      const sourceCssPath = path.resolve(path.dirname(entryPath), cssImportPath);
+      if (fsSync.existsSync(sourceCssPath)) {
+        const relativeCssPath = path.relative(APP_DIR, sourceCssPath);
+        const destCssPath = path.join(DIST_DIR, relativeCssPath);
 
-            let r = routes.routes[route]
-            let code = await Bun.file(r).text()
-            code = handleReplacements(code)
-            let size = code.length / 1024
-            r = r.replace(process.cwd().replace(/\\/g, '/') + '/app', '')
-            r = r.replace('.jsx', '.js').replace('.tsx', '.js')
-            if(!fs.existsSync(path.join(process.cwd() + '/dist', path.dirname(r)), { recursive: true })){
- fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(r)), { recursive: true })
+        await fs.mkdir(path.dirname(destCssPath), { recursive: true });
+        await fs.copyFile(sourceCssPath, destCssPath);
+
+        const htmlRelativePath = path
+          .relative(outDir, destCssPath)
+          .replace(/\\/g, "/");
+        cssLinks.push(`<link rel="stylesheet" href="${htmlRelativePath}">`);
+      } else {
+        logger.warn(`CSS file not found: ${sourceCssPath}`);
+      }
+    }
+
+    console.log(config)
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>VaderJS App - ${name}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  ${cssLinks.join("\n  ")}
+  ${htmlInjections.join("\n  ")}
+</head>
+<body>
+  <div id="app">${appHtml}</div>
+  ${!config.ssr ? ` <script type="module">
+    import App from '/${name === 'index' ? '' : name + '/'}index.js'; 
+    import * as Vader from '/src/vader/index.js';
+    window.Vader = Vader
+    Vader.render(Vader.createElement(App, null), document.getElementById("app"));
+  </script>` : `<script type="module">
+    import App from '/${name === 'index' ? '' : name + '/'}index.js';
+    import * as Vader from '/src/vader/index.js';
+    window.Vader = Vader;
+
+    // Find the props script tag added by the server.
+    const propsElement = document.getElementById('__VADER_PROPS__');
+    
+    // Parse its JSON content into an object. Default to {} if not found.
+    const initialProps = propsElement ? JSON.parse(propsElement.textContent) : {};
+
+    // Pass the initialProps to your App during client-side hydration.
+    Vader.render(Vader.createElement(App, initialProps), document.getElementById("app"));
+  </script>`
+      }
+   
+  ${devClientScript}
+</body>
+</html>`;
+
+    await fs.writeFile(path.join(outDir, "index.html"), htmlContent);
+
+    await build({
+      entrypoints: [entryPath],
+      outdir: outDir,
+      target: "browser",
+      minify: false,
+      sourcemap: "external",
+      external: ["vaderjs"],
+      jsxFactory: "e",
+      jsxFragment: "Fragment",
+      jsxImportSource: "vaderjs",
+      plugins: [vaderAssetsHandler], // <-- Use asset handler
+    });
+
+    let jsContent = await fs.readFile(outJsPath, "utf8");
+    jsContent = jsContent.replace(
+      /from\s+['"]vaderjs['"]/g,
+      `from '/src/vader/index.js'`
+    );
+    await fs.writeFile(outJsPath, jsContent);
+  }
+}
+
+async function buildAll(isDev = false) {
+  logger.info(
+    `Starting VaderJS ${isDev ? "development" : "production"} build...`
+  );
+  const totalTime = performance.now();
+
+  htmlInjections = [];
+
+  if (fsSync.existsSync(DIST_DIR)) {
+    await fs.rm(DIST_DIR, { recursive: true, force: true });
+  }
+
+  await fs.mkdir(DIST_DIR, { recursive: true });
+
+  await runPluginHook("onBuildStart");
+
+  await timedStep("Building VaderJS Core", buildVaderCore);
+  await timedStep("Copying Public Assets", copyPublicAssets);
+  await timedStep("Building App Source (/src)", buildSrc);
+  await timedStep("Building App Entrypoints (/app)", () =>
+    buildAppEntrypoints(isDev)
+  );
+
+  await runPluginHook("onBuildFinish");
+
+  const duration = (performance.now() - totalTime).toFixed(2);
+  logger.success(`Total build finished in ${duration}ms. Output is in /dist.`);
+}
+
+async function runDevServer() {
+  await buildAll(true);
+
+  const clients = new Set();
+  const port = config.port || 3000;
+
+  logger.info(`Starting dev server at http://localhost:${port}`);
+
+  serve({
+    port,
+    async fetch(req, server) {
+      const url = new URL(req.url);
+      if (url.pathname === "/__hmr" && server.upgrade(req)) {
+        return;
+      }
+
+      // Serve static assets from dist
+      const staticFilePath = path.join(DIST_DIR, url.pathname);
+      const staticFile = Bun.file(staticFilePath);
+      if (await staticFile.exists()) {
+        return new Response(staticFile);
+      }
+
+      // If SSR is enabled, handle page rendering
+      if (config.ssr) {
+        try {
+          let componentPath = url.pathname;
+          if (componentPath.endsWith('/')) {
+            componentPath += 'index';
+          }
+          const serverComponentPath = path.join(SERVER_BUILD_DIR, componentPath, 'index.js');
+
+          if (fsSync.existsSync(serverComponentPath)) {
+            // By adding a cache-busting query, we force Bun to re-import the module on each request in dev mode.
+            const module = await import(`${serverComponentPath}?t=${Date.now()}`);
+            const App = module.default;
+            const getServerSideProps = App.getServerSideProps;
+            console.log(getServerSideProps)
+
+            let props = {};
+            if (typeof getServerSideProps === 'function') {
+              // A real implementation would parse dynamic route params here
+              const context = { params: {}, query: Object.fromEntries(url.searchParams) };
+              const result = await getServerSideProps(context);
+              props = result.props || {};
             }
-            
-            let params = routes.match(route).params || {}
-            let base = routes.match(route)
-            let paramIndexes = []
-            for (let param in params) {
-                let routes = base.pathname.split('/')
-                let index = routes.indexOf('[' + param + ']')
-                paramIndexes.push(index)
-            }
 
-            // dont return
-            code = await new Bun.Transpiler({
-                loader: 'tsx',
-                tsconfig: {
-                    "compilerOptions": {
-                        "jsx": "react",
-                        "jsxFactory": "e",
-                        "jsxFragmentFactory": "Fragment"
-                    }
-                }
-            }).transformSync(code)
+            const appHtml = renderToString(ssgCreateElement(App, props));
 
-            fs.writeFileSync(
-                process.cwd() + '/dist/' + path.dirname(r) + '/' + path.basename(r),
-                `
-                      let route = window.location.pathname.split('/').filter(Boolean) 
-                      let params = {
-                        // get index tehn do route[index]
-                        ${Object.keys(params).map((param, i) => {
-                    if (paramIndexes[i] !== -1) {
-                        var r_copy = r;
-                        r_copy = r_copy.split('/').filter(Boolean)
-                        var index = paramIndexes[i] - 1
-                        return `${param}: route[${index}]`
-                    }
-                }).join(',\n')}
-                      }
-              
-                      \n${code}
-                  `
+            // Use the corresponding index.html as a template
+            const htmlTemplatePath = path.join(DIST_DIR, componentPath, 'index.html');
+            const htmlTemplate = await fs.readFile(htmlTemplatePath, 'utf8');
+            let renderedHtml = htmlTemplate.replace(/<div id="app">.*<\/div>/, `<div id="app">${appHtml}</div>`);
+
+            // Embed the server-side props for client-side hydration
+            renderedHtml = renderedHtml.replace(
+              '</body>',
+              `<script id="__VADER_PROPS__" type="application/json">${JSON.stringify(props)}</script></body>`
             );
-            if(!fs.existsSync(process.cwd() + '/dev', )){
 
-            fs.mkdirSync(process.cwd() + '/dev', { recursive: true })
-            } 
-
-
-            if (!fs.existsSync(process.cwd() + '/dev/readme.md')) {
-                fs.writeFileSync(process.cwd() + '/dev/readme.md', `# Please do not edit the bundler.js file in the dev directory. This file is automatically generated by the bundler. \n\n`)
-            }
-            async function runT() {
-                return await new Bun.Transpiler({
-                    loader: 'tsx',
-                }).transformSync(await Bun.file(require.resolve('vaderjs')).text())
-            }
-            if (!fs.existsSync(path.join(process.cwd(), '/dist/src/vader'))
-                || fs.readFileSync(path.join(process.cwd(), '/dist/src/vader/index.js')) != await runT()
-            ) {
-               if(!fs.existsSync(path.join(process.cwd(), '/dist/src/vader'))) fs.mkdirSync(process.cwd() + '/dist/src/vader', { recursive: true });
-              else fs.writeFileSync(path.join(process.cwd(), '/dist/src/vader/index.js'), (await runT()));
-
-            }
-            await Bun.spawn({
-                cmd: [bunPath, 'run', './dev/bundler.js'],
-                cwd: process.cwd(),
-                stdout: 'inherit',
-                env: {
-                    ENTRYPOINT: path.join(process.cwd(), 'dist', path.dirname(r), path.basename(r)),
-                    ROOT: path.join(process.cwd(), 'app/'),
-                    OUT: path.dirname(r),
-                    file: path.join(process.cwd(), 'dist', path.dirname(r), path.basename(r)),
-                    DEV: mode === 'development',
-                    size,
-                    bindes: bindes.join('\n'),
-                    filePath: r,
-                    isAppFile: true,
-                    isJsx: true,
-                    INPUT: `../app/${r.replace('.js', '.jsx').replace('.tsx', '.js')}`,
-                },
-                onExit({ exitCode: code }) {
-                    if (code === 0) {
-                        bindes = [];
-                        resolve();
-                    } else {
-                        reject();
-                    }
-                },
-            });
-        })
-
-        switch (host_provider) {
-            case 'vercel':
-
-                let vercelData = {
-                    rewrites: []
-                }
-
-                for (let route in routes.routes) {
-                    let { filePath, kind, name, params, pathname, query } = routes.match(route)
-                    let r = route
-
-                    if (r.includes('[')) {
-                        r = r.replaceAll('[', ':').replaceAll(']', '')
-                    }
-                    if (r === '/') {
-                        continue
-                    }
-
-                    vercelData.rewrites.push({
-                        source: r,
-                        destination: `${path.dirname(routes.routes[route]).replace(process.cwd().replace(/\\/g, '/') + '/app', '')}/index.html`
-                    })
-                }
-
-                fs.writeFileSync(process.cwd() + '/vercel.json', JSON.stringify(vercelData, null, 4))
-                break;
-            case 'apache':
-                let data = ''
-
+            return new Response(renderedHtml, { headers: { 'Content-Type': 'text/html' } });
+          }
+        } catch (e) {
+          logger.error(`SSR Error for ${url.pathname}:`, e);
+          return new Response("Server-Side Rendering Error", { status: 500 });
         }
-        // run all plugins that have onBuildFinish
-        try {
-            let plugins = config.plugins || []
-            for (let plugin of plugins) {
-                if (plugin.onBuildFinish) {
-                    await plugin.onBuildFinish(vader)
-                }
-            }
-        } catch (error) {
-            console.error(ansiColors.red(error))
-        }
+      }
 
-    })
+      // Fallback to serving index.html for SPA behavior if not SSR
+      const fallbackPath = path.join(DIST_DIR, "index.html");
+      const fallbackFile = Bun.file(fallbackPath);
+      if (await fallbackFile.exists()) {
+        return new Response(fallbackFile);
+      }
 
+      return new Response("Not Found", { status: 404 });
+    },
+    websocket: {
+      open: (ws) => clients.add(ws),
+      close: (ws) => clients.delete(ws),
+    },
+  });
 
-}
-
-function handleFiles() {
-    return new Promise(async (resolve, reject) => {
-        try {
-            let glob = new Glob('public/**/*')
-            for await (var i of glob.scan()) {
-                let file = i
-                if(!fs.existsSync(path.join(process.cwd() + '/dist', path.dirname(file)))){
-fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true })
-                }
-                 
-                if (fs.existsSync(path.join(process.cwd() + '/dist', file))) {
-                    fs.rmSync(path.join(process.cwd() + '/dist', file))
-                }
-                fs.copyFileSync(file, path.join(process.cwd() + '/dist', file))
-            }
-            let glob2 = new Glob('src/**/*')
-            for await (var i of glob2.scan()) {
-                var file = i
-                if(!fs.existsSync(path.join(process.cwd() + '/dist', path.dirname(file))))
-                fs.mkdirSync(path.join(process.cwd() + '/dist', path.dirname(file)), { recursive: true });
-                // turn jsx to js
-                if (file.includes('.jsx') || file.includes('.tsx')) {
-                    let code = await Bun.file(file).text()
-
-                    code = handleReplacements(code)
-                    code = await new Bun.Transpiler({
-                        loader: 'tsx',
-                    }).transformSync(code)
-
-                    file = file.replace('.jsx', '.js').replace('.tsx', '.js')
-                    fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.jsx', '.js').replace('.tsx', '.js')), code)
-                    await Bun.spawn({
-                        cmd: [bunPath, 'run', './dev/bundler.js'],
-                        cwd: process.cwd(),
-                        stdout: 'inherit',
-                        env: {
-                            ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js')),
-                            ROOT: process.cwd() + '/app/',
-                            OUT: path.dirname(file),
-                            shouldReplace: true,
-                            file: process.cwd() + '/dist/' + file.replace('.jsx', '.js').replace('.tsx', '.js'),
-                            DEV: mode === 'development',
-                            size: code.length / 1024,
-                            filePath: file.replace('.jsx', '.js'),
-                            isTs: file.includes('.tsx'),
-                            INPUT: path.join(process.cwd(), file.replace('.js', '.jsx').replace('.tsx', '.js')),
-                        },
-                        onExit({ exitCode: code }) {
-                            if (code === 0) {
-                                resolve()
-                            } else {
-                                reject()
-                            }
-                        }
-                    })
-                } else if (file.includes('.ts')) {
-                    let code = await Bun.file(file).text()
-                    code = handleReplacements(code)
-                    file = file.replace('.ts', '.js')
-                    fs.writeFileSync(path.join(process.cwd() + '/dist', file.replace('.ts', '.js')), code)
-                    await Bun.spawn({
-                        cmd: [bunPath, 'run', './dev/bundler.js'],
-                        cwd: process.cwd(),
-                        stdout: 'inherit',
-                        env: {
-                            ENTRYPOINT: path.join(process.cwd() + '/dist/' + file.replace('.ts', '.js')),
-                            ROOT: process.cwd() + '/app/',
-                            OUT: path.dirname(file),
-                            file: process.cwd() + '/dist/' + file.replace('.ts', '.js'),
-                            DEV: mode === 'development',
-                            isTS: true,
-                            size: code.length / 1024,
-                            filePath: file.replace('.ts', '.js'),
-                            INPUT: path.join(process.cwd(), file.replace('.js', '.jsx')),
-                        },
-                        onExit({ exitCode: code }) {
-                            if (code === 0) {
-                                resolve()
-                            } else {
-                                reject()
-                            }
-                        }
-                    })
-                }
-
-            }
-
-            resolve()
-        } catch (error) {
-            reject(error)
-        }
-    })
-}
-globalThis.clients = []
-
-if (mode === 'development') {
+  const debouncedBuild = debounce(async () => {
     try {
-        await generateApp()
-        await handleFiles()
-        let watcher;
-        let isBuilding = false;
-        let debounceTimeout;
-
-        const startWatcher = () => {
-            if (watcher) watcher.close(); // Close any existing watcher
-
-            watcher = fs.watch(path.join(process.cwd(), '/'), { recursive: true }, (eventType, file) => {
-                if (!file) return; // Ensure file name is valid
-                if (file.includes('node_modules')) return;
-                if (file.includes('dist')) return;
-                if (!fs.existsSync(path.join(process.cwd(), file)) && fs.existsSync(path.join(process.cwd(), "dist", file))) {
-                    fs.rmSync(path.join(process.cwd(), "dist", file))
-                }
-
-                if (
-                    file.endsWith('.tsx') || file.endsWith('.jsx') || file.endsWith('.css') || file.endsWith('.ts')
-                ) {
-                    // Reset config if needed
-                    if (file.endsWith('vader.config.ts')) {
-                        delete require.cache[require.resolve(process.cwd() + '/vader.config.ts')];
-                        globalThis.config = require(process.cwd() + '/vader.config.ts').default;
-                    }
-
-                    clearTimeout(debounceTimeout);
-                    debounceTimeout = setTimeout(async () => {
-                        if (!isBuilding) {
-                            isBuilding = true;
-                            try {
-                                await generateApp();
-                                await handleFiles();
-                                setTimeout(() => {
-                                    clients.forEach(c => c.send('reload'));
-                                }, 1000);
-                            } catch (error) {
-                                console.error(error);
-                            } finally {
-                                isBuilding = false;
-                            }
-                        }
-                    }, 500);
-                }
-
-                // Restart watcher if a new directory is created
-                if (eventType === 'rename') {
-                    setTimeout(startWatcher, 500); // Slight delay to allow the OS to recognize new files
-                }
-            });
-        };
-
-        // Start the watcher and restart it periodically
-        setInterval(startWatcher, 500);
-        startWatcher(); // Run initially
-    } catch (error) {
-        console.error(error)
+      await buildAll(true);
+      for (const client of clients) {
+        client.send("reload");
+      }
+    } catch (e) {
+      logger.error("Rebuild failed:", e);
     }
+  }, 200);
 
-}
-else if (mode == 'production') {
-    await handleFiles()
-    await generateApp()
-
-    console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`);
-}
-else {
-    if (isBuilding) console.log(`Build complete in ${Date.now() - start}ms at ${new Date().toLocaleTimeString()}`);
-
+  const watchDirs = [APP_DIR, SRC_DIR, PUBLIC_DIR].filter(fsSync.existsSync);
+  for (const dir of watchDirs) {
+    fsSync.watch(dir, { recursive: true }, debouncedBuild);
+  }
 }
 
-if (mode == 'development' || mode == 'serve') {
-    let server = Bun.serve({
-        port: port || 8080,
-        websocket: {
-            open(ws) {
-                globalThis.clients.push(ws)
-                ws.send('Connected')
-            },
-            message(ws, message) {
-                globalThis.clients.forEach(c => {
-                    c.send(message)
-                })
-            },
+async function runProdServer() {
+  const port = config.port || 3000;
+  logger.info(`Serving production build from /dist on http://localhost:${port}`);
 
-        },
-        async fetch(req, res) {
-            if (res.upgrade(req)) {
-                return new Response('Upgraded', { status: 101 })
-            }
+  serve({
+    port,
+    async fetch(req) {
+      const url = new URL(req.url);
+      const staticFilePath = path.join(DIST_DIR, url.pathname);
+      const staticFile = Bun.file(staticFilePath);
 
-            let url = new URL(req.url)
-            if (url.pathname.includes('.')) {
-                let p = url.pathname.replaceAll("%5B", "[").replaceAll("%5D", "]")
-                let file = await Bun.file(path.join(process.cwd() + '/dist' + p))
-                if (!await file.exists()) return new Response(`
-                    <h1>Whoops You hit a roadblock </h1>
-                    `, { status: 404, headers: {
-                    'Content-Type': 'text/html'
-                } })
-                let imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp', 'image/tiff', 'image/bmp', 'image/ico', 'image/cur', 'image/jxr', 'image/jpg']
+      if (await staticFile.exists()) {
+        return new Response(staticFile);
+      }
 
-                return new Response(imageTypes.includes(file.type) ? await file.arrayBuffer() : await file.text(), {
-                    headers: {
-                        'Content-Type': file.type,
-                        'Cache-Control': imageTypes.includes(file.type) ? 'max-age=31536000' : 'no-cache',
-                        'Access-Control-Allow-Origin': '*'
-                    }
-                })
-            }
-            let router = new Bun.FileSystemRouter({
-                dir: process.cwd() + '/app',
-                style: 'nextjs'
-            })
-            router.reload()
-            let route = router.match(url.pathname)
-            if (!route) {
-                return new Response('Not found', { status: 404 })
-            }
-            let p = route.pathname;
-            let base = path.dirname(route.filePath)
-            base = base.replace(/\\/g, '/')
-            base = base.replace(path.join(process.cwd() + '/app').replace(/\\/g, '/'), '')
-            base = base.replace(/\\/g, '/').replace('/app', '/dist')
-            base = process.cwd() + "/dist/" + base
-            if (!fs.existsSync(path.join(base, 'index.html'))) {
-                return new Response(`
-                <html>
-                <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-                <meta http-equiv="refresh" content="5">
-                </head>
-                <body>
-                 <p>Rerouting to display changes from server</p>
-                </body>    
-                `, {
-                    headers: {
-                        'Content-Type': 'text/html',
-                        'Cache-Control': 'no-cache'
-                    }
-                })
-            }
-            let data = await Bun.file(path.join(base, 'index.html')).text()
-            if (mode == "development") {
-                return new Response(data + `
-            <script>
-            let ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss' : 'ws'}://\${location.host}\`)
-            ws.onmessage = (e) => {
-                if(e.data === 'reload'){
-                    console.log('Reloading to display changes from server')
-                    window.location.reload()
-                }
-            }
-            ws.onopen = () => {
-                console.log('Connected to hmr server')
-            }
-            
-            ws.onclose = () => {
-                // try to reconnect
-                 console.log('Reconnecting to hmr server')
-                 ws = new WebSocket(\`\${location.protocol === 'https:' ? 'wss' : 'ws'}://\${location.host}\`)    
-            }
-            
-            </script>
-            `, {
-                    headers: {
-                        'Content-Type': 'text/html'
-                    }
-                })
-            } else {
-                return new Response(data, {
-                    headers: {
-                        'Content-Type': 'text/html'
-                    }
-                })
+      if (config.ssr) {
+        try {
+          let componentPath = url.pathname;
+          if (componentPath.endsWith('/')) {
+            componentPath += 'index';
+          }
+          const serverComponentPath = path.join(SERVER_BUILD_DIR, componentPath, 'index.js');
+
+          if (fsSync.existsSync(serverComponentPath)) {
+            const module = await import(serverComponentPath);
+            const App = module.default;
+            const getServerSideProps = module.getServerSideProps;
+
+            let props = {};
+            if (typeof getServerSideProps === 'function') {
+              const context = { params: {}, query: Object.fromEntries(url.searchParams) };
+              const result = await getServerSideProps(context);
+              props = result.props || {};
             }
 
+            const appHtml = renderToString(ssgCreateElement(App, props));
+
+            const htmlTemplatePath = path.join(DIST_DIR, componentPath, 'index.html');
+            const htmlTemplate = await fs.readFile(htmlTemplatePath, 'utf8');
+            let renderedHtml = htmlTemplate.replace(/<div id="app">.*<\/div>/, `<div id="app">${appHtml}</div>`);
+
+            renderedHtml = renderedHtml.replace(
+              '</body>',
+              `<script id="__VADER_PROPS__" type="application/json">${JSON.stringify(props)}</script></body>`
+            );
+
+            return new Response(renderedHtml, { headers: { 'Content-Type': 'text/html' } });
+          }
+        } catch (e) {
+          logger.error(`SSR Error for ${url.pathname}:`, e);
+          return new Response("Server-Side Rendering Error", { status: 500 });
         }
-    })
+      }
 
-    console.log(ansiColors.green('Server started at http://localhost:' + port || 8080))
+      const fallbackPath = path.join(DIST_DIR, "index.html");
+      const fallbackFile = Bun.file(fallbackPath);
+      if (await fallbackFile.exists()) {
+        return new Response(fallbackFile);
+      }
+
+      return new Response("Not Found", { status: 404 });
+    },
+  });
 }
+
+function debounce(fn, delay) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+// --- SCRIPT ENTRYPOINT ---
+
+async function main() {
+  const banner = `${colors.magenta}
+    __    __  ____  ____  _______  __
+   |  |  /  |/ __ \\/ __ \\/ ____/ |/ /
+   |  |  /  / / / // /_/ // /___   |   / 
+   |  | /  / /_/ / \\____// /___  /   |  
+   |____/____/_____/     /_____/ |_| |_|
+  ${colors.reset}`;
+
+  console.log(banner);
+
+  config = await loadConfig();
+  config.port = config.port || 3000;
+
+  const command = process.argv[2];
+
+  if (command === "dev") {
+    await runDevServer();
+  } else if (command === "build") {
+    await buildAll(false);
+  } else if (command === "serve") {
+    if (config.ssr) {
+      await runProdServer();
+    } else {
+      // If not SSR, we still need to build before serving
+      await buildAll(false);
+      await runProdServer();
+    }
+  } else if (command === "init") {
+    init().catch((e) => {
+      console.error("Initialization failed:", e);
+      process.exit(1);
+    });
+  } else {
+    logger.error(`Unknown command: '${command}'.`);
+    logger.info("Available commands: 'dev', 'build', 'serve', 'init'");
+    process.exit(1);
+  }
+}
+
+main().catch((err) => {
+  logger.error("An unexpected error occurred:", err);
+  process.exit(1);
+});
