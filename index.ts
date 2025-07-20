@@ -99,61 +99,85 @@ function createDom(fiber: Fiber): Node {
  * @param {object} prevProps - The previous properties.
  * @param {object} nextProps - The new properties.
  */
- function updateDom(dom: Node, prevProps: object, nextProps: object): void {
-  prevProps = prevProps || {};
-  nextProps = nextProps || {};
+ /**
+ * Applies updated props to a DOM node using a robust, single-pass diffing algorithm.
+ * @param {Node} dom - The DOM node to update.
+ * @param {object} prevProps - The previous properties.
+ * @param {object} nextProps - The new properties.
+ */
+function updateDom(dom: Node, prevProps: object, nextProps: object): void {
+    prevProps = prevProps || {};
+    nextProps = nextProps || {};
+    const htmlElement = dom as HTMLElement;
 
-  // Remove old or changed event listeners
-  Object.keys(prevProps)
-    .filter(isEvent)
-    .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
-    .forEach((name) => {
-      const eventType = name.toLowerCase().substring(2);
-      if (typeof prevProps[name] === 'function') {
-        dom.removeEventListener(eventType, prevProps[name]);
-      }
+    // --- 1. Handle Event Listeners (Remove old, Add new) ---
+    Object.keys(prevProps)
+        .filter(isEvent)
+        .filter(key => !(key in nextProps) || prevProps[key] !== nextProps[key])
+        .forEach(name => {
+            const eventType = name.toLowerCase().substring(2);
+            htmlElement.removeEventListener(eventType, prevProps[name]);
+        });
+
+    Object.keys(nextProps)
+        .filter(isEvent)
+        .filter(key => prevProps[key] !== nextProps[key])
+        .forEach(name => {
+            const eventType = name.toLowerCase().substring(2);
+            htmlElement.addEventListener(eventType, nextProps[name]);
+        });
+
+    // --- 2. Handle All Other Properties (Remove, Add, Update) ---
+    const prevPropsFiltered = Object.keys(prevProps).filter(key => !isEvent(key) && key !== 'children');
+    const nextPropsFiltered = Object.keys(nextProps).filter(key => !isEvent(key) && key !== 'children');
+
+    // Remove properties that are no longer present
+    prevPropsFiltered.forEach(name => {
+        if (!(name in nextProps)) {
+            htmlElement.removeAttribute(name === 'className' ? 'class' : name);
+        }
     });
 
-  // Remove old properties
-  Object.keys(prevProps)
-    .filter(isProperty)
-    .filter(isGone(prevProps, nextProps))
-    .forEach((name) => {
-      // FIX: Handle both `class` and `className`
-      if (name === 'className' || name === 'class') {
-        (dom as HTMLElement).removeAttribute("class");
-      } else {
-        dom[name] = "";
-      }
-    });
+    // Set new or changed properties
+    nextPropsFiltered.forEach(name => {
+        const prevValue = prevProps[name];
+        const nextValue = nextProps[name];
 
-  // Set new or changed properties
-  Object.keys(nextProps)
-    .filter(isProperty)
-    .filter(isNew(prevProps, nextProps))
-    .forEach((name) => {
-      if (name === 'style' && typeof nextProps[name] === 'string') {
-        (dom as HTMLElement).style.cssText = nextProps[name];
-      } else if (name === 'className' || name === 'class') {
-        // FIX: Handle both `class` and `className`
-        (dom as HTMLElement).className = nextProps[name];
-      } else {
-        dom[name] = nextProps[name];
-      }
-    });
+        if (prevValue === nextValue) {
+            return; // Skip if the property is unchanged
+        }
 
-  // Add new event listeners
-  Object.keys(nextProps)
-    .filter(isEvent)
-    .filter(isNew(prevProps, nextProps))
-    .forEach((name) => {
-      const eventType = name.toLowerCase().substring(2);
-      const handler = nextProps[name];
-      if (typeof handler === 'function') {
-        dom.addEventListener(eventType, handler);
-      }
+        if (name === 'style') {
+            const prevStyle = prevValue || {};
+            const nextStyle = nextValue || {};
+
+            // Remove old style properties
+            Object.keys(prevStyle).forEach(styleName => {
+                if (!(styleName in nextStyle)) {
+                    htmlElement.style[styleName] = '';
+                }
+            });
+
+            // Add/update new style properties
+            Object.keys(nextStyle).forEach(styleName => {
+                if (prevStyle[styleName] !== nextStyle[styleName]) {
+                    const value = nextStyle[styleName];
+                    htmlElement.style[styleName as any] =
+                        typeof value === 'number' && styleName !== 'opacity'
+                            ? `${value}px`
+                            : value;
+                }
+            });
+        } else if (name === 'class' || name === 'className') {
+            // CRITICAL: Correctly handle the 'class' attribute via the 'className' property
+            htmlElement.className = nextValue || '';
+        } else {
+             // For all other attributes, use setAttribute for reliability
+            htmlElement.setAttribute(name, nextValue);
+        }
     });
 }
+
 
 /**
  * Commits the entire work-in-progress tree to the DOM.
@@ -211,28 +235,53 @@ function commitDeletion(fiber: Fiber | null): void {
 }
 
 /**
- * Renders a virtual DOM element into a container.
+ * Renders a virtual DOM element into a container, handling SSR hydration.
  * @param {VNode} element - The root virtual DOM element to render.
  * @param {Node} container - The DOM container to render into.
  */
 export function render(element: VNode, container: Node): void {
-  container.innerHTML = "";
-  
-  wipRoot = {
-    dom: container,
-    props: {
-      children: [element],
-    },
-    alternate: currentRoot,
-  };
-  deletions = [];
-  nextUnitOfWork = wipRoot;
-  
-  if (!isRenderScheduled) {
-    isRenderScheduled = true;
-    requestAnimationFrame(workLoop);
-  }
+    // Check for server-side rendered props
+    const propsScript = document.getElementById('__VADER_PROPS__');
+    let initialProps = {};
+
+    if (propsScript) {
+        try {
+            initialProps = JSON.parse(propsScript.textContent || '{}');
+            // Clean up the script tag after reading the props
+            propsScript.remove();
+        } catch (e) {
+            console.error("Failed to parse SSR props:", e);
+        }
+    }
+
+    // If the element is a function component (the App), merge initial props
+    if (typeof element.type === 'function') {
+        element.props = { ...element.props, ...initialProps };
+    }
+    
+    // If the container already has content from SSR, we hydrate it.
+    // Otherwise, we clear it for a fresh client-side render.
+    const isHydrating = container.hasChildNodes();
+    if (!isHydrating) {
+        container.innerHTML = "";
+    }
+
+    wipRoot = {
+        dom: container,
+        props: {
+            children: [element],
+        },
+        alternate: currentRoot,
+    };
+    deletions = [];
+    nextUnitOfWork = wipRoot;
+
+    if (!isRenderScheduled) {
+        isRenderScheduled = true;
+        requestAnimationFrame(workLoop);
+    }
 }
+
 
 /**
  * The main work loop for rendering and reconciliation.
@@ -441,9 +490,9 @@ export function useState<T>(
 
   let hook = wipFiber.hooks[hookIndex];
   if (!hook) {
-    hook = { 
-      state: typeof initial === "function" ? (initial as () => T)() : initial, 
-      queue: [] 
+    hook = {
+      state: typeof initial === "function" ? (initial as () => T)() : initial,
+      queue: []
     };
     wipFiber.hooks[hookIndex] = hook;
   }
@@ -474,16 +523,16 @@ export function useEffect(callback: Function, deps?: any[]): void {
   if (!wipFiber) {
     throw new Error("Hooks can only be called inside a Vader.js function component.");
   }
-  
+
   let hook = wipFiber.hooks[hookIndex];
   if (!hook) {
     hook = { deps: undefined, _cleanupFn: undefined };
     wipFiber.hooks[hookIndex] = hook;
   }
-  
-  const hasChanged = hook.deps === undefined || 
-                   !deps || 
-                   deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
+
+  const hasChanged = hook.deps === undefined ||
+    !deps ||
+    deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
 
   if (hasChanged) {
     if (hook._cleanupFn) {
@@ -498,7 +547,7 @@ export function useEffect(callback: Function, deps?: any[]): void {
       }
     }, 0);
   }
-  
+
   hook.deps = deps;
   hookIndex++;
 }
@@ -566,9 +615,9 @@ export function useLayoutEffect(callback: Function, deps?: any[]): void {
     wipFiber.hooks[hookIndex] = hook;
   }
 
-  const hasChanged = hook.deps === undefined || 
-                   !deps || 
-                   deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
+  const hasChanged = hook.deps === undefined ||
+    !deps ||
+    deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
 
   if (hasChanged) {
     if (hook._cleanupFn) {
@@ -690,9 +739,9 @@ export function useMemo<T>(factory: () => T, deps?: any[]): T {
     wipFiber.hooks[hookIndex] = hook;
   }
 
-  const hasChanged = hook.deps === undefined || 
-                   !deps || 
-                   deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
+  const hasChanged = hook.deps === undefined ||
+    !deps ||
+    deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
   if (hasChanged) {
     hook.memoizedValue = factory();
     hook.deps = deps;
@@ -718,10 +767,10 @@ export function useCallback<T extends Function>(callback: T, deps?: any[]): T {
  * @template T
  * @param {T[]} initialValue - The initial array value.
  * @returns {{
- *   array: T[],
- *   add: (item: T) => void,
- *   remove: (index: number) => void,
- *   update: (index: number, item: T) => void
+ * array: T[],
+ * add: (item: T) => void,
+ * remove: (index: number) => void,
+ * update: (index: number, item: T) => void
  * }} An object with the array and mutation functions.
  */
 export function useArray<T>(initialValue: T[] = []): {
@@ -793,9 +842,9 @@ export function useQuery<T>(
   const [error, setError] = useState<Error | null>(null);
 
   // FIX: Destructure primitive values from cacheOptions for stable dependencies.
-  const { 
-    enabled = DEFAULT_CACHE_OPTIONS.enabled, 
-    expiryMs = DEFAULT_CACHE_OPTIONS.expiryMs 
+  const {
+    enabled = DEFAULT_CACHE_OPTIONS.enabled,
+    expiryMs = DEFAULT_CACHE_OPTIONS.expiryMs
   } = cacheOptions;
 
   // FIX: Memoize the options object so its reference is stable across renders.
@@ -812,7 +861,7 @@ export function useQuery<T>(
       if (mergedCacheOptions.enabled) {
         const cached = queryCache.get(url);
         const now = Date.now();
-        
+
         if (cached && now - cached.timestamp < mergedCacheOptions.expiryMs) {
           setData(cached.data);
           setLoading(false);
@@ -822,13 +871,13 @@ export function useQuery<T>(
 
       // Not in cache or expired - fetch fresh data
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result = await response.json();
-      
+
       // Update cache if enabled
       if (mergedCacheOptions.enabled) {
         queryCache.set(url, {
@@ -837,7 +886,7 @@ export function useQuery<T>(
           options: mergedCacheOptions
         });
       }
-      
+
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
