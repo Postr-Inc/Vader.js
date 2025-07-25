@@ -1,62 +1,110 @@
 #!/usr/bin/env bun
+/**
+ * VaderJS Build & Development Script
+ *
+ * This script handles building the VaderJS framework, your application code,
+ * and serving it in a local development environment with live reloading.
+ *
+ * Commands:
+ * bun run vaderjs build   -  Builds the project for production.
+ * bun run vaderjs dev     -  Starts the dev server with HMR and file watching.
+ * bun run vaderjs serve   -  Builds and serves the production output.
+ */
 
 import { build, serve } from "bun";
 import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
+import { init } from "./cli";
+
+// --- UTILITIES for a Sleek CLI ---
+
+const colors = {
+  reset: "\x1b[0m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
+  cyan: "\x1b[36m",
+};
+
+function safeWatch(dir, cb) {
+  try {
+    const watcher = fsSync.watch(dir, { recursive: true }, cb);
+    watcher.on("error", (err) => logger.warn(`Watcher error on ${dir}:`, err));
+    return watcher;
+  } catch (err) {
+    logger.warn(`Failed to watch ${dir}:`, err);
+  }
+}
+
+
+const logger = {
+  _log: (color, ...args) => console.log(color, ...args, colors.reset),
+  info: (...args) => logger._log(colors.cyan, "ℹ", ...args),
+  success: (...args) => logger._log(colors.green, "✅", ...args),
+  warn: (...args) => logger._log(colors.yellow, "⚠️", ...args),
+  error: (...args) => logger._log(colors.red, "❌", ...args),
+  step: (...args) => logger._log(colors.magenta, "\n🚀", ...args),
+};
+
+async function timedStep(name, fn) {
+  logger.step(`${name}...`);
+  const start = performance.now();
+  try {
+    await fn();
+    const duration = (performance.now() - start).toFixed(2);
+    logger.success(`Finished '${name}' in ${duration}ms`);
+  } catch (e) {
+    logger.error(`Error during '${name}':`, e);
+    if (!isDev) process.exit(1);
+  }
+}
+
+// --- CONSTANTS ---
 
 const PROJECT_ROOT = process.cwd();
 const APP_DIR = path.join(PROJECT_ROOT, "app");
 const PUBLIC_DIR = path.join(PROJECT_ROOT, "public");
 const DIST_DIR = path.join(PROJECT_ROOT, "dist");
-const VADER_SRC = path.join(PROJECT_ROOT, "node_modules", "vaderjs", "index.js");
-const VADER_DIST_DIR = path.join(DIST_DIR, "src", "vader");
-const VADER_DIST_FILE = path.join(VADER_DIST_DIR, "index.js");
 const SRC_DIR = path.join(PROJECT_ROOT, "src");
+const VADER_SRC_PATH = path.join(PROJECT_ROOT, "node_modules", "vaderjs", "index.ts");
+const TEMP_SRC_DIR = path.join(PROJECT_ROOT, ".vader_temp_src");
 
-// Helper to debounce rebuilds
-function debounce(fn, delay) {
-  let timeoutId;
-  return () => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(fn, delay);
-  };
-}
 
-// Load config with fallback
-async function loadConfig() {
-  let config;
-  try {
-    config = await import(path.join(PROJECT_ROOT, "vader.config.js"));
-  } catch {
-    config = {};
-  }
-  return config.default || config;
-}
+// --- CONFIG & PLUGIN SYSTEM ---
 
-// defineConfig helper
-export function defineConfig(config) {
-  return config;
-}
-
-// Plugin system state
+let config = {};
 let htmlInjections = [];
+
 const vaderAPI = {
   runCommand: async (cmd) => {
     if (typeof cmd === "string") cmd = cmd.split(" ");
     const p = Bun.spawn(cmd);
     await p.exited;
   },
-  injectHTML: (content) => {
-    htmlInjections.push(content);
-  },
-  log: (msg) => console.log(`[Vader Plugin] ${msg}`),
+  injectHTML: (content) => htmlInjections.push(content),
+  log: (msg) => logger.info(`[Plugin] ${msg}`),
   getProjectRoot: () => PROJECT_ROOT,
   getDistDir: () => DIST_DIR,
   getPublicDir: () => PUBLIC_DIR,
 };
 
-// Run plugin hooks safely
+async function loadConfig() {
+  try {
+    const configModule = await import(path.join(PROJECT_ROOT, "vaderjs.config.js"));
+    return configModule.default || configModule;
+  } catch {
+    logger.warn("No 'vader.config.js' found, using defaults.");
+    return {};
+  }
+}
+
+export function defineConfig(config) {
+  return config;
+}
+
 async function runPluginHook(hookName) {
   if (!config.plugins) return;
   for (const plugin of config.plugins) {
@@ -64,71 +112,49 @@ async function runPluginHook(hookName) {
       try {
         await plugin[hookName](vaderAPI);
       } catch (e) {
-        console.error(`Plugin hook error (${hookName}):`, e);
+        logger.error(`Plugin hook error (${hookName} in ${plugin.name || 'anonymous'}):`, e);
       }
     }
   }
 }
 
-// Step 1: Transpile vaderjs index.ts
- async function transpileAndBundleVaderJS() {
-  if (!fsSync.existsSync(VADER_SRC)) {
-    console.error("vaderjs source not found:", VADER_SRC);
-    process.exit(1);
+
+
+// --- BUILD LOGIC ---
+
+/**
+ * Step 1: Transpile and bundle the core vaderjs library.
+ */
+async function buildVaderCore() {
+  if (!fsSync.existsSync(VADER_SRC_PATH)) {
+    logger.error("VaderJS source not found:", VADER_SRC_PATH);
+    throw new Error("Missing vaderjs dependency.");
   }
 
-  // Step 1: Transpile vaderjs source from TypeScript/TSX to JavaScript (ESNext)
-  const source = await fs.readFile(VADER_SRC, "utf8");
-  const transpiler = new Bun.Transpiler({ loader: "tsx", target: "esnext" });
-  const transpiledCode = transpiler.transformSync(source);
-
-  // Step 2: Write the transpiled code to a temporary file
-  const tempVaderFile = path.join(DIST_DIR, "vader-temp.js");
-  await fs.mkdir(path.dirname(tempVaderFile), { recursive: true });
-  await fs.writeFile(tempVaderFile, transpiledCode);
-
-  console.log(`✅ Transpiled vaderjs to temporary file: ${tempVaderFile}`);
-
-  // Step 3: Bundle the transpiled code using Bun's bundler or another bundler like esbuild
-  await bundleVaderJS(tempVaderFile);
-
-  // Clean up temporary file
-  await fs.rm(tempVaderFile);
-  console.log("✅ Cleaned up temporary files.");
-}
-
-// Function to bundle the transpiled vaderjs code
-async function bundleVaderJS(inputFile) {
   await build({
-    entrypoints: [inputFile],  // Input file is the transpiled code
-    outdir: path.join(DIST_DIR, "src", "vader"),  // Output directory
-    target: "browser",  // Bundling for the browser
-    minify: false,  // You can change this to `true` for minification
-    sourcemap: "external",  // Optional, for debugging
-    external: [],  // Add any external dependencies here, if needed
-    jsxFactory: "e",  // Set the JSX factory if using JSX (Vader's custom JSX)
+    entrypoints: [VADER_SRC_PATH],
+    outdir: path.join(DIST_DIR, "src", "vader"),
+    target: "browser",
+    minify: false,
+    sourcemap: "external",
+    jsxFactory: "e",
     jsxFragment: "Fragment",
-    jsxImportSource: "vaderjs",  // Set to "vaderjs" for JSX-related imports
+    jsxImportSource: "vaderjs",
   });
-
-  console.log(`✅ Bundled vaderjs to ${DIST_DIR}/src/vader`);
 }
 
-
-// Step 2: Patch hooks usage in code
- function patchHooksUsage(code) {
-  // Remove import of hooks from vaderjs
-  code = code.replace(/import\s+{[^}]*use(State|Effect|Memo|Navigation)[^}]*}\s+from\s+['"]vaderjs['"];?\n?/g, "");
-
-  
-
-  return code;
+/**
+ * Step 2: Patches source code to remove server-side hook imports.
+ */
+function patchHooksUsage(code) {
+  return code.replace(/import\s+{[^}]*use(State|Effect|Memo|Navigation)[^}]*}\s+from\s+['"]vaderjs['"];?\n?/g, "");
 }
 
-
-
-// Step 3: Preprocess source files to patch hooks usage (recursively)
+/**
+ * Step 3: Pre-processes all files in `/src` into a temporary directory.
+ */
 async function preprocessSources(srcDir, tempDir) {
+  await fs.mkdir(tempDir, { recursive: true });
   for (const entry of await fs.readdir(srcDir, { withFileTypes: true })) {
     const srcPath = path.join(srcDir, entry.name);
     const destPath = path.join(tempDir, entry.name);
@@ -136,59 +162,32 @@ async function preprocessSources(srcDir, tempDir) {
     if (entry.isDirectory()) {
       await preprocessSources(srcPath, destPath);
     } else if (/\.(tsx|jsx|ts|js)$/.test(entry.name)) {
-      try {
-        let content = await fs.readFile(srcPath, "utf8");
-        if (entry.name.endsWith(".tsx") || entry.name.endsWith(".jsx")) {
-          content = patchHooksUsage(content);
-        }
-        await fs.mkdir(path.dirname(destPath), { recursive: true });
-        await fs.writeFile(destPath, content);
-      } catch (err) {
-        console.warn(`Warning: Failed to process ${srcPath}:`, err.message);
-      }
+      let content = await fs.readFile(srcPath, "utf8");
+      content = patchHooksUsage(content);
+      await fs.writeFile(destPath, content);
     } else {
-      try {
-        await fs.mkdir(path.dirname(destPath), { recursive: true });
-        await fs.copyFile(srcPath, destPath);
-      } catch (err) {
-        console.warn(`Warning: Failed to copy ${srcPath}:`, err.message);
-      }
+      await fs.copyFile(srcPath, destPath);
     }
   }
 }
 
-// Step 4: Build source files from preprocessed directory
+/**
+ * Step 4: Build the application's source code from the preprocessed temp directory.
+ */
 async function buildSrc() {
-  const TEMP_SRC_DIR = path.join(PROJECT_ROOT, ".temp_src");
+  if (!fsSync.existsSync(SRC_DIR)) return;
 
-  // Clean previous temp directory
   if (fsSync.existsSync(TEMP_SRC_DIR)) {
     await fs.rm(TEMP_SRC_DIR, { recursive: true, force: true });
   }
-
-  // Preprocess source to temp dir with hooks patched
   await preprocessSources(SRC_DIR, TEMP_SRC_DIR);
 
-  // Gather all entrypoints from temp source dir
-  function gatherEntryPoints(dir) {
-    const entries = [];
-    function walk(currentDir) {
-      for (const entry of fsSync.readdirSync(currentDir, { withFileTypes: true })) {
-        const fullPath = path.join(currentDir, entry.name);
-        if (entry.isDirectory()) {
-          walk(fullPath);
-        } else if (/\.(ts|tsx|js|jsx)$/.test(entry.name)) {
-          entries.push(fullPath);
-        }
-      }
-    }
-    walk(dir);
-    return entries;
-  }
-  const entrypoints = gatherEntryPoints(TEMP_SRC_DIR);
+  const entrypoints = fsSync.readdirSync(TEMP_SRC_DIR, { recursive: true })
+    .map(file => path.join(TEMP_SRC_DIR, file))
+    .filter(file => /\.(ts|tsx|js|jsx)$/.test(file));
 
   if (entrypoints.length === 0) {
-    console.log("No source files found to build.");
+    logger.info("No source files found in /src to build.");
     return;
   }
 
@@ -204,227 +203,272 @@ async function buildSrc() {
     minify: false,
     external: ["vaderjs"],
   });
-
-  console.log(`✅ Built ${entrypoints.length} source files preserving folder structure.`);
 }
 
-// Step 5: Copy public assets
+/**
+ * Step 5: Copy all assets from the `/public` directory to `/dist`.
+ */
 async function copyPublicAssets() {
   if (!fsSync.existsSync(PUBLIC_DIR)) return;
-  async function copyRecursive(src, dest) {
-    await fs.mkdir(dest, { recursive: true });
-    for (const item of await fs.readdir(src, { withFileTypes: true })) {
-      const srcPath = path.join(src, item.name);
-      const destPath = path.join(dest, item.name);
-      if (item.isDirectory()) {
-        await copyRecursive(srcPath, destPath);
-      } else {
-        await fs.copyFile(srcPath, destPath);
-      }
-    }
+  // Copy contents of public into dist, not the public folder itself
+  for (const item of await fs.readdir(PUBLIC_DIR)) {
+    await fs.cp(path.join(PUBLIC_DIR, item), path.join(DIST_DIR, item), { recursive: true });
   }
-  await copyRecursive(PUBLIC_DIR, path.join(DIST_DIR, "public"));
-  console.log("✅ Copied public assets");
 }
 
-// Step 6: Build app entrypoints + generate index.html
-function scanEntryPoints(dir) {
-  const entries = [];
-  function scan(dirPath, relative = "") {
-    for (const file of fsSync.readdirSync(dirPath, { withFileTypes: true })) {
-      if (file.isDirectory()) {
-        scan(path.join(dirPath, file.name), path.join(relative, file.name));
-      } else if (/index\.(jsx|tsx)$/.test(file.name)) {
-        entries.push({
-          name: relative ? relative.replace(/\\/g, "/") : "index",
-          path: path.join(dirPath, file.name),
-        });
-      }
-    }
+ async function buildAppEntrypoints(isDev = false) {
+  if (!fsSync.existsSync(APP_DIR)) {
+    logger.warn("No '/app' directory found, skipping app entrypoint build.");
+    return;
   }
-  scan(dir);
-  return entries;
-}
 
-// Dev client reload script injection
-const devClientScript = process.argv.includes("dev") ? `
+  // Ensure the dist directory exists
+  if (!fsSync.existsSync(DIST_DIR)) {
+    await fs.mkdir(DIST_DIR, { recursive: true });
+  }
+
+  const devClientScript = isDev ? ` 
   <script>
-    const socket = new WebSocket("ws://" + location.host + "/__hmr");
-    socket.onmessage = (msg) => {
+    new WebSocket("ws://" + location.host + "/__hmr").onmessage = (msg) => {
       if (msg.data === "reload") location.reload();
     };
   </script>` : "";
 
- async function buildAppEntrypoints() {
-  const entries = scanEntryPoints(APP_DIR);
+  const entries = fsSync.readdirSync(APP_DIR, { recursive: true })
+    .filter(file => /index\.(jsx|tsx)$/.test(file))
+    .map(file => ({
+        name: path.dirname(file) === '.' ? 'index' : path.dirname(file).replace(/\\/g, '/'),
+        path: path.join(APP_DIR, file)
+    }));
 
-  await Promise.all(
-    entries.map(async ({ name, path: entryPath }) => {
-      const outDir = path.join(DIST_DIR, path.dirname(name));
-      const outJs = path.join(DIST_DIR, `${name}.js`);
-      await fs.mkdir(outDir, { recursive: true });
+  for (const { name, path: entryPath } of entries) {
+    // Check for the specific case where 'name' could be 'index.js' and prevent duplication
+    const outDir = path.join(DIST_DIR, name === 'index' ? '' : name);
+    const outJsPath = path.join(outDir, 'index.js');  // Output JavaScript file path
 
-      // Generate index.html next to JS bundle with plugin HTML injections
-      const htmlPath = path.join(outDir, "index.html");
-      
-      // Collect CSS files
-      const cssFiles = await collectCSSFiles(entryPath);
-      const cssLinks = cssFiles.map(cssFile => `<link rel="stylesheet" href="${cssFile}">`).join("\n");
+    // Ensure the output directory exists
+    await fs.mkdir(outDir, { recursive: true });
 
-      const htmlContent = `<!DOCTYPE html>
+    // **FIXED CSS HANDLING**: Find, copy, and correctly link CSS files
+    const cssLinks = [];
+    const cssContent = await fs.readFile(entryPath, "utf8");
+    const cssImports = [...cssContent.matchAll(/import\s+['"](.*\.css)['"]/g)];
+
+    for (const match of cssImports) {
+        const cssImportPath = match[1]; // e.g., './styles.css'
+        const sourceCssPath = path.resolve(path.dirname(entryPath), cssImportPath);
+        if (fsSync.existsSync(sourceCssPath)) {
+            const relativeCssPath = path.relative(APP_DIR, sourceCssPath);
+            const destCssPath = path.join(DIST_DIR, relativeCssPath);
+
+            await fs.mkdir(path.dirname(destCssPath), { recursive: true });
+            await fs.copyFile(sourceCssPath, destCssPath);
+
+            const htmlRelativePath = path.relative(outDir, destCssPath).replace(/\\/g, '/');
+            cssLinks.push(`<link rel="stylesheet" href="${htmlRelativePath}">`);
+        } else {
+            logger.warn(`CSS file not found: ${sourceCssPath}`);
+        }
+    }
+
+    // Update the script tag to use relative paths for index.js
+    const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>VaderJS App - ${name}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  ${cssLinks} <!-- Injected CSS files -->
-  <script type="module">
-    import App from '/index.js';
-    import * as Vader from '/src/vader/index.js';
-    var container = document.getElementById("app");
-    Vader.render(Vader.createElement(App, null), container); 
-  </script>
-  ${htmlInjections.join("\n")}
-  ${devClientScript}
+  ${cssLinks.join("\n  ")}
+  ${htmlInjections.join("\n  ")}
 </head>
 <body>
   <div id="app"></div>
+  <script type="module">
+    import App from '${name !== 'index' ? "/" + name : ''}/index.js'; 
+    import * as Vader from '/src/vader/index.js';
+    window.Vader = Vader
+    Vader.render(Vader.createElement(App, null), document.getElementById("app"));
+  </script>
+  ${devClientScript}
 </body>
 </html>`;
-      
-      await fs.writeFile(htmlPath, htmlContent);
 
-      // Build app entrypoint (no hooks patch needed here)
-      await build({
-        entrypoints: [entryPath],
-        outdir: DIST_DIR,
-        target: "browser",
-        minify: false,
-        sourcemap: "external",
-        external: ["vaderjs"],
-      });
+    await fs.writeFile(path.join(outDir, "index.html"), htmlContent);
 
-      // Replace imports from 'vaderjs' to '/src/vader/index.js' in output JS
-      try {
-        let jsContent = await fs.readFile(outJs, "utf8");
-        jsContent = jsContent.replace(/from\s+['"]vaderjs['"]/g, `from '/src/vader/index.js'`);
-        jsContent = patchHooksUsage(jsContent);
-        await fs.writeFile(outJs, jsContent);
-      } catch (err) {
-        console.warn(`Warning: Failed to patch app entrypoint JS for ${name}:`, err.message);
-      }
+    // Log for debugging 
 
-      console.log(`✅ Built app entrypoint: ${name}`);
-    })
-  );
-}
+    // Build the JavaScript file and ensure it uses the correct paths
+    await build({
+      entrypoints: [entryPath],
+      outdir: outDir,  // Pass the directory path to outdir 
+      target: "browser",
+      minify: false,
+      sourcemap: "external",
+      external: ["vaderjs"],
+      jsxFactory: "e",
+      jsxFragment: "Fragment",
+      jsxImportSource: "vaderjs",
+    });
 
-// Step 7: Collect CSS Files for Injection
-async function collectCSSFiles(entryPath) {
-  const cssFiles = [];
-  // Check if the entrypoint or its dependencies import CSS
-  const content = await fs.readFile(entryPath, "utf8");
-  const cssImports = content.match(/import\s+['"](.*\.css)['"]/g) || [];
-  for (const cssImport of cssImports) {
-    const match = /['"](.*\.css)['"]/.exec(cssImport);
-    if (match && match[1]) {
-      const cssPath = path.resolve(path.dirname(entryPath), match[1]);
-      const distCssPath = path.relative(PROJECT_ROOT, cssPath);
-      cssFiles.push(`/${distCssPath}`);
-    }
+    // After build, replace the 'vaderjs' import to the correct path
+    let jsContent = await fs.readFile(outJsPath, "utf8");
+    jsContent = jsContent.replace(/from\s+['"]vaderjs['"]/g, `from '/src/vader/index.js'`);
+    await fs.writeFile(outJsPath, jsContent);
   }
-  return cssFiles;
 }
 
  
 
-// Step 7: Build all steps with plugin hooks and html injection reset
-async function buildAll() {
-  htmlInjections = []; // reset on each build
+ async function buildAll(isDev = false) {
+  logger.info(`Starting VaderJS ${isDev ? 'development' : 'production'} build...`);
+  const totalTime = performance.now();
+
+  htmlInjections = [];
+
+  // Ensure dist directory exists before cleaning
+  if (fsSync.existsSync(DIST_DIR)) {
+    await fs.rm(DIST_DIR, { recursive: true, force: true });
+  }
+
+  // Create the dist directory if it doesn't exist
+  await fs.mkdir(DIST_DIR, { recursive: true });
 
   await runPluginHook("onBuildStart");
 
-  await buildSrc();
-  await transpileVaderJS();
-  await buildAppEntrypoints();
+  // Build the components in steps and handle errors properly
+  await timedStep("Building VaderJS Core", buildVaderCore);
+  await timedStep("Building App Source (/src)", buildSrc);
+  await timedStep("Copying Public Assets", copyPublicAssets);
+  await timedStep("Building App Entrypoints (/app)", () => buildAppEntrypoints(isDev));
 
   await runPluginHook("onBuildFinish");
 
-  await copyPublicAssets();
-
-  console.log("✅ Build finished");
+  // Calculate the total duration and log it
+  const duration = (performance.now() - totalTime).toFixed(2);
+  logger.success(`Total build finished in ${duration}ms. Output is in /dist.`);
 }
 
-const clients = new Set();
+async function runDevServer() {
+  await buildAll(true);
+  
+  const clients = new Set();
+  const port = config.port || 3000;
 
-async function main() {
-  config = await loadConfig();
+  logger.info(`Starting dev server at http://localhost:${port}`);
 
-  if (!config.port) config.port = 3000;
-
-  console.log("Starting build...");
-  await buildAll();
-
-  if (process.argv.includes("dev") || process.env.NODE_ENV === "development") {
-    console.log(`Starting dev server at http://localhost:${config.port}`);
-
-    const server = serve({
-      port: config.port,
-      fetch(req, server) {
-        const url = new URL(req.url);
-
-        if (url.pathname === "/__hmr" && server.upgrade) {
-          const success = server.upgrade(req, { data: {} });
-          return success ? undefined : new Response("WebSocket upgrade failed", { status: 400 });
-        }
-
-        let filePath = path.join(DIST_DIR, url.pathname);
-        if (!path.extname(filePath) || filePath.endsWith("/")) {
-          filePath = path.join(filePath, "index.html");
-        }
-
-        try {
-          const file = Bun.file(filePath);
-          return file.exists() ? new Response(file) : new Response("Not Found", { status: 404 });
-        } catch {
-          return new Response("Error", { status: 500 });
-        }
-      },
-      websocket: {
-        open(ws) {
-          clients.add(ws);
-        },
-        close(ws) {
-          clients.delete(ws);
-        },
-        message(ws, message) {
-          console.log("WS message:", message);
-        },
-      },
-    });
-
-    // Watch files and rebuild with debounce + broadcast reload
-    const watcherDirs = [APP_DIR, SRC_DIR, PUBLIC_DIR];
-    for (const dir of watcherDirs) {
-      if (fsSync.existsSync(dir)) {
-        const debouncedBuild = debounce(async () => {
-          try {
-            await buildAll();
-            for (const client of clients) {
-              client.send("reload");
-            }
-          } catch (e) {
-            console.error("Build error:", e);
-          }
-        }, 200);
-
-        fsSync.watch(dir, { recursive: true }, () => {
-          debouncedBuild();
-        });
+  serve({
+    port,
+    fetch(req, server) {
+      const url = new URL(req.url);
+      if (url.pathname === "/__hmr" && server.upgrade(req)) {
+        return;
       }
+      let filePath = path.join(DIST_DIR, url.pathname);
+      if (!path.extname(filePath)) {
+        filePath = path.join(filePath, "index.html");
+      }
+      const file = Bun.file(filePath);
+      return file.exists().then(exists => 
+        exists ? new Response(file) : new Response("Not Found", { status: 404 })
+      );
+    },
+    websocket: {
+      open: (ws) => clients.add(ws),
+      close: (ws) => clients.delete(ws),
+    },
+  });
+
+  const debouncedBuild = debounce(async () => {
+    try {
+      await buildAll(true);
+      for (const client of clients) {
+        client.send("reload");
+      }
+    } catch (e) {
+      logger.error("Rebuild failed:", e);
     }
+  }, 200);
+
+  const watchDirs = [APP_DIR, SRC_DIR, PUBLIC_DIR].filter(fsSync.existsSync);
+  for (const dir of watchDirs) {
+    safeWatch(dir, debouncedBuild);
   }
 }
 
-let config = {};
-main();
+async function runProdServer() {
+  const port = config.port || 3000;
+  logger.info(`Serving production build from /dist on http://localhost:${port}`);
+  serve({
+    port,
+    fetch(req) {
+      const url = new URL(req.url);
+      let filePath = path.join(DIST_DIR, url.pathname);
+      if (!path.extname(filePath)) {
+        filePath = path.join(filePath, "index.html");
+      }
+      const file = Bun.file(filePath);
+      return file.exists().then(exists => 
+        exists ? new Response(file) : new Response("Not Found", { status: 404 })
+      );
+    },
+  });
+}
+
+function debounce(fn, delay) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+// --- SCRIPT ENTRYPOINT ---
+
+async function main() {
+  const banner = `${colors.magenta}
+    __     __  ____   ____   _______  __
+   |  |   /  |/ __ \ / __ \ / ____/ |/ /
+   |  |  /   / / / // /_/ // /___   |   / 
+   |  | /   / /_/ / \____// /___  /   |  
+   |____/____/_____/     /_____/ |_| |_|
+  ${colors.reset}`;
+
+console.log(banner);
+
+  
+  config = await loadConfig();
+  config.port = config.port || 3000;
+
+  const command = process.argv[2];
+
+  if (command === "dev") {
+    await runDevServer();
+  } else if (command === "build") {
+    await buildAll(false);
+  } else if (command === "serve") {
+    await buildAll(false);
+    await runProdServer();
+  }
+  else if(command === "init"){
+    init().catch((e) => {
+  console.error("Initialization failed:", e);
+  process.exit(1);
+});
+
+  } else {
+    logger.error(`Unknown command: '${command}'.`);
+    logger.info("Available commands: 'dev', 'build', 'serve'");
+    process.exit(1);
+  }
+}
+
+main().catch(err => {
+  logger.error("An unexpected error occurred:", err);
+  process.exit(1);
+});
+process.on("unhandledRejection", (err) => {
+  logger.error("Unhandled Promise rejection:", err);
+});
+process.on("uncaughtException", (err) => {
+  logger.error("Uncaught Exception:", err);
+});
