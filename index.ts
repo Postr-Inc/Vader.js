@@ -13,7 +13,9 @@ let deletions: Fiber[] | null = null;
 let wipFiber: Fiber | null = null;
 let hookIndex = 0;
 let isRenderScheduled = false;
-
+// Add to the top of your Vader.js file
+ 
+ 
 interface Fiber {
   type?: string | Function;
   dom?: Node;
@@ -28,9 +30,13 @@ interface Fiber {
   effectTag?: "PLACEMENT" | "UPDATE" | "DELETION";
   hooks?: Hook[];
   key?: string | number | null;
+    propsCache?: Record<string, any>;
+  __compareProps?: (prev: any, next: any) => boolean;
+  __skipMemo?: boolean;
+  _needsUpdate?: boolean; 
 }
 
-interface VNode {
+export interface VNode {
   type: string | Function;
   props: {
     children: VNode[];
@@ -84,14 +90,34 @@ const isGone = (prev: object, next: object) => (key: string) => !(key in next);
  * @returns {Node} The created DOM node.
  */
 function createDom(fiber: Fiber): Node {
-  const dom =
-    fiber.type == "TEXT_ELEMENT"
-      ? document.createTextNode("")
-      : document.createElement(fiber.type as string);
+  let dom: Node;
+
+  if (fiber.type === "TEXT_ELEMENT") {
+    dom = document.createTextNode("");
+  } else {
+    const isSvg = isSvgElement(fiber); 
+    if (isSvg) {
+      dom = document.createElementNS("http://www.w3.org/2000/svg", fiber.type as string);
+    } else {
+      dom = document.createElement(fiber.type as string);
+    }
+  }
 
   updateDom(dom, {}, fiber.props);
   return dom;
 }
+
+function isSvgElement(fiber: Fiber): boolean {
+  // Check if the fiber is an <svg> itself or inside an <svg>
+  let parent = fiber.parent; 
+  if (fiber.type === "svg") return true;
+  while (parent) {
+    if (parent.type === "svg") return true;
+    parent = parent.parent;
+  }
+  return false;
+}
+
 
 /**
  * Applies updated props to a DOM node.
@@ -99,82 +125,92 @@ function createDom(fiber: Fiber): Node {
  * @param {object} prevProps - The previous properties.
  * @param {object} nextProps - The new properties.
  */
- /**
- * Applies updated props to a DOM node using a robust, single-pass diffing algorithm.
- * @param {Node} dom - The DOM node to update.
- * @param {object} prevProps - The previous properties.
- * @param {object} nextProps - The new properties.
- */
-function updateDom(dom: Node, prevProps: object, nextProps: object): void {
-    prevProps = prevProps || {};
-    nextProps = nextProps || {};
-    const htmlElement = dom as HTMLElement;
+function updateDom(dom: Node, prevProps: any, nextProps: any): void {
+  prevProps = prevProps || {};
+  nextProps = nextProps || {};
 
-    // --- 1. Handle Event Listeners (Remove old, Add new) ---
-    Object.keys(prevProps)
-        .filter(isEvent)
-        .filter(key => !(key in nextProps) || prevProps[key] !== nextProps[key])
-        .forEach(name => {
-            const eventType = name.toLowerCase().substring(2);
-            htmlElement.removeEventListener(eventType, prevProps[name]);
-        });
+  const isSvg = dom instanceof SVGElement;
 
-    Object.keys(nextProps)
-        .filter(isEvent)
-        .filter(key => prevProps[key] !== nextProps[key])
-        .forEach(name => {
-            const eventType = name.toLowerCase().substring(2);
-            htmlElement.addEventListener(eventType, nextProps[name]);
-        });
-
-    // --- 2. Handle All Other Properties (Remove, Add, Update) ---
-    const prevPropsFiltered = Object.keys(prevProps).filter(key => !isEvent(key) && key !== 'children');
-    const nextPropsFiltered = Object.keys(nextProps).filter(key => !isEvent(key) && key !== 'children');
-
-    // Remove properties that are no longer present
-    prevPropsFiltered.forEach(name => {
-        if (!(name in nextProps)) {
-            htmlElement.removeAttribute(name === 'className' ? 'class' : name);
-        }
+  // Remove old or changed event listeners
+  Object.keys(prevProps)
+    .filter(isEvent)
+    .filter(key => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+    .forEach(name => {
+      const eventType = name.toLowerCase().substring(2);
+      if (typeof prevProps[name] === 'function') {
+        (dom as Element).removeEventListener(eventType, prevProps[name]);
+      }
     });
 
-    // Set new or changed properties
-    nextPropsFiltered.forEach(name => {
-        const prevValue = prevProps[name];
-        const nextValue = nextProps[name];
-
-        if (prevValue === nextValue) {
-            return; // Skip if the property is unchanged
-        }
-
-        if (name === 'style') {
-            const prevStyle = prevValue || {};
-            const nextStyle = nextValue || {};
-
-            // Remove old style properties
-            Object.keys(prevStyle).forEach(styleName => {
-                if (!(styleName in nextStyle)) {
-                    htmlElement.style[styleName] = '';
-                }
-            });
-
-            // Add/update new style properties
-            Object.keys(nextStyle).forEach(styleName => {
-                if (prevStyle[styleName] !== nextStyle[styleName]) {
-                    const value = nextStyle[styleName];
-                    htmlElement.style[styleName as any] =
-                        typeof value === 'number' && styleName !== 'opacity'
-                            ? `${value}px`
-                            : value;
-                }
-            });
-        } else if (name === 'class' || name === 'className') {
-            // CRITICAL: Correctly handle the 'class' attribute via the 'className' property
-            htmlElement.className = nextValue || '';
+  // Remove old properties
+  Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone(prevProps, nextProps))
+    .forEach(name => {
+      if (name === 'className' || name === 'class') {
+        (dom as Element).removeAttribute('class');
+      } else if (name === 'style') {
+        (dom as HTMLElement).style.cssText = '';
+      } else {
+        if (isSvg) {
+          (dom as Element).removeAttribute(name);
         } else {
-             // For all other attributes, use setAttribute for reliability
-            htmlElement.setAttribute(name, nextValue);
+          (dom as any)[name] = '';
         }
+      }
+    });
+
+  // Set new or changed properties
+  Object.keys(nextProps)
+    .filter(isProperty)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      if (name === 'style') {
+        const style = nextProps[name];
+        if (typeof style === 'string') {
+          (dom as HTMLElement).style.cssText = style;
+        } else if (typeof style === 'object' && style !== null) {
+          for (const [key, value] of Object.entries(style)) {
+            (dom as HTMLElement).style[key] = value;
+          }
+        }
+      } else if (name === 'className' || name === 'class') {
+        (dom as Element).setAttribute('class', nextProps[name]);
+      } else {
+        if (isSvg) {
+          (dom as Element).setAttribute(name, nextProps[name]);
+        } else {
+          (dom as any)[name] = nextProps[name];
+        }
+      }
+    });
+
+  // Add new event listeners
+  Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      const eventType = name.toLowerCase().substring(2);
+      const handler = nextProps[name];
+      if (typeof handler === 'function') {
+        (dom as Element).addEventListener(eventType, handler);
+      }
+    });
+
+    Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      const eventType = name.toLowerCase().substring(2);
+      const handler = nextProps[name];
+      if (typeof handler === 'function') {
+        // Remove old listener first if it exists
+        if (prevProps[name]) {
+          dom.removeEventListener(eventType, prevProps[name]);
+        }
+        // Add new listener with passive: true for better performance
+        dom.addEventListener(eventType, handler, { passive: true });
+      }
     });
 }
 
@@ -235,53 +271,24 @@ function commitDeletion(fiber: Fiber | null): void {
 }
 
 /**
- * Renders a virtual DOM element into a container, handling SSR hydration.
+ * Renders a virtual DOM element into a container.
  * @param {VNode} element - The root virtual DOM element to render.
  * @param {Node} container - The DOM container to render into.
  */
 export function render(element: VNode, container: Node): void {
-    // Check for server-side rendered props
-    const propsScript = document.getElementById('__VADER_PROPS__');
-    let initialProps = {};
-
-    if (propsScript) {
-        try {
-            initialProps = JSON.parse(propsScript.textContent || '{}');
-            // Clean up the script tag after reading the props
-            propsScript.remove();
-        } catch (e) {
-            console.error("Failed to parse SSR props:", e);
-        }
-    }
-
-    // If the element is a function component (the App), merge initial props
-    if (typeof element.type === 'function') {
-        element.props = { ...element.props, ...initialProps };
-    }
-    
-    // If the container already has content from SSR, we hydrate it.
-    // Otherwise, we clear it for a fresh client-side render.
-    const isHydrating = container.hasChildNodes();
-    if (!isHydrating) {
-        container.innerHTML = "";
-    }
-
-    wipRoot = {
-        dom: container,
-        props: {
-            children: [element],
-        },
-        alternate: currentRoot,
-    };
-    deletions = [];
-    nextUnitOfWork = wipRoot;
-
-    if (!isRenderScheduled) {
-        isRenderScheduled = true;
-        requestAnimationFrame(workLoop);
-    }
+  container.innerHTML = "";
+  
+  wipRoot = {
+    dom: container,
+    props: {
+      children: [element],
+    },
+    alternate: currentRoot,
+  };
+  deletions = [];
+  nextUnitOfWork = wipRoot;
+ requestAnimationFrame(workLoop);
 }
-
 
 /**
  * The main work loop for rendering and reconciliation.
@@ -296,7 +303,7 @@ function workLoop(): void {
     deletions = [];
     nextUnitOfWork = wipRoot;
   }
-
+ 
   while (nextUnitOfWork) {
     nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
   }
@@ -306,6 +313,7 @@ function workLoop(): void {
   }
 }
 
+ 
 /**
  * Performs work on a single fiber unit.
  * @param {Fiber} fiber - The fiber to perform work on.
@@ -313,7 +321,7 @@ function workLoop(): void {
  */
 function performUnitOfWork(fiber: Fiber): Fiber | null {
   const isFunctionComponent = fiber.type instanceof Function;
-
+ 
   if (isFunctionComponent) {
     updateFunctionComponent(fiber);
   } else {
@@ -338,19 +346,20 @@ function performUnitOfWork(fiber: Fiber): Fiber | null {
  * Updates a function component fiber.
  * @param {Fiber} fiber - The function component fiber to update.
  */
-function updateFunctionComponent(fiber: Fiber): void {
+ function updateFunctionComponent(fiber: Fiber) {
   wipFiber = fiber;
   hookIndex = 0;
-  wipFiber.hooks = fiber.alternate ? fiber.alternate.hooks : [];
+  fiber.hooks = fiber.alternate?.hooks || [];
 
-  const children = [fiber.type(fiber.props)]
+  // Directly call the component function without memoization
+  // The 'createComponent' call is removed.
+  const children = [(fiber.type as Function)(fiber.props)]
     .flat()
     .filter(child => child != null && typeof child !== 'boolean')
-    .map(child => typeof child === "object" ? child : createTextElement(child));
+    .map(child => typeof child === 'object' ? child : createTextElement(child));
 
   reconcileChildren(fiber, children);
 }
-
 /**
  * Updates a host component fiber (DOM element).
  * @param {Fiber} fiber - The host component fiber to update.
@@ -367,32 +376,31 @@ function updateHostComponent(fiber: Fiber): void {
  * @param {Fiber} wipFiber - The work-in-progress fiber.
  * @param {VNode[]} elements - The new child elements.
  */
-function reconcileChildren(wipFiber: Fiber, elements: VNode[]): void {
+ function reconcileChildren(wipFiber: Fiber, elements: VNode[]) {
   let index = 0;
   let oldFiber = wipFiber.alternate?.child;
-  let prevSibling = null;
-
-  const oldFibersByKey = new Map<string | number, Fiber>();
-
+  let prevSibling: Fiber | null = null;
+  
+  // Create map of existing fibers by key
+  const existingFibers = new Map<string | number | null, Fiber>();
   while (oldFiber) {
-    const key = oldFiber.key != null ? oldFiber.key : index;
-    oldFibersByKey.set(key, oldFiber);
+    const key = oldFiber.key ?? index;
+    existingFibers.set(key, oldFiber);
     oldFiber = oldFiber.sibling;
     index++;
   }
 
   index = 0;
-  prevSibling = null;
-
   for (; index < elements.length; index++) {
     const element = elements[index];
-    const key = element.key != null ? element.key : index;
-    const oldFiber = oldFibersByKey.get(key);
-    const sameType = oldFiber && element.type === oldFiber.type;
-
+    const key = element?.key ?? index;
+    const oldFiber = existingFibers.get(key);
+    
+    const sameType = oldFiber && element && element.type === oldFiber.type;
     let newFiber: Fiber | null = null;
 
     if (sameType) {
+      // Reuse the fiber
       newFiber = {
         type: oldFiber.type,
         props: element.props,
@@ -400,37 +408,44 @@ function reconcileChildren(wipFiber: Fiber, elements: VNode[]): void {
         parent: wipFiber,
         alternate: oldFiber,
         effectTag: "UPDATE",
-        key,
+        hooks: oldFiber.hooks,
+        key
       };
-      oldFibersByKey.delete(key);
-    } else {
-      if (element) {
-        newFiber = {
-          type: element.type,
-          props: element.props,
-          dom: null,
-          parent: wipFiber,
-          alternate: null,
-          effectTag: "PLACEMENT",
-          key,
-        };
-      }
+      existingFibers.delete(key);
+    } else if (element) {
+      // Create new fiber
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: "PLACEMENT",
+        key
+      };
     }
 
-    if (prevSibling == null) {
+    if (oldFiber && !sameType) {
+      oldFiber.effectTag = "DELETION";
+      deletions.push(oldFiber);
+    }
+
+    if (index === 0) {
       wipFiber.child = newFiber;
-    } else {
+    } else if (prevSibling && newFiber) {
       prevSibling.sibling = newFiber;
     }
-    prevSibling = newFiber;
+
+    if (newFiber) {
+      prevSibling = newFiber;
+    }
   }
 
-  oldFibersByKey.forEach(fiber => {
+  // Mark remaining old fibers for deletion
+  existingFibers.forEach(fiber => {
     fiber.effectTag = "DELETION";
     deletions.push(fiber);
   });
-
-  if (prevSibling) prevSibling.sibling = null;
 }
 
 /**
@@ -481,39 +496,45 @@ function createTextElement(text: string): VNode {
  * @param {T|(() => T)} initial - The initial state value or initializer function.
  * @returns {[T, (action: T | ((prevState: T) => T)) => void]} A stateful value and a function to update it.
  */
-export function useState<T>(
-  initial: T | (() => T)
-): [T, (action: T | ((prevState: T) => T)) => void] {
+
+ 
+
+ export function useState<T>(initial: T | (() => T)): [T, (action: T | ((prevState: T) => T)) => void] {
   if (!wipFiber) {
     throw new Error("Hooks can only be called inside a Vader.js function component.");
   }
 
-  let hook = wipFiber.hooks[hookIndex];
+  let hook = wipFiber.hooks[hookIndex]; 
   if (!hook) {
-    hook = {
+    hook = { 
       state: typeof initial === "function" ? (initial as () => T)() : initial,
-      queue: []
+      queue: [],
+      _needsUpdate: false
     };
     wipFiber.hooks[hookIndex] = hook;
   }
 
-  hook.queue.forEach((action) => {
-    hook.state = typeof action === "function" ? action(hook.state) : action;
-  });
-  hook.queue = [];
-
   const setState = (action: T | ((prevState: T) => T)) => {
-    hook.queue.push(action);
-    if (!isRenderScheduled) {
-      isRenderScheduled = true;
+    // Calculate new state based on current state 
+    const newState = typeof action === "function" 
+      ? (action as (prevState: T) => T)(hook.state)
+      : action;
+    
+      hook.state = newState;  
+      
+      // Reset work-in-progress root to trigger re-r 
+      
+      deletions = [];
+      nextUnitOfWork = wipRoot;
+      
+      // Start the render process
       requestAnimationFrame(workLoop);
-    }
   };
 
   hookIndex++;
   return [hook.state, setState];
 }
-
+ 
 /**
  * A React-like useEffect hook for side effects.
  * @param {Function} callback - The effect callback.
@@ -523,16 +544,16 @@ export function useEffect(callback: Function, deps?: any[]): void {
   if (!wipFiber) {
     throw new Error("Hooks can only be called inside a Vader.js function component.");
   }
-
+  
   let hook = wipFiber.hooks[hookIndex];
   if (!hook) {
     hook = { deps: undefined, _cleanupFn: undefined };
     wipFiber.hooks[hookIndex] = hook;
   }
-
-  const hasChanged = hook.deps === undefined ||
-    !deps ||
-    deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
+  
+  const hasChanged = hook.deps === undefined || 
+                   !deps || 
+                   deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
 
   if (hasChanged) {
     if (hook._cleanupFn) {
@@ -547,7 +568,7 @@ export function useEffect(callback: Function, deps?: any[]): void {
       }
     }, 0);
   }
-
+  
   hook.deps = deps;
   hookIndex++;
 }
@@ -575,6 +596,10 @@ export function Switch({ children }: { children: VNode[] }): VNode | null {
  * @returns {VNode|null} The children if when is true, otherwise null.
  */
 export function Match({ when, children }: { when: boolean, children: VNode[] }): VNode | null {
+  return when ? children : null;
+}
+
+export function  Show({ when, children }: { when: boolean, children: VNode[] }): VNode | null {
   return when ? children : null;
 }
 
@@ -615,9 +640,9 @@ export function useLayoutEffect(callback: Function, deps?: any[]): void {
     wipFiber.hooks[hookIndex] = hook;
   }
 
-  const hasChanged = hook.deps === undefined ||
-    !deps ||
-    deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
+  const hasChanged = hook.deps === undefined || 
+                   !deps || 
+                   deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
 
   if (hasChanged) {
     if (hook._cleanupFn) {
@@ -739,9 +764,9 @@ export function useMemo<T>(factory: () => T, deps?: any[]): T {
     wipFiber.hooks[hookIndex] = hook;
   }
 
-  const hasChanged = hook.deps === undefined ||
-    !deps ||
-    deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
+  const hasChanged = hook.deps === undefined || 
+                   !deps || 
+                   deps.some((dep, i) => !Object.is(dep, hook.deps[i]));
   if (hasChanged) {
     hook.memoizedValue = factory();
     hook.deps = deps;
@@ -767,10 +792,10 @@ export function useCallback<T extends Function>(callback: T, deps?: any[]): T {
  * @template T
  * @param {T[]} initialValue - The initial array value.
  * @returns {{
- * array: T[],
- * add: (item: T) => void,
- * remove: (index: number) => void,
- * update: (index: number, item: T) => void
+ *   array: T[],
+ *   add: (item: T) => void,
+ *   remove: (index: number) => void,
+ *   update: (index: number, item: T) => void
  * }} An object with the array and mutation functions.
  */
 export function useArray<T>(initialValue: T[] = []): {
@@ -842,9 +867,9 @@ export function useQuery<T>(
   const [error, setError] = useState<Error | null>(null);
 
   // FIX: Destructure primitive values from cacheOptions for stable dependencies.
-  const {
-    enabled = DEFAULT_CACHE_OPTIONS.enabled,
-    expiryMs = DEFAULT_CACHE_OPTIONS.expiryMs
+  const { 
+    enabled = DEFAULT_CACHE_OPTIONS.enabled, 
+    expiryMs = DEFAULT_CACHE_OPTIONS.expiryMs 
   } = cacheOptions;
 
   // FIX: Memoize the options object so its reference is stable across renders.
@@ -861,7 +886,7 @@ export function useQuery<T>(
       if (mergedCacheOptions.enabled) {
         const cached = queryCache.get(url);
         const now = Date.now();
-
+        
         if (cached && now - cached.timestamp < mergedCacheOptions.expiryMs) {
           setData(cached.data);
           setLoading(false);
@@ -871,13 +896,13 @@ export function useQuery<T>(
 
       // Not in cache or expired - fetch fresh data
       const response = await fetch(url);
-
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+      
       const result = await response.json();
-
+      
       // Update cache if enabled
       if (mergedCacheOptions.enabled) {
         queryCache.set(url, {
@@ -886,7 +911,7 @@ export function useQuery<T>(
           options: mergedCacheOptions
         });
       }
-
+      
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
@@ -972,3 +997,4 @@ export function useOnClickOutside(ref: { current: HTMLElement | null }, handler:
     };
   }, [ref, handler]);
 }
+ 
