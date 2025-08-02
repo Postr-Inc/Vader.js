@@ -1,15 +1,5 @@
 #!/usr/bin/env bun
-/**
- * VaderJS Build & Development Script
- *
- * This script handles building the VaderJS framework, your application code,
- * and serving it in a local development environment with live reloading.
- *
- * Commands:
- * bun run vaderjs build   -  Builds the project for production.
- * bun run vaderjs dev     -  Starts the dev server with HMR and file watching.
- * bun run vaderjs serve   -  Builds and serves the production output.
- */
+ 
 
 import { build, serve } from "bun";
 import fs from "fs/promises";
@@ -93,9 +83,10 @@ const vaderAPI = {
 
 async function loadConfig() {
   try {
-    const configModule = await import(path.join(PROJECT_ROOT, "vaderjs.config.js"));
+    const configModule = await import(path.join(PROJECT_ROOT, "vaderjs.config.js")); 
     return configModule.default || configModule;
   } catch {
+    console.log(path.join(PROJECT_ROOT, "vaderjs.config.js"))
     logger.warn("No 'vader.config.js' found, using defaults.");
     return {};
   }
@@ -149,10 +140,43 @@ async function buildVaderCore() {
 function patchHooksUsage(code) {
   return code.replace(/import\s+{[^}]*use(State|Effect|Memo|Navigation)[^}]*}\s+from\s+['"]vaderjs['"];?\n?/g, "");
 }
+function publicAssetPlugin() {
+  return {
+    name: "public-asset-replacer",
+    setup(build) {
+      build.onLoad({ filter: /\.(js|ts|jsx|tsx|html)$/ }, async (args) => {
+        let code = await fs.readFile(args.path, "utf8");
+
+        code = code.replace(/\{\{public:(.+?)\}\}/g, (_, relPath) => {
+          const absPath = path.join(PUBLIC_DIR, relPath.trim());
+          if (fsSync.existsSync(absPath)) {
+            return "/" + relPath.trim().replace(/\\/g, "/");
+          }
+          logger.warn(`Public asset not found: ${relPath}`);
+          return relPath;
+        });
+
+        return {
+          contents: code,
+          loader: args.path.endsWith(".html")
+            ? "text"
+            : args.path.endsWith(".tsx")
+            ? "tsx"
+            : args.path.endsWith(".jsx")
+            ? "jsx"
+            : args.path.endsWith(".ts")
+            ? "ts"
+            : "js",
+        };
+      });
+    },
+  };
+}
 
 /**
  * Step 3: Pre-processes all files in `/src` into a temporary directory.
  */
+ 
 async function preprocessSources(srcDir, tempDir) {
   await fs.mkdir(tempDir, { recursive: true });
   for (const entry of await fs.readdir(srcDir, { withFileTypes: true })) {
@@ -163,7 +187,7 @@ async function preprocessSources(srcDir, tempDir) {
       await preprocessSources(srcPath, destPath);
     } else if (/\.(tsx|jsx|ts|js)$/.test(entry.name)) {
       let content = await fs.readFile(srcPath, "utf8");
-      content = patchHooksUsage(content);
+      content = patchHooksUsage(content); 
       await fs.writeFile(destPath, content);
     } else {
       await fs.copyFile(srcPath, destPath);
@@ -201,6 +225,9 @@ async function buildSrc() {
     jsxImportSource: "vaderjs",
     target: "browser",
     minify: false,
+    plugins: [
+      publicAssetPlugin(),
+    ],
     external: ["vaderjs"],
   });
 }
@@ -222,57 +249,61 @@ async function copyPublicAssets() {
     return;
   }
 
-  // Ensure the dist directory exists
   if (!fsSync.existsSync(DIST_DIR)) {
     await fs.mkdir(DIST_DIR, { recursive: true });
   }
 
-  const devClientScript = isDev ? ` 
-  <script>
-    new WebSocket("ws://" + location.host + "/__hmr").onmessage = (msg) => {
-      if (msg.data === "reload") location.reload();
-    };
-  </script>` : "";
+  const devClientScript = isDev
+    ? `<script>
+        new WebSocket("ws://" + location.host + "/__hmr").onmessage = (msg) => {
+          if (msg.data === "reload") location.reload();
+        };
+      </script>`
+    : "";
 
   const entries = fsSync.readdirSync(APP_DIR, { recursive: true })
     .filter(file => /index\.(jsx|tsx)$/.test(file))
     .map(file => ({
-        name: path.dirname(file) === '.' ? 'index' : path.dirname(file).replace(/\\/g, '/'),
-        path: path.join(APP_DIR, file)
+      name: path.dirname(file) === '.' ? 'index' : path.dirname(file).replace(/\\/g, '/'),
+      path: path.join(APP_DIR, file)
     }));
 
-  for (const { name, path: entryPath } of entries) {
-    // Check for the specific case where 'name' could be 'index.js' and prevent duplication
-    const outDir = path.join(DIST_DIR, name === 'index' ? '' : name);
-    const outJsPath = path.join(outDir, 'index.js');  // Output JavaScript file path
+  // Helper to resolve any asset path from /public
+  function resolvePublicPath(p) {
+    const assetPath = p.replace(/^(\.\/|\/)/, ""); // strip leading ./ or /
+    const absPath = path.join(PUBLIC_DIR, assetPath);
+    if (fsSync.existsSync(absPath)) {
+      return "/" + assetPath.replace(/\\/g, "/");
+    }
+    return p; // leave unchanged if not in public
+  }
 
-    // Ensure the output directory exists
+  for (const { name, path: entryPath } of entries) {
+    const outDir = path.join(DIST_DIR, name === 'index' ? '' : name);
+    const outJsPath = path.join(outDir, 'index.js');
     await fs.mkdir(outDir, { recursive: true });
 
-    // **FIXED CSS HANDLING**: Find, copy, and correctly link CSS files
+    // --- CSS HANDLING ---
     const cssLinks = [];
-    const cssContent = await fs.readFile(entryPath, "utf8");
-    const cssImports = [...cssContent.matchAll(/import\s+['"](.*\.css)['"]/g)];
-
+    let content = await fs.readFile(entryPath, "utf8");
+    const cssImports = [...content.matchAll(/import\s+['"](.*\.css)['"]/g)];
     for (const match of cssImports) {
-        const cssImportPath = match[1]; // e.g., './styles.css'
-        const sourceCssPath = path.resolve(path.dirname(entryPath), cssImportPath);
-        if (fsSync.existsSync(sourceCssPath)) {
-            const relativeCssPath = path.relative(APP_DIR, sourceCssPath);
-            const destCssPath = path.join(DIST_DIR, relativeCssPath);
-
-            await fs.mkdir(path.dirname(destCssPath), { recursive: true });
-            await fs.copyFile(sourceCssPath, destCssPath);
-
-            const htmlRelativePath = path.relative(outDir, destCssPath).replace(/\\/g, '/');
-            cssLinks.push(`<link rel="stylesheet" href="${htmlRelativePath}">`);
-        } else {
-            logger.warn(`CSS file not found: ${sourceCssPath}`);
-        }
+      const cssImportPath = match[1];
+      const sourceCssPath = path.resolve(path.dirname(entryPath), cssImportPath);
+      if (fsSync.existsSync(sourceCssPath)) {
+        const relativeCssPath = path.relative(APP_DIR, sourceCssPath);
+        const destCssPath = path.join(DIST_DIR, relativeCssPath);
+        await fs.mkdir(path.dirname(destCssPath), { recursive: true });
+        await fs.copyFile(sourceCssPath, destCssPath);
+        const htmlRelativePath = path.relative(outDir, destCssPath).replace(/\\/g, '/');
+        cssLinks.push(`<link rel="stylesheet" href="${htmlRelativePath}">`);
+      } else {
+        logger.warn(`CSS file not found: ${sourceCssPath}`);
+      }
     }
 
-    // Update the script tag to use relative paths for index.js
-    const htmlContent = `<!DOCTYPE html>
+    // --- HTML GENERATION ---
+    let htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -286,36 +317,53 @@ async function copyPublicAssets() {
   <script type="module">
     import App from '${name !== 'index' ? "/" + name : ''}/index.js'; 
     import * as Vader from '/src/vader/index.js';
-    window.Vader = Vader
+    window.Vader = Vader;
     Vader.render(Vader.createElement(App, null), document.getElementById("app"));
   </script>
   ${devClientScript}
 </body>
 </html>`;
 
+    // --- FIX ASSET PATHS IN HTML ---
+    htmlContent = htmlContent.replace(
+      /(["'(])([^"'()]+?\.(png|jpe?g|gif|svg|webp|ico))(["')])/gi,
+      (match, p1, assetPath, ext, p4) => p1 + resolvePublicPath(assetPath) + p4
+    );
+
     await fs.writeFile(path.join(outDir, "index.html"), htmlContent);
 
-    // Log for debugging 
-
-    // Build the JavaScript file and ensure it uses the correct paths
+    // --- JS BUILD ---
     await build({
       entrypoints: [entryPath],
-      outdir: outDir,  // Pass the directory path to outdir 
+      outdir: outDir,
       target: "browser",
       minify: false,
       sourcemap: "external",
       external: ["vaderjs"],
       jsxFactory: "e",
       jsxFragment: "Fragment",
+       plugins: [
+      publicAssetPlugin(),
+    ],
       jsxImportSource: "vaderjs",
     });
 
-    // After build, replace the 'vaderjs' import to the correct path
+    // --- FIX IMPORT PATHS IN JS ---
     let jsContent = await fs.readFile(outJsPath, "utf8");
+
+    // Vader import fix
     jsContent = jsContent.replace(/from\s+['"]vaderjs['"]/g, `from '/src/vader/index.js'`);
+
+    // Asset path fix for JS
+    jsContent = jsContent.replace(
+      /(["'(])([^"'()]+?\.(png|jpe?g|gif|svg|webp|ico))(["')])/gi,
+      (match, p1, assetPath, ext, p4) => p1 + resolvePublicPath(assetPath) + p4
+    );
+
     await fs.writeFile(outJsPath, jsContent);
   }
 }
+
 
  
 
@@ -442,6 +490,7 @@ console.log(banner);
   const command = process.argv[2];
 
   if (command === "dev") {
+    globalThis.isDev = true
     await runDevServer();
   } else if (command === "build") {
     await buildAll(false);
