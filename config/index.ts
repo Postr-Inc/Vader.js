@@ -1,6 +1,6 @@
 export type Config = {
-  name: string,
-  version: string,
+  name?: string,
+  version?: string,
   description?: string,
   port: number,
   host?: string, 

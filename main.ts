@@ -36,7 +36,7 @@ async function timedStep(name, fn) {
     logger.success(`Finished '${name}' in ${duration}ms`);
   } catch (e) {
     logger.error(`Error during '${name}':`, e);
-    if (!isDev) process.exit(1);
+    if (!globalThis.isDev) process.exit(1);
   }
 }
 
@@ -58,14 +58,207 @@ const VADER_SRC_PATH = path.join(
 const TEMP_SRC_DIR = path.join(PROJECT_ROOT, ".vader_temp_src");
 
 let config: any = {};
-let htmlInjections: string[] = [];
+
+// --- Plugin Support ---
+
+interface Plugin {
+  name: string;
+  version: string;
+  description?: string;
+  onBuildStart?: (api: PluginAPI) => Promise<void> | void;
+  onBuildFinish?: (api: PluginAPI) => Promise<void> | void;
+  onFileChange?: (file: string, api: PluginAPI) => Promise<void> | void;
+}
+
+interface PluginAPI {
+  injectHTML(html: string, id?: string): void;
+  addWatchPath(path: string): void;
+  config: any;
+  isDev: boolean;
+  distDir: string;
+  srcDir: string;
+  publicDir: string;
+  projectRoot: string;
+}
+
+let plugins: Plugin[] = [];
+
+// Track HTML injections with IDs to prevent duplicates
+class HTMLInjectionManager {
+  private injections: Map<string, string> = new Map();
+  
+  add(html: string, id?: string): void {
+    const injectionId = id || this.generateId(html);
+    
+    if (!this.injections.has(injectionId)) {
+      this.injections.set(injectionId, html);
+      logger.info(`Added HTML injection: ${injectionId}`);
+    } else {
+      logger.info(`Skipping duplicate HTML injection: ${injectionId}`);
+    }
+  }
+  
+  private generateId(html: string): string {
+    const hrefMatch = html.match(/href=["']([^"']+)["']/);
+    if (hrefMatch) {
+      return `link:${hrefMatch[1]}`;
+    }
+    
+    const srcMatch = html.match(/src=["']([^"']+)["']/);
+    if (srcMatch) {
+      return `script:${srcMatch[1]}`;
+    }
+    
+    const nameMatch = html.match(/(?:name|property)=["']([^"']+)["']/);
+    if (nameMatch) {
+      return `meta:${nameMatch[1]}`;
+    }
+    
+    let hash = 0;
+    for (let i = 0; i < html.length; i++) {
+      hash = ((hash << 5) - hash) + html.charCodeAt(i);
+      hash |= 0;
+    }
+    return `injection:${Math.abs(hash)}`;
+  }
+  
+  getAll(): string[] {
+    return Array.from(this.injections.values());
+  }
+  
+  clear(): void {
+    this.injections.clear();
+  }
+}
+
+const htmlInjectionManager = new HTMLInjectionManager();
+
+// Create plugin API helper
+function createPluginAPI(): PluginAPI {
+  return {
+    injectHTML: (html: string, id?: string) => {
+      htmlInjectionManager.add(html, id);
+    },
+    addWatchPath: (watchPath: string) => {
+      if (fsSync.existsSync(watchPath)) {
+        watcher.watch(watchPath);
+      }
+    },
+    config: config,
+    isDev: globalThis.isDev,
+    distDir: DIST_DIR,
+    srcDir: SRC_DIR,
+    publicDir: PUBLIC_DIR,
+    projectRoot: PROJECT_ROOT
+  };
+}
+
+// Run plugin hooks
+async function runPluginHook(hookName: 'onBuildStart' | 'onBuildFinish', api: PluginAPI) {
+  for (const plugin of plugins) {
+    if (plugin[hookName]) {
+      try {
+        logger.info(`Running plugin hook: ${plugin.name} - ${hookName}`);
+        await plugin[hookName]!(api);
+      } catch (e) {
+        logger.error(`Error in plugin "${plugin.name}" during ${hookName}:`, e);
+        if (!globalThis.isDev) process.exit(1);
+      }
+    }
+  }
+}
+
+// Load plugins from config
+async function loadPluginsFromConfig() {
+  if (!config.plugins || !Array.isArray(config.plugins)) {
+    logger.info("No plugins defined in config");
+    return;
+  }
+
+  const loadedPlugins: Plugin[] = [];
+  
+  for (const pluginConfig of config.plugins) {
+    try {
+      let plugin;
+      
+      if (typeof pluginConfig === 'string') {
+        const pluginPath = path.isAbsolute(pluginConfig) 
+          ? pluginConfig 
+          : path.join(PROJECT_ROOT, pluginConfig);
+        
+        if (fsSync.existsSync(pluginPath)) {
+          const pluginModule = await import(pluginPath);
+          plugin = pluginModule.default || pluginModule;
+        } else {
+          plugin = await import(pluginConfig);
+        }
+      } 
+      else if (typeof pluginConfig === 'object' && pluginConfig.resolve) {
+        const pluginModule = await import(pluginConfig.resolve);
+        plugin = pluginModule.default || pluginModule;
+        
+        if (typeof plugin === 'function' && pluginConfig.options) {
+          plugin = await plugin(pluginConfig.options);
+        }
+      }
+      else if (typeof pluginConfig === 'object' && pluginConfig.name) {
+        plugin = pluginConfig;
+      }
+      
+      if (plugin && typeof plugin === 'object' && plugin.name) {
+        loadedPlugins.push(plugin);
+        logger.success(`Loaded plugin: ${plugin.name} v${plugin.version || 'unknown'}`);
+      } else {
+        logger.warn(`Invalid plugin: missing name property`);
+      }
+    } catch (e) {
+      logger.error(`Failed to load plugin:`, e);
+    }
+  }
+  
+  plugins = loadedPlugins;
+}
+
+// Also load from plugins directory
+async function loadPluginsFromDirectory() {
+  const pluginsDir = path.join(PROJECT_ROOT, "plugins");
+  
+  if (!fsSync.existsSync(pluginsDir)) {
+    return;
+  }
+  
+  const pluginFiles = await fs.readdir(pluginsDir);
+  const loadedPlugins: Plugin[] = [];
+  
+  for (const file of pluginFiles) {
+    if (file.endsWith('.js') || file.endsWith('.ts')) {
+      try {
+        const pluginPath = path.join(pluginsDir, file);
+        const pluginModule = await import(pluginPath);
+        const plugin = pluginModule.default || pluginModule;
+        
+        if (plugin && typeof plugin === 'object' && plugin.name) {
+          if (!plugins.some(p => p.name === plugin.name)) {
+            loadedPlugins.push(plugin);
+            logger.info(`Loaded plugin from directory: ${plugin.name} v${plugin.version}`);
+          }
+        } else {
+          logger.warn(`Invalid plugin in ${file}: missing name property`);
+        }
+      } catch (e) {
+        logger.error(`Failed to load plugin ${file}:`, e);
+      }
+    }
+  }
+  
+  plugins = [...plugins, ...loadedPlugins];
+}
 
 // --- JSConfig Setup ---
 
 async function ensureJSConfig() {
   const jsconfigPath = path.join(PROJECT_ROOT, "jsconfig.json");
   
-  // Check if jsconfig.json already exists
   let existingConfig = {};
   if (fsSync.existsSync(jsconfigPath)) {
     try {
@@ -76,7 +269,6 @@ async function ensureJSConfig() {
     }
   }
   
-  // Define the required VaderJS configuration
   const vaderConfig = {
     compilerOptions: {
       jsx: "react",
@@ -85,7 +277,6 @@ async function ensureJSConfig() {
     }
   };
   
-  // Merge with existing config (preserve other settings)
   const mergedConfig = {
     ...existingConfig,
     compilerOptions: {
@@ -94,7 +285,6 @@ async function ensureJSConfig() {
     }
   };
   
-  // Write the config
   await fs.writeFile(jsconfigPath, JSON.stringify(mergedConfig, null, 2));
   logger.success(`jsconfig.json created/updated at ${jsconfigPath}`);
 }
@@ -104,33 +294,63 @@ async function ensureJSConfig() {
 class FileWatcher {
   watchers = new Map<string, any>();
   callbacks: ((file: string) => void)[] = [];
+  private debounceTimer: NodeJS.Timeout | null = null;
+  private pendingFiles = new Set<string>();
+  private rebuildInProgress = false;
 
   watch(dir: string) {
     if (!fsSync.existsSync(dir)) return;
 
-    const watcher = fsSync.watch(dir, { recursive: true }, (_, filename) => {
-      if (!filename) return;
+    try {
+      const watcher = fsSync.watch(dir, { recursive: true }, (event, filename) => {
+        if (!filename) return;
 
-      const file = path.join(dir, filename);
+        const file = path.join(dir, filename);
 
-      if (
-        file.includes("node_modules") ||
-        file.includes("dist") ||
-        file.includes(".git")
-      )
-        return;
+        if (
+          file.includes("node_modules") ||
+          file.includes("dist") ||
+          file.includes(".git") ||
+          file.includes(".vader_temp_src")
+        )
+          return;
 
-      this.callbacks.forEach((cb) => cb(file));
-    });
+        this.pendingFiles.add(file);
+        
+        if (this.debounceTimer) {
+          clearTimeout(this.debounceTimer);
+        }
+        
+        this.debounceTimer = setTimeout(() => {
+          const files = Array.from(this.pendingFiles);
+          this.pendingFiles.clear();
+          
+          if (!this.rebuildInProgress) {
+            this.callbacks.forEach((cb) => {
+              files.forEach(file => cb(file));
+            });
+          }
+        }, 100);
+      });
 
-    this.watchers.set(dir, watcher);
+      this.watchers.set(dir, watcher);
+    } catch (error) {
+      logger.warn(`Failed to watch directory ${dir}:`, error);
+    }
   }
 
   onChange(cb: (file: string) => void) {
     this.callbacks.push(cb);
   }
+  
+  setRebuildStatus(status: boolean) {
+    this.rebuildInProgress = status;
+  }
 
   clear() {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
     this.watchers.forEach((w) => w.close());
     this.watchers.clear();
   }
@@ -142,9 +362,14 @@ const watcher = new FileWatcher();
 
 export async function loadConfig() {
   try {
-    const mod = await import(path.join(PROJECT_ROOT, "vaderjs.config.js"));
-    return mod.default || mod;
-  } catch {
+    const configPath = path.join(PROJECT_ROOT, "vaderjs.config.ts");
+    if (fsSync.existsSync(configPath)) {
+      const mod = await import(configPath);
+      return mod.default || mod;
+    }
+    return {};
+  } catch (error) {
+    logger.warn("Failed to load config, using defaults:", error);
     return {};
   }
 }
@@ -252,7 +477,6 @@ async function copyPublicAssets() {
   }
 }
 
-// Helper function to find App file
 function findAppFile(): string | null {
   const possiblePaths = [
     path.join(PROJECT_ROOT, "App.tsx"),
@@ -272,63 +496,204 @@ function findAppFile(): string | null {
   return null;
 }
 
-async function buildAppEntrypoints() {
-  // First check for root App file (VaderJS standard)
-  const appFile = findAppFile();
+function getUniqueInjections(injections: string[]): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
   
-  if (appFile) {
-    logger.info(`Building App from: ${appFile}`);
+  for (const injection of injections) {
+    let key = injection;
     
-    await build({
-      entrypoints: [appFile],
-      outdir: DIST_DIR,
-      target: "browser",
-      jsxFactory: "e",
-      jsxFragment: "Fragment",
-      jsxImportSource: "vaderjs",
-      naming: "index.js",
-      external: [], // Bundle everything for website
-    });
+    const hrefMatch = injection.match(/href=["']([^"']+)["']/);
+    if (hrefMatch) {
+      key = `link:${hrefMatch[1]}`;
+    }
+    
+    const srcMatch = injection.match(/src=["']([^"']+)["']/);
+    if (srcMatch) {
+      key = `script:${srcMatch[1]}`;
+    }
+    
+    const nameMatch = injection.match(/(?:name|property)=["']([^"']+)["']/);
+    if (nameMatch) {
+      key = `meta:${nameMatch[1]}`;
+    }
+    
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(injection);
+    }
+  }
+  
+  return unique;
+}
 
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Vader App</title>
-</head>
-<body>
-<div id="app"></div>
-<script type="module" src="/index.js"></script>
-</body>
-</html>`;
+// --- VERCEL CONFIG GENERATION ---
 
-    await fs.writeFile(path.join(DIST_DIR, "index.html"), html);
+async function generateVercelConfig(routes: { route: string; htmlPath: string }[]) {
+  if (config.host_provider !== "vercel") {
+    logger.info("Hosting provider is not 'vercel', skipping vercel.json generation");
+    return;
+  }
+
+  logger.info("🔧 Generating Vercel configuration for deployment...");
+
+  // Build the vercel.json configuration
+  const vercelConfig: any = {
+    version: 2,
+    buildCommand: "bun run build",
+    outputDirectory: "dist",
+    installCommand: "bun install",
+    framework: null,
+    rewrites: [],
+  };
+
+  // Add specific rewrites for each generated HTML route
+  for (const route of routes) {
+    if (route.route === "index") {
+      // Root route
+      vercelConfig.rewrites.push({
+        source: "/",
+        destination: "/dist/index.html",
+      });
+    } else {
+      // Nested route - exact match
+      vercelConfig.rewrites.push({
+        source: `/${route.route}`,
+        destination: `/dist/${route.route}/index.html`,
+      });
+      // Also handle subpaths (for client-side routing)
+      vercelConfig.rewrites.push({
+        source: `/${route.route}/:path*`,
+        destination: `/dist/${route.route}/index.html`,
+      });
+    }
+  }
+
+  // Fallback for static assets (CSS, JS, images)
+  vercelConfig.rewrites.push({
+    source: "/:path*",
+    destination: "/dist/:path*",
+  });
+
+  // Final fallback for any unmatched routes (SPA behavior)
+  vercelConfig.rewrites.push({
+    source: "/(.*)",
+    destination: "/dist/index.html",
+  });
+
+  // Remove duplicate rewrites (keep first occurrence for each source pattern)
+  const uniqueRewrites = [];
+  const seenSources = new Set();
+  for (const rewrite of vercelConfig.rewrites) {
+    if (!seenSources.has(rewrite.source)) {
+      seenSources.add(rewrite.source);
+      uniqueRewrites.push(rewrite);
+    }
+  }
+  vercelConfig.rewrites = uniqueRewrites;
+
+  // Write vercel.json to PROJECT ROOT (not inside dist)
+  const vercelPath = path.join(PROJECT_ROOT, "vercel.json");
+  await fs.writeFile(vercelPath, JSON.stringify(vercelConfig, null, 2));
+  
+  logger.success(`✅ vercel.json generated at ${vercelPath}`);
+  logger.info(`   Routes configured to serve from ./dist directory`);
+  logger.info(`   ${routes.length} route(s) configured`);
+}
+
+async function generateVercelProjectConfig() {
+  if (config.hosting !== "vercel") return;
+  
+  const vercelDir = path.join(PROJECT_ROOT, ".vercel");
+  await fs.mkdir(vercelDir, { recursive: true });
+  
+  const projectConfig = {
+    projectId: config.vercelProjectId || "",
+    orgId: config.vercelOrgId || "",
+    settings: {
+      framework: null,
+      devCommand: "bun run dev",
+      installCommand: "bun install",
+      buildCommand: "bun run build",
+      outputDirectory: "dist",
+    },
+  };
+  
+  const vercelProjectPath = path.join(vercelDir, "project.json");
+  await fs.writeFile(vercelProjectPath, JSON.stringify(projectConfig, null, 2));
+  logger.info(`📁 Generated .vercel/project.json`);
+}
+
+// --- BUILD APP ENTRYPOINTS ---
+
+async function buildAppEntrypoints() { 
+  
+  const allInjections = htmlInjectionManager.getAll();
+  const uniqueInjections = getUniqueInjections(allInjections);
+  const htmlInjectionsString = uniqueInjections.join('\n    ');
+  
+  if (uniqueInjections.length > 0) {
+    logger.info(`Injecting ${uniqueInjections.length} unique HTML items into page`);
+  }
+   
+  if (!fsSync.existsSync(APP_DIR)) {
+    logger.warn("No app directory found");
+    return;
+  }
+
+  const entrypoints: { route: string; path: string }[] = [];
+  const generatedRoutes: { route: string; htmlPath: string }[] = [];
+  
+  function findIndexFiles(dir: string, baseRoute: string = "") {
+    const entries = fsSync.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      const routePath = path.join(baseRoute, entry.name);
+      
+      if (entry.isDirectory()) {
+        findIndexFiles(fullPath, routePath);
+      } else if (entry.name.match(/^index\.(tsx|jsx)$/)) {
+        let route = baseRoute;
+        
+        if (route === "") {
+          route = "index";
+        } else {
+          // Convert Windows backslashes to forward slashes for URL
+          route = route.replace(/\\/g, '/');
+        }
+        
+        entrypoints.push({
+          route: route,
+          path: fullPath
+        });
+        
+        logger.info(`Found route: ${route} -> ${fullPath}`);
+      }
+    }
+  }
+  
+  findIndexFiles(APP_DIR);
+  
+  if (entrypoints.length === 0) {
+    logger.warn("No index.tsx/jsx files found in app directory");
     return;
   }
   
-  // Fallback to app directory structure
-  if (!fsSync.existsSync(APP_DIR)) {
-    logger.warn("No App.tsx or app directory found");
-    return;
-  }
+  for (const entry of entrypoints) {
+    let outDir: string;
+    let outputName = "index.js";
 
-  const entries = fsSync
-    .readdirSync(APP_DIR, { recursive: true })
-    .filter((f) => /index\.(tsx|jsx)$/.test(f as string))
-    .map((f) => ({
-      name:
-        path.dirname(f as string) === "."
-          ? "index"
-          : path.dirname(f as string),
-      path: path.join(APP_DIR, f as string),
-    }));
-
-  for (const entry of entries) { 
-    var outDir = path.join(DIST_DIR, entry.name === "index" ? "" : entry.name); 
-
+    if (entry.route === "index") {
+      outDir = DIST_DIR;
+    } else {
+      outDir = path.join(DIST_DIR, entry.route);
+    }
+    
     await fs.mkdir(outDir, { recursive: true });
-    console.log("Building entrypoint:", entry.path);
+    
+    logger.info(`Building route: ${entry.route} -> ${outDir}`);
+    
     await build({
       entrypoints: [entry.path],
       outdir: outDir,
@@ -336,42 +701,97 @@ async function buildAppEntrypoints() {
       jsxFactory: "e",
       jsxFragment: "Fragment",
       jsxImportSource: "vaderjs",
-      external: [], // Bundle everything for website
+      naming: outputName,
+      external: [],
     });
-
+    
+    const htmlPath = path.join(outDir, "index.html");
+    generatedRoutes.push({
+      route: entry.route,
+      htmlPath: htmlPath
+    });
+    
+    const pageTitle = entry.route === "index" 
+      ? (config.title || 'Vader App') 
+      : `${config.title || 'Vader App'} - ${entry.route.charAt(0).toUpperCase() + entry.route.slice(1)}`;
+    
     const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Vader App</title>
+<title>${pageTitle}</title>
+${htmlInjectionsString}
 </head>
 <body>
 <div id="app"></div>
-<script type="module" src="/index.js"></script>
+<script type="module" src="/${entry.route === 'index' ? '' : entry.route + '/'}${outputName}"></script>
 </body>
 </html>`;
-
-    await fs.writeFile(path.join(outDir, "index.html"), html);
+    
+    await fs.writeFile(htmlPath, html);
+    logger.success(`Generated ${htmlPath}`);
+  }
+  
+  logger.success(`Built ${entrypoints.length} routes: ${entrypoints.map(e => e.route).join(', ')}`);
+  
+  // Generate Vercel config if hosting is set to vercel 
+  if (config.host_provider === "vercel") { 
+    await generateVercelConfig(generatedRoutes);
   }
 }
+
+// Windows-compatible directory removal
+async function removeDirectory(dir: string) {
+  try {
+    if (fsSync.existsSync(dir)) {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  } catch (error) {
+    if (fsSync.existsSync(dir)) {
+      const files = await fs.readdir(dir);
+      for (const file of files) {
+        const filePath = path.join(dir, file);
+        const stat = await fs.stat(filePath);
+        if (stat.isDirectory()) {
+          await removeDirectory(filePath);
+        } else {
+          await fs.unlink(filePath).catch(() => {});
+        }
+      }
+      await fs.rmdir(dir).catch(() => {});
+    }
+  }
+}
+
+// --- MAIN BUILD ---
 
 async function buildAll(dev = false) {
   const start = performance.now();
 
-  // Ensure jsconfig.json exists before building
+  htmlInjectionManager.clear();
+
+  await loadPluginsFromConfig();
+  await loadPluginsFromDirectory();
+  
+  const pluginAPI = createPluginAPI();
+  await runPluginHook('onBuildStart', pluginAPI);
+
   await ensureJSConfig();
-
-  if (fsSync.existsSync(DIST_DIR)) {
-    await fs.rm(DIST_DIR, { recursive: true, force: true });
-  }
-
+  await removeDirectory(DIST_DIR);
   await fs.mkdir(DIST_DIR, { recursive: true });
 
   await timedStep("Build Vader Core", buildVaderCore);
   await timedStep("Build Src", buildSrc);
   await timedStep("Copy Public", copyPublicAssets);
   await timedStep("Build App", buildAppEntrypoints);
+  
+  // Generate Vercel project config if needed (optional)
+  if (config.hosting === "vercel") {
+    await generateVercelProjectConfig();
+  }
+
+  await runPluginHook('onBuildFinish', pluginAPI);
 
   logger.success(
     `Build finished in ${(performance.now() - start).toFixed(1)}ms`
@@ -381,10 +801,28 @@ async function buildAll(dev = false) {
 // --- DEV SERVER ---
 
 async function runDevServer() {
+  let buildPromise: Promise<void> | null = null;
+  let reloadTimeout: NodeJS.Timeout | null = null;
+  
+  const triggerReload = (clients: Set<any>) => {
+    if (reloadTimeout) {
+      clearTimeout(reloadTimeout);
+    }
+    
+    reloadTimeout = setTimeout(() => {
+      logger.info("🔄 Reloading clients...");
+      for (const c of clients) {
+        try {
+          c.send("reload");
+        } catch (e) {}
+      }
+      reloadTimeout = null;
+    }, 50);
+  };
+
   await buildAll(true);
 
   const clients = new Set<any>();
-
   const port = config.port || 3000;
 
   const server = serve({
@@ -392,37 +830,68 @@ async function runDevServer() {
 
     fetch(req, server) {
       const url = new URL(req.url);
-
+      
       if (url.pathname === "/__hmr" && server.upgrade(req)) return;
 
-      let filePath = path.join(DIST_DIR, url.pathname);
-
-      if (!path.extname(filePath)) {
-        filePath = path.join(filePath, "index.html");
+      let requestPath = url.pathname;
+      
+      if (requestPath.endsWith('/')) {
+        requestPath = path.join(requestPath, 'index.html');
       }
       
-      // Ensure we're serving from dist directory
+      let filePath = path.join(DIST_DIR, requestPath);
+      
+      if (!path.extname(filePath)) {
+        const indexPath = path.join(filePath, 'index.html');
+        if (fsSync.existsSync(indexPath)) {
+          filePath = indexPath;
+        } else {
+          const htmlPath = filePath + '.html';
+          if (fsSync.existsSync(htmlPath)) {
+            filePath = htmlPath;
+          }
+        }
+      }
+      
       if (url.pathname === "/" || url.pathname === "") {
         filePath = path.join(DIST_DIR, "index.html");
       }
       
-      console.log("Serving:", filePath);
-
-      const file = Bun.file(filePath);
-
-      return file.exists().then((exists) =>
-        exists
-          ? new Response(file)
-          : new Response("Not Found", { status: 404 })
-      );
+      if (fsSync.existsSync(filePath)) {
+        const file = Bun.file(filePath);
+        const ext = path.extname(filePath);
+        const contentType = {
+          '.html': 'text/html',
+          '.js': 'application/javascript',
+          '.css': 'text/css',
+          '.json': 'application/json',
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.svg': 'image/svg+xml',
+          '.ico': 'image/x-icon',
+        }[ext] || 'application/octet-stream';
+        
+        return new Response(file, {
+          headers: {
+            'Content-Type': contentType,
+          },
+        });
+      }
+      
+      logger.warn(`404 Not Found: ${requestPath}`);
+      return new Response("Not Found", { status: 404 });
     },
 
     websocket: {
       open(ws) {
         clients.add(ws);
+        logger.info(`Client connected (${clients.size} total)`);
       },
       close(ws) {
         clients.delete(ws);
+        logger.info(`Client disconnected (${clients.size} total)`);
       },
     },
   });
@@ -431,20 +900,73 @@ async function runDevServer() {
   watcher.watch(SRC_DIR);
   watcher.watch(PUBLIC_DIR);
   
-  // Also watch for root App file
-  const rootAppDir = path.dirname(findAppFile() || "");
-  if (rootAppDir && rootAppDir !== PROJECT_ROOT) {
-    watcher.watch(rootAppDir);
+  const configPath = path.join(PROJECT_ROOT, "vaderjs.config.ts");
+  if (fsSync.existsSync(configPath)) {
+    watcher.watch(configPath);
+  }
+  
+  const pluginsDir = path.join(PROJECT_ROOT, "plugins");
+  if (fsSync.existsSync(pluginsDir)) {
+    watcher.watch(pluginsDir);
+  }
+  
+  const rootAppFile = findAppFile();
+  if (rootAppFile) {
+    watcher.watch(path.dirname(rootAppFile));
   }
 
-  watcher.onChange(async () => {
-    logger.info("Changes detected, rebuilding...");
-    await buildAll(true);
-
-    for (const c of clients) c.send("reload");
+  watcher.onChange(async (file) => {
+    if (buildPromise) {
+      logger.info("Build already in progress, skipping...");
+      return;
+    }
+    
+    logger.info(`Changes detected in: ${path.basename(file)}`);
+    watcher.setRebuildStatus(true);
+    
+    try {
+      if (file.includes('vaderjs.config.ts') || file.includes('plugins')) {
+        logger.info("Config or plugin changed, reloading...");
+        config = await loadConfig();
+        plugins = [];
+        await loadPluginsFromConfig();
+        await loadPluginsFromDirectory();
+      }
+      
+      const pluginAPI = createPluginAPI();
+      for (const plugin of plugins) {
+        if (plugin.onFileChange) {
+          await plugin.onFileChange(file, pluginAPI);
+        }
+      }
+      
+      buildPromise = buildAll(true);
+      await buildPromise;
+      buildPromise = null;
+      
+      triggerReload(clients);
+      
+    } catch (error) {
+      logger.error("Build failed:", error);
+      buildPromise = null;
+    } finally {
+      watcher.setRebuildStatus(false);
+    }
   });
 
   logger.success(`Dev server running http://localhost:${port}`);
+  logger.info("Waiting for changes... (Press Ctrl+C to stop)");
+  
+  const distFiles = fsSync.readdirSync(DIST_DIR, { recursive: true });
+  const htmlFiles = distFiles.filter(f => f.toString().endsWith('index.html'));
+  if (htmlFiles.length > 0) {
+    logger.info("Available routes:");
+    for (const htmlFile of htmlFiles) {
+      const route = path.dirname(htmlFile.toString());
+      const urlPath = route === '.' ? '/' : `/${route}/`;
+      logger.info(`  http://localhost:${port}${urlPath}`);
+    }
+  }
 }
 
 // --- PROD SERVER ---
@@ -494,7 +1016,6 @@ ${colors.reset}`);
 
   if (cmd === "init") {
     await initProject(process.argv[3]);
-    // Also create jsconfig.json when initializing a new project
     await ensureJSConfig();
     return;
   }
@@ -528,6 +1049,7 @@ Make sure you have:
   - App.tsx or App.jsx in your project root
   - OR an app/ directory with index.tsx/jsx files
   - vaderjs installed as a dependency
+  - For Vercel deployment: set hosting: "vercel" in vaderjs.config.ts
 `);
   }
 }
