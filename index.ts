@@ -1342,3 +1342,28 @@ export function useOnClickOutside(ref: { current: HTMLElement | null }, handler:
     };
   }, [ref, handler]); // Keep ref in dependencies
 }
+
+Window.prototype.Vader = {
+  createElement,
+  render,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useContext,
+  createContext,
+  useMemo,
+  useCallback,
+  useRef,
+  useStableRef,
+  useArray,
+  useInterval,
+  useQuery,
+  useWindowFocus,
+  useLocalStorage,
+  useOnClickOutside,
+  Switch,
+  Match,
+  Show,
+  component,
+};

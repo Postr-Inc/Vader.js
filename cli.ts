@@ -74,9 +74,8 @@ export async function initProject(dir) {
 
   await fs.writeFile(
     path.join(projectDir, "app/index.jsx"),
-    `import { component, useState } from "vaderjs";
-
-export default component(() => {
+    `import { component, useState } from "vaderjs";\n import * as Vader from "vaderjs";
+const app = component(() => {
   const [count, setCount] = useState(0);
 
   return (
@@ -85,6 +84,7 @@ export default component(() => {
     </button>
   );
 });
+Vader.render(Vader.createElement(app), document.getElementById("app"));
 `
   );
 
@@ -104,6 +104,31 @@ export default defineConfig({
 `
   );
 
+   if (!fsSync.existsSync(path.join(projectDir, "package.json"))) {
+    await fs.writeFile(
+      path.join(projectDir, "package.json"),
+      JSON.stringify(
+        {
+          name: path.basename(projectDir),
+          private: true,
+          scripts: {
+            dev: "vaderjs dev",
+            build: "vaderjs build",
+            start: "vaderjs serve",
+          },
+          dependencies:  {
+            vaderjs: "latest",
+          }
+        },
+        null,
+        2
+      )
+    );
+  }
+
+  logSection("📦 Installing dependencies");
+  await run("bun", ["install", "--force"]);
+  // Ensure package.json has correct dependencies (in case it was pre-existing)
   if (!fsSync.existsSync(path.join(projectDir, "package.json"))) {
     await fs.writeFile(
       path.join(projectDir, "package.json"),
@@ -116,19 +141,13 @@ export default defineConfig({
             build: "vaderjs build",
             start: "vaderjs serve",
           },
-          dependencies: {
-            vaderjs: "latest",
-          },
+          dependencies: JSON.parse(await fs.readFile(path.join(projectDir, "package.json"), "utf8"))
         },
         null,
         2
       )
     );
   }
-
-  logSection("📦 Installing dependencies");
-  await run("bun", ["install", "--force"]);
-
   console.log("\n✅ Project ready");
   console.log("Run `bun run dev` to start");
 }

@@ -726,8 +726,23 @@ ${htmlInjectionsString}
 <body>
 <div id="app"></div>
 <script type="module" src="/${entry.route === 'index' ? '' : entry.route + '/'}${outputName}"></script>
+${
+  globalThis.isDev ? `
+<script>
+  if (typeof window !== 'undefined') {
+    const ws = new WebSocket('ws://' + location.host + '/__hmr');
+    ws.onmessage = (event) => {
+      if (event.data === 'reload') {
+        console.log('🔄 Reloading page due to changes...');
+        window.location.reload();
+      }
+    };
+  }
+</script>
 </body>
-</html>`;
+</html>` : `</body>
+</html>`
+    }`;
     
     await fs.writeFile(htmlPath, html);
     logger.success(`Generated ${htmlPath}`);
